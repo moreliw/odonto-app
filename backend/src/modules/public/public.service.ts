@@ -4,6 +4,7 @@ import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { AuthService } from '../auth/auth.service'
 import { RequestContext } from '../tenancy/request-context'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
+import { PrismaClient as MasterPrisma } from '@prisma/client-master'
 
 function isEmailIdentifier(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -12,6 +13,47 @@ function isEmailIdentifier(value: string) {
 @Injectable()
 export class PublicService {
   constructor(private readonly provision: TenantProvisionService, private readonly master: MasterPrismaService, private readonly auth: AuthService) {}
+
+  private isMasterAuthError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    return message.includes('Authentication failed against database server')
+  }
+
+  private buildMasterDatabaseUrls() {
+    const urls = new Set<string>()
+    if (process.env.MASTER_DATABASE_URL) urls.add(process.env.MASTER_DATABASE_URL)
+    const user = process.env.POSTGRES_USER || 'postgres'
+    const host = process.env.MASTER_DB_HOST || 'postgres-master'
+    const port = process.env.MASTER_DB_PORT || '5432'
+    const passwordFromEnv = process.env.POSTGRES_PASSWORD || ''
+    if (passwordFromEnv) {
+      urls.add(`postgresql://${encodeURIComponent(user)}:${encodeURIComponent(passwordFromEnv)}@${host}:${port}/master?schema=public`)
+    }
+    urls.add(`postgresql://${encodeURIComponent(user)}:${encodeURIComponent('postgres')}@${host}:${port}/master?schema=public`)
+    return Array.from(urls)
+  }
+
+  private async queryMaster<T>(query: (db: MasterPrismaService | MasterPrisma) => Promise<T>): Promise<T> {
+    try {
+      return await query(this.master)
+    } catch (error) {
+      if (!this.isMasterAuthError(error)) throw error
+      let lastError: unknown = error
+      const primaryUrl = process.env.MASTER_DATABASE_URL || ''
+      for (const url of this.buildMasterDatabaseUrls()) {
+        if (!url || url === primaryUrl) continue
+        const fallback = new MasterPrisma({ datasources: { db: { url } } })
+        try {
+          return await query(fallback)
+        } catch (fallbackError) {
+          lastError = fallbackError
+        } finally {
+          await fallback.$disconnect()
+        }
+      }
+      throw lastError
+    }
+  }
 
   async signup({ name, adminEmail, adminPassword, plan }: { name: string; adminEmail: string; adminPassword: string; plan: 'BASIC' | 'PRO' }) {
     const result = await this.provision.provision({ name, adminEmail, adminPassword })
@@ -31,15 +73,15 @@ export class PublicService {
     let tenantCandidates: Array<{ id: string; slug: string; subdomain: string; dbName: string; dbHost: string; dbPort: number; dbUser: string; dbPassword: string }> = []
 
     if (isEmailIdentifier(normalized)) {
-      const li = await this.master.loginIdentity.findUnique({ where: { email: normalized } })
+      const li = await this.queryMaster(db => db.loginIdentity.findUnique({ where: { email: normalized } }))
       if (li) {
-        const tenant = await this.master.tenant.findUnique({ where: { id: li.tenantId } })
+        const tenant = await this.queryMaster(db => db.tenant.findUnique({ where: { id: li.tenantId } }))
         if (tenant) tenantCandidates = [tenant]
       }
     }
 
     if (!tenantCandidates.length) {
-      const tenants = await this.master.tenant.findMany({ orderBy: { createdAt: 'desc' } })
+      const tenants = await this.queryMaster(db => db.tenant.findMany({ orderBy: { createdAt: 'desc' } }))
       for (const tenant of tenants) {
         const connectionString = useSqlite
           ? `file:./prisma/dev-${tenant.slug}.db`
