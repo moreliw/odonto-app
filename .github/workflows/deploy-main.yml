@@ -94,7 +94,7 @@ jobs:
           mkdir -p data/postgres data/redis data/minio data/logs
           docker compose up -d --build --remove-orphans
           docker compose exec -T -e APP_DB_USER="${POSTGRES_USER}" -e APP_DB_PASS="${POSTGRES_PASSWORD}" postgres-master sh -lc '
-            psql -U postgres -d master -v ON_ERROR_STOP=1 -v app_user="$APP_DB_USER" -v app_pass="$APP_DB_PASS" -c "DO \$\$ BEGIN EXECUTE format('\''ALTER USER %I WITH PASSWORD %L'\'', :'\''app_user'\'', :'\''app_pass'\''); END \$\$;"
+            psql -U postgres -d master -v ON_ERROR_STOP=1 -v app_user="$APP_DB_USER" -v app_pass="$APP_DB_PASS" -c "ALTER USER :\"app_user\" WITH PASSWORD :'app_pass';"
           '
           docker compose exec -T app-backend npx prisma db push --schema=prisma/master.schema.prisma
           TENANTS=$(docker compose exec -T postgres-master psql -U postgres -d master -At -F "|" -c "select \"dbUser\",\"dbPassword\",\"dbHost\",\"dbPort\",\"dbName\" from \"Tenant\";" || true)
