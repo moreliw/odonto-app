@@ -30,11 +30,21 @@ jobs:
           ssh-keyscan -p "${SSH_PORT:-22}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
 
       - name: Build deploy env file
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          MASTER_DB_HOST: ${{ secrets.MASTER_DB_HOST }}
+          MASTER_DB_PORT: ${{ secrets.MASTER_DB_PORT }}
         run: |
+          MASTER_DB_HOST="${MASTER_DB_HOST:-postgres-master}"
+          MASTER_DB_PORT="${MASTER_DB_PORT:-5432}"
+          ENCODED_PG_USER="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["POSTGRES_USER"]))')"
+          ENCODED_PG_PASS="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["POSTGRES_PASSWORD"]))')"
+          MASTER_DATABASE_URL="postgresql://${ENCODED_PG_USER}:${ENCODED_PG_PASS}@${MASTER_DB_HOST}:${MASTER_DB_PORT}/master?schema=public"
           cat > .deploy.env <<EOF
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          MASTER_DATABASE_URL=${{ secrets.MASTER_DATABASE_URL }}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          MASTER_DATABASE_URL=${MASTER_DATABASE_URL}
           MASTER_ADMIN_TOKEN=${{ secrets.MASTER_ADMIN_TOKEN }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
@@ -79,8 +89,13 @@ jobs:
           set -euo pipefail
           cd /opt/odonto-app
           mv .deploy.env .env
+          POSTGRES_USER="$(grep '^POSTGRES_USER=' .env | cut -d '=' -f2-)"
+          POSTGRES_PASSWORD="$(grep '^POSTGRES_PASSWORD=' .env | cut -d '=' -f2-)"
           mkdir -p data/postgres data/redis data/minio data/logs
           docker compose up -d --build --remove-orphans
+          docker compose exec -T -e APP_DB_USER="${POSTGRES_USER}" -e APP_DB_PASS="${POSTGRES_PASSWORD}" postgres-master sh -lc '
+            psql -U postgres -d master -v ON_ERROR_STOP=1 -v app_user="$APP_DB_USER" -v app_pass="$APP_DB_PASS" -c "DO \$\$ BEGIN EXECUTE format('\''ALTER USER %I WITH PASSWORD %L'\'', :'\''app_user'\'', :'\''app_pass'\''); END \$\$;"
+          '
           docker compose exec -T app-backend npx prisma db push --schema=prisma/master.schema.prisma
           TENANTS=$(docker compose exec -T postgres-master psql -U postgres -d master -At -F "|" -c "select \"dbUser\",\"dbPassword\",\"dbHost\",\"dbPort\",\"dbName\" from \"Tenant\";" || true)
           if [ -n "${TENANTS}" ]; then
@@ -88,7 +103,9 @@ jobs:
               if [ -z "${dbName}" ]; then
                 continue
               fi
-              docker compose exec -T -e TENANT_DATABASE_URL="postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}?schema=public" app-backend npx prisma db push --schema=prisma/tenant.schema.prisma || true
+              ENCODED_TENANT_USER="$(TENANT_DB_USER="${dbUser}" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["TENANT_DB_USER"]))')"
+              ENCODED_TENANT_PASS="$(TENANT_DB_PASS="${dbPassword}" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["TENANT_DB_PASS"]))')"
+              docker compose exec -T -e TENANT_DATABASE_URL="postgresql://${ENCODED_TENANT_USER}:${ENCODED_TENANT_PASS}@${dbHost}:${dbPort}/${dbName}?schema=public" app-backend npx prisma db push --schema=prisma/tenant.schema.prisma || true
             done <<< "${TENANTS}"
           fi
           docker compose ps
