@@ -15,7 +15,7 @@ export class TenantResolverMiddleware implements NestMiddleware {
   constructor(private readonly tenants: TenantService) {}
   async use(req: Request, res: Response, next: NextFunction) {
     const url = req.originalUrl || req.url || ''
-    if (url.startsWith('/api/docs') || url.startsWith('/api/tenants/provision') || url.startsWith('/api/public') || url.startsWith('/api/health')) {
+    if (url.startsWith('/api/docs') || url.startsWith('/api/tenants/provision') || url.startsWith('/api/public') || url.startsWith('/api/health') || url.startsWith('/api/master')) {
       return next()
     }
     const host = req.headers['x-forwarded-host']?.toString() || req.headers.host || ''

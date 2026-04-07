@@ -12,6 +12,7 @@ import { JobsModule } from './jobs/jobs.module'
 import { PublicModule } from './public/public.module'
 import { TenantResolverMiddleware } from './tenancy/tenant-resolver.middleware'
 import { DashboardModule } from './dashboard/dashboard.module'
+import { MasterAdminModule } from './master-admin/master-admin.module'
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { DashboardModule } from './dashboard/dashboard.module'
     UsersModule,
     JobsModule,
     PublicModule,
-    DashboardModule
+    DashboardModule,
+    MasterAdminModule
   ]
 })
 export class AppModule {

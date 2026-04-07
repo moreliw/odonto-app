@@ -7,6 +7,8 @@ import { PatientsComponent } from "./pages/patients/patients.component";
 import { AppointmentsComponent } from "./pages/appointments/appointments.component";
 import { RecordsComponent } from "./pages/records/records.component";
 import { SignupComponent } from "./pages/signup/signup.component";
+import { MasterLoginComponent } from "./pages/master-login/master-login.component";
+import { MasterDashboardComponent } from "./pages/master-dashboard/master-dashboard.component";
 import { ShellComponent } from "./shell/shell.component";
 import { authInterceptor } from "./services/auth.interceptor";
 
@@ -24,8 +26,33 @@ const guestGuard = () => {
   return token ? router.parseUrl("/") : true;
 };
 
+const masterAuthGuard = () => {
+  const router = inject(Router);
+  if (typeof localStorage === "undefined")
+    return router.parseUrl("/admin/login");
+  const token = localStorage.getItem("masterAccessToken");
+  return token ? true : router.parseUrl("/admin/login");
+};
+
+const masterGuestGuard = () => {
+  const router = inject(Router);
+  if (typeof localStorage === "undefined") return true;
+  const token = localStorage.getItem("masterAccessToken");
+  return token ? router.parseUrl("/admin") : true;
+};
+
 export const routes: Routes = [
   { path: "login", component: LoginComponent, canActivate: [guestGuard] },
+  {
+    path: "admin/login",
+    component: MasterLoginComponent,
+    canActivate: [masterGuestGuard],
+  },
+  {
+    path: "admin",
+    component: MasterDashboardComponent,
+    canActivate: [masterAuthGuard],
+  },
   {
     path: "",
     component: ShellComponent,
