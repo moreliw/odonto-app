@@ -5,7 +5,8 @@ import { PrismaClient as MasterPrisma } from '@prisma/client-master'
 export class MasterPrismaService extends MasterPrisma implements OnModuleDestroy {
   constructor() {
     const useSqlite = process.env.DEV_SQLITE === 'true'
-    super(useSqlite ? { datasources: { db: { url: 'file:./prisma/dev-master.db' } } } : undefined as any)
+    const url = useSqlite ? 'file:./prisma/dev-master.db' : process.env.MASTER_DATABASE_URL
+    super({ datasources: { db: { url } } })
   }
   async onModuleDestroy() {
     await this.$disconnect()
