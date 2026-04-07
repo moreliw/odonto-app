@@ -93,10 +93,23 @@ jobs:
           POSTGRES_PASSWORD="$(grep '^POSTGRES_PASSWORD=' .env | cut -d '=' -f2-)"
           mkdir -p data/postgres data/redis data/minio data/logs
           docker compose up -d --build --remove-orphans
-          docker compose exec -T -e APP_DB_USER="${POSTGRES_USER}" -e APP_DB_PASS="${POSTGRES_PASSWORD}" postgres-master sh -lc '
-            psql -U postgres -d master -v ON_ERROR_STOP=1 -v app_user="$APP_DB_USER" -v app_pass="$APP_DB_PASS" -c "ALTER USER :\"app_user\" WITH PASSWORD :'app_pass';"
-          '
-          docker compose exec -T app-backend npx prisma db push --schema=prisma/master.schema.prisma
+          if docker compose exec -T -e APP_DB_USER="${POSTGRES_USER}" -e PGPASSWORD="${POSTGRES_PASSWORD}" postgres-master sh -lc 'psql -h localhost -U "$APP_DB_USER" -d master -c "\q"' >/dev/null 2>&1; then
+            echo "Credenciais de banco válidas para ${POSTGRES_USER}"
+          elif docker compose exec -T -e PGPASSWORD="postgres" postgres-master sh -lc 'psql -h localhost -U postgres -d master -c "\q"' >/dev/null 2>&1; then
+            echo "Fallback para credenciais padrão postgres/postgres"
+            POSTGRES_USER="postgres"
+            POSTGRES_PASSWORD="postgres"
+            sed -i "s|^POSTGRES_USER=.*|POSTGRES_USER=${POSTGRES_USER}|g" .env
+            sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${POSTGRES_PASSWORD}|g" .env
+          else
+            echo "Falha ao autenticar no banco master com as credenciais fornecidas e fallback padrão"
+            exit 1
+          fi
+          ENCODED_MASTER_USER="$(MASTER_DB_USER="${POSTGRES_USER}" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["MASTER_DB_USER"]))')"
+          ENCODED_MASTER_PASS="$(MASTER_DB_PASS="${POSTGRES_PASSWORD}" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["MASTER_DB_PASS"]))')"
+          MASTER_DATABASE_URL="postgresql://${ENCODED_MASTER_USER}:${ENCODED_MASTER_PASS}@postgres-master:5432/master?schema=public"
+          sed -i "s|^MASTER_DATABASE_URL=.*|MASTER_DATABASE_URL=${MASTER_DATABASE_URL}|g" .env
+          docker compose exec -T -e MASTER_DATABASE_URL="${MASTER_DATABASE_URL}" app-backend npx prisma db push --schema=prisma/master.schema.prisma
           TENANTS=$(docker compose exec -T postgres-master psql -U postgres -d master -At -F "|" -c "select \"dbUser\",\"dbPassword\",\"dbHost\",\"dbPort\",\"dbName\" from \"Tenant\";" || true)
           if [ -n "${TENANTS}" ]; then
             while IFS="|" read -r dbUser dbPassword dbHost dbPort dbName; do
