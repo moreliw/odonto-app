@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client-tenant"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TENANT_DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  username      String?  @unique
+  email         String   @unique
+  name          String
+  passwordHash  String
+  role          Role
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Patient {
+  id         String   @id @default(uuid())
+  name       String
+  email      String?  @unique
+  phone      String?
+  birthDate  DateTime?
+  document   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  records    Record[]
+  appointments Appointment[]
+  invoices   Invoice[]
+  files      File[]     @relation("PatientFiles")
+}
+
+model Appointment {
+  id         String             @id @default(uuid())
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  patientId  String
+  startTime  DateTime
+  endTime    DateTime
+  status     AppointmentStatus  @default(SCHEDULED)
+  notes      String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+}
+
+model Record {
+  id         String   @id @default(uuid())
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  patientId  String
+  content    Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model File {
+  id          String   @id @default(uuid())
+  patient     Patient  @relation("PatientFiles", fields: [patientId], references: [id])
+  patientId   String
+  key         String   @unique
+  url         String
+  contentType String
+  size        Int
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id         String       @id @default(uuid())
+  patient    Patient      @relation(fields: [patientId], references: [id])
+  patientId  String
+  amount     Decimal      @db.Decimal(10,2)
+  status     InvoiceStatus @default(PENDING)
+  issuedAt   DateTime
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}

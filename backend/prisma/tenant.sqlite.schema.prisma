@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client-tenant"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("TENANT_DATABASE_URL")
+}
+
+// SQLite não suporta enum nativo; usamos String
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  role          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Patient {
+  id         String   @id @default(uuid())
+  name       String
+  email      String?  @unique
+  phone      String?
+  birthDate  DateTime?
+  document   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  records    Record[]
+  appointments Appointment[]
+  files      File[]     @relation("PatientFiles")
+}
+
+model Appointment {
+  id         String             @id @default(uuid())
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  patientId  String
+  startTime  DateTime
+  endTime    DateTime
+  status     String             @default("SCHEDULED")
+  notes      String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+}
+
+model Record {
+  id         String   @id @default(uuid())
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  patientId  String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model File {
+  id          String   @id @default(uuid())
+  patient     Patient  @relation("PatientFiles", fields: [patientId], references: [id])
+  patientId   String
+  key         String   @unique
+  url         String
+  contentType String
+  size        Int
+  createdAt   DateTime @default(now())
+}

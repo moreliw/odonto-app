@@ -1,0 +1,78 @@
+version: "3.9"
+services:
+  postgres-master:
+    image: postgres:16-alpine
+    container_name: postgres-master
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=master
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - odonto-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - odonto-net
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./data/minio:/data
+    networks:
+      - odonto-net
+
+  app-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: app-backend
+    environment:
+      - PORT=3000
+      - MASTER_DATABASE_URL=${MASTER_DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_TO_FILE=${LOG_TO_FILE}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET=${S3_BUCKET}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - postgres-master
+      - redis
+      - minio
+    volumes:
+      - ./data/logs:/var/log
+    networks:
+      - odonto-net
+    ports:
+      - "3000:3000"
+
+  app-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: app-frontend
+    networks:
+      - odonto-net
+    ports:
+      - "127.0.0.1:8085:8080"
+
+networks:
+  odonto-net:
+    driver: bridge

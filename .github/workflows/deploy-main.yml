@@ -1,0 +1,95 @@
+name: Deploy Main
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: /opt/odonto-app
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Build deploy env file
+        run: |
+          cat > .deploy.env <<EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          MASTER_DATABASE_URL=${{ secrets.MASTER_DATABASE_URL }}
+          MASTER_ADMIN_TOKEN=${{ secrets.MASTER_ADMIN_TOKEN }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+          LOG_LEVEL=${{ secrets.LOG_LEVEL }}
+          LOG_TO_FILE=${{ secrets.LOG_TO_FILE }}
+          REDIS_URL=${{ secrets.REDIS_URL }}
+          S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}
+          S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}
+          S3_BUCKET=${{ secrets.S3_BUCKET }}
+          DEV_TENANT_SUBDOMAIN=${{ secrets.DEV_TENANT_SUBDOMAIN }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASS=${{ secrets.SMTP_PASS }}
+          SMTP_FROM=${{ secrets.SMTP_FROM }}
+          PUBLIC_DOMAIN=${{ secrets.PUBLIC_DOMAIN }}
+          PUBLIC_WILDCARD=${{ secrets.PUBLIC_WILDCARD }}
+          EOF
+
+      - name: Sync project files
+        run: |
+          rsync -az --delete \
+            --exclude ".git" \
+            --exclude "node_modules" \
+            --exclude "backend/node_modules" \
+            --exclude "frontend/node_modules" \
+            --exclude "backend/dist" \
+            --exclude "frontend/.angular" \
+            --exclude "data" \
+            --exclude ".deploy.env" \
+            -e "ssh -p ${SSH_PORT:-22}" \
+            ./ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
+
+      - name: Upload environment file
+        run: |
+          scp -P "${SSH_PORT:-22}" .deploy.env "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/.deploy.env"
+
+      - name: Deploy on server
+        run: |
+          ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/odonto-app
+          mv .deploy.env .env
+          mkdir -p data/postgres data/redis data/minio data/logs
+          docker compose up -d --build --remove-orphans
+          docker compose exec -T app-backend npx prisma db push --schema=prisma/master.schema.prisma
+          TENANTS=$(docker compose exec -T postgres-master psql -U postgres -d master -At -F "|" -c "select \"dbUser\",\"dbPassword\",\"dbHost\",\"dbPort\",\"dbName\" from \"Tenant\";" || true)
+          if [ -n "${TENANTS}" ]; then
+            while IFS="|" read -r dbUser dbPassword dbHost dbPort dbName; do
+              if [ -z "${dbName}" ]; then
+                continue
+              fi
+              docker compose exec -T -e TENANT_DATABASE_URL="postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}?schema=public" app-backend npx prisma db push --schema=prisma/tenant.schema.prisma || true
+            done <<< "${TENANTS}"
+          fi
+          docker compose ps
+          REMOTE
