@@ -2,6 +2,8 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { AuthService } from '../auth/auth.service'
+import { Prisma as PrismaMaster } from '@prisma/client-master'
+import { Prisma as PrismaTenant } from '@prisma/client-tenant'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { PrismaClient as MasterPrisma } from '@prisma/client-master'
 
@@ -74,11 +76,14 @@ export class PublicService {
     let tenantCandidates: Array<{ id: string; slug: string; subdomain: string; dbName: string; dbHost: string; dbPort: number; dbUser: string; dbPassword: string }> = []
 
     if (isEmailIdentifier(normalized)) {
-      const li = await this.queryMaster(db =>
-        db.loginIdentity.findFirst({ where: { email: { equals: normalized, mode: 'insensitive' } } })
+      const rows = await this.queryMaster(db =>
+        db.$queryRaw<Array<{ tenantId: string }>>(
+          PrismaMaster.sql`SELECT "tenantId" FROM "LoginIdentity" WHERE LOWER(email) = LOWER(${normalized}) LIMIT 1`
+        )
       )
-      if (li) {
-        const tenant = await this.queryMaster(db => db.tenant.findUnique({ where: { id: li.tenantId } }))
+      const tenantId = rows[0]?.tenantId
+      if (tenantId) {
+        const tenant = await this.queryMaster(db => db.tenant.findUnique({ where: { id: tenantId } }))
         if (tenant) tenantCandidates = [tenant]
       }
     }
@@ -91,16 +96,24 @@ export class PublicService {
           : `postgresql://${encodeURIComponent(tenant.dbUser)}:${encodeURIComponent(tenant.dbPassword)}@${tenant.dbHost}:${tenant.dbPort}/${tenant.dbName}?schema=public`
         const tenantPrisma = new TenantPrisma({ datasources: { db: { url: connectionString } } })
         try {
-          const found = await tenantPrisma.user.findFirst({
-            where: {
-              OR: [
-                { username: { equals: normalized, mode: 'insensitive' } },
-                { email: { equals: normalized, mode: 'insensitive' } }
-              ]
-            },
-            select: { id: true }
-          })
-          if (found) {
+          let hit: { id: string } | null | undefined
+          if (useSqlite) {
+            hit = await tenantPrisma.user.findFirst({
+              where: {
+                OR: [
+                  { username: { equals: normalized, mode: 'insensitive' } },
+                  { email: { equals: normalized, mode: 'insensitive' } }
+                ]
+              },
+              select: { id: true }
+            })
+          } else {
+            const rows = await tenantPrisma.$queryRaw<Array<{ id: string }>>(
+              PrismaTenant.sql`SELECT id FROM "User" WHERE LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized}) LIMIT 1`
+            )
+            hit = rows[0]
+          }
+          if (hit) {
             tenantCandidates = [tenant]
             break
           }

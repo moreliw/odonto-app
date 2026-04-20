@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common'
+import { Body, Controller, Get, Post } from '@nestjs/common'
 import { PublicService } from './public.service'
 import { IsEmail, IsEnum, IsString, MinLength, MaxLength } from 'class-validator'
 
@@ -27,6 +27,12 @@ class PublicLoginDto {
 @Controller('public')
 export class SignupController {
   constructor(private readonly service: PublicService) {}
+
+  @Get('ping')
+  ping() {
+    return { ok: true, service: 'odonto-backend', t: Date.now() }
+  }
+
   @Post('signup')
   signup(@Body() dto: SignupDto) {
     return this.service.signup(dto)

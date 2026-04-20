@@ -63,16 +63,48 @@ export class AuthService {
   private async validateUserWithPrisma(prisma: TenantPrisma, identifier: string, password: string) {
     const normalized = identifier.trim()
     if (!normalized || !password) throw new UnauthorizedException('Credenciais inválidas')
-    const user = await prisma.user.findFirst({
-      where: isEmailIdentifier(normalized)
-        ? { email: { equals: normalized, mode: 'insensitive' } }
-        : {
-            OR: [
-              { username: { equals: normalized, mode: 'insensitive' } },
-              { email: { equals: normalized, mode: 'insensitive' } }
-            ]
+    const useSqlite = process.env.DEV_SQLITE === 'true'
+    type UserRow = {
+      id: string
+      username: string | null
+      email: string
+      name: string
+      passwordHash: string
+      role: string
+    }
+    let user: UserRow | null = null
+    if (useSqlite) {
+      const u = await prisma.user.findFirst({
+        where: isEmailIdentifier(normalized)
+          ? { email: { equals: normalized, mode: 'insensitive' } }
+          : {
+              OR: [
+                { username: { equals: normalized, mode: 'insensitive' } },
+                { email: { equals: normalized, mode: 'insensitive' } }
+              ]
+            }
+      })
+      user = u
+        ? {
+            id: u.id,
+            username: u.username,
+            email: u.email,
+            name: u.name,
+            passwordHash: u.passwordHash,
+            role: typeof u.role === 'string' ? u.role : String(u.role)
           }
-    })
+        : null
+    } else if (isEmailIdentifier(normalized)) {
+      const rows = await prisma.$queryRaw<UserRow[]>(
+        Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role FROM "User" WHERE LOWER(email) = LOWER(${normalized}) LIMIT 1`
+      )
+      user = rows[0] ?? null
+    } else {
+      const rows = await prisma.$queryRaw<UserRow[]>(
+        Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role FROM "User" WHERE LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized}) LIMIT 1`
+      )
+      user = rows[0] ?? null
+    }
     if (!user) throw new UnauthorizedException('Credenciais inválidas')
     try {
       const ok = await argon2.verify(user.passwordHash, password)
