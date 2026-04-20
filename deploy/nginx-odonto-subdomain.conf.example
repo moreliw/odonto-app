@@ -1,0 +1,61 @@
+# Exemplo: nginx no HOST apontando subdomínio para o app-frontend do Docker.
+# Ajuste: server_name, caminhos SSL, e a porta se APP_HTTP_PORT no .env for outra (ex.: 8085).
+#
+# Onde colocar no servidor (Debian/Ubuntu):
+#   sudo cp deploy/nginx-odonto-subdomain.conf.example /etc/nginx/sites-available/odontoapp.morelidev.com
+#   sudo ln -sf /etc/nginx/sites-available/odontoapp.morelidev.com /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Certificado TLS (Let's Encrypt), se ainda não existir para ESTE subdomínio:
+#   sudo certbot certonly --nginx -d odontoapp.morelidev.com
+#   (ou: certbot --nginx após incluir o bloco listen 80 abaixo e rodar certbot para expandir o vhost)
+
+upstream odonto_frontend {
+    server 127.0.0.1:8085;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name odontoapp.morelidev.com;
+
+    # Descomente após ter certificado, para forçar HTTPS:
+    # return 301 https://$host$request_uri;
+
+    location / {
+        proxy_pass http://odonto_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 120s;
+    }
+}
+
+# Após gerar certificado para odontoapp.morelidev.com, descomente e ajuste os paths:
+#
+# server {
+#     listen 443 ssl http2;
+#     listen [::]:443 ssl http2;
+#     server_name odontoapp.morelidev.com;
+#
+#     ssl_certificate     /etc/letsencrypt/live/odontoapp.morelidev.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/odontoapp.morelidev.com/privkey.pem;
+#     include /etc/letsencrypt/options-ssl-nginx.conf;
+#     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+#
+#     location / {
+#         proxy_pass http://odonto_frontend;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         proxy_read_timeout 120s;
+#     }
+# }

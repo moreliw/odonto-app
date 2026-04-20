@@ -2,7 +2,6 @@ import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { AuthService } from '../auth/auth.service'
-import { RequestContext } from '../tenancy/request-context'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { PrismaClient as MasterPrisma } from '@prisma/client-master'
 
@@ -115,15 +114,7 @@ export class PublicService {
       ? `file:./prisma/dev-${tenant.slug}.db`
       : `postgresql://${encodeURIComponent(tenant.dbUser)}:${encodeURIComponent(tenant.dbPassword)}@${tenant.dbHost}:${tenant.dbPort}/${tenant.dbName}?schema=public`
 
-    return await new Promise((resolve, reject) => {
-      RequestContext.run({ subdomain: tenant.subdomain, slug: tenant.slug, dbName: tenant.dbName, connectionString }, async () => {
-        try {
-          const res = await this.auth.login(normalized, password)
-          resolve({ ...res, tenant: tenant.slug, subdomain: tenant.subdomain })
-        } catch (e) {
-          reject(new UnauthorizedException('Credenciais inválidas'))
-        }
-      })
-    })
+    const res = await this.auth.loginWithTenantConnection(connectionString, normalized, password)
+    return { ...res, tenant: tenant.slug, subdomain: tenant.subdomain }
   }
 }
