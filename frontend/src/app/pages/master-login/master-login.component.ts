@@ -13,8 +13,8 @@ import { MasterAdminService } from '../../services/master-admin.service'
       <div class="auth-card">
         <div class="auth-card-header">
           <img src="/assets/logo.svg" alt="Odonto Platform" />
-          <h2>Administração Master</h2>
-          <p>Acesse o controle global das clínicas</p>
+          <h2>Super administrador</h2>
+          <p>Controle financeiro, operacional e cadastro de empresas</p>
         </div>
         <form class="form" (ngSubmit)="submit()">
           <div>
@@ -48,7 +48,7 @@ export class MasterLoginComponent {
     this.master.login(this.email.trim(), this.password).subscribe({
       next: () => {
         this.loading = false
-        this.router.navigateByUrl('/admin')
+        this.router.navigateByUrl('/admin/dashboard')
       },
       error: err => {
         this.loading = false

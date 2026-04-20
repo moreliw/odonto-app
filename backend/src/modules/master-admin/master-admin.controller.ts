@@ -38,6 +38,9 @@ class UpdateClinicDto {
   @IsString()
   subdomain?: string
   @IsOptional()
+  @IsString()
+  internalNotes?: string | null
+  @IsOptional()
   @IsEnum(['BASIC', 'PRO'] as any)
   plan?: Plan
   @IsOptional()
@@ -45,8 +48,26 @@ class UpdateClinicDto {
   status?: SubscriptionStatus
   @IsOptional()
   @IsInt()
-  @Min(1000)
+  @Min(0)
   priceCents?: number
+  @IsOptional()
+  @IsString()
+  currency?: string
+  @IsOptional()
+  @IsString()
+  renewsAt?: string | null
+  @IsOptional()
+  @IsString()
+  canceledAt?: string | null
+}
+
+class ResetTenantAdminPasswordDto {
+  @IsString()
+  @MinLength(8)
+  newPassword: string
+  @IsOptional()
+  @IsEmail()
+  adminEmail?: string
 }
 
 @Controller('master')
@@ -59,9 +80,33 @@ export class MasterAdminController {
   }
 
   @UseGuards(MasterAdminGuard)
+  @Get('operations/overview')
+  operationsOverview() {
+    return this.service.operationsOverview()
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Get('finance/clinics')
+  financeClinics() {
+    return this.service.financeClinics()
+  }
+
+  @UseGuards(MasterAdminGuard)
   @Get('clinics')
   clinics() {
     return this.service.listClinics()
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Get('clinics/:id')
+  clinicDetail(@Param('id') id: string) {
+    return this.service.getClinic(id)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Get('clinics/:id/operations')
+  clinicOperations(@Param('id') id: string) {
+    return this.service.clinicOperations(id)
   }
 
   @UseGuards(MasterAdminGuard)
@@ -74,6 +119,12 @@ export class MasterAdminController {
   @Patch('clinics/:id')
   updateClinic(@Param('id') id: string, @Body() dto: UpdateClinicDto) {
     return this.service.updateClinic(id, dto)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Post('clinics/:id/admin/reset-password')
+  resetTenantAdminPassword(@Param('id') id: string, @Body() dto: ResetTenantAdminPasswordDto) {
+    return this.service.resetTenantAdminPassword(id, dto.newPassword, dto.adminEmail)
   }
 
   @UseGuards(MasterAdminGuard)

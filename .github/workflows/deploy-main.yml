@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEPLOY_PATH: /opt/odonto-app
+      # GitHub → Settings → Secrets: SSH_HOST, SSH_USER, SSH_PRIVATE_KEY, etc.
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_PORT: ${{ secrets.SSH_PORT }}
       SSH_USER: ${{ secrets.SSH_USER }}
@@ -63,6 +64,8 @@ jobs:
           SMTP_FROM=${{ secrets.SMTP_FROM }}
           PUBLIC_DOMAIN=${{ secrets.PUBLIC_DOMAIN }}
           PUBLIC_WILDCARD=${{ secrets.PUBLIC_WILDCARD }}
+          MASTER_SUPERADMIN_EMAIL=${{ secrets.MASTER_SUPERADMIN_EMAIL }}
+          MASTER_SUPERADMIN_PASSWORD=${{ secrets.MASTER_SUPERADMIN_PASSWORD }}
           EOF
 
       - name: Sync project files

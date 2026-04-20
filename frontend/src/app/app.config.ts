@@ -8,7 +8,11 @@ import { AppointmentsComponent } from "./pages/appointments/appointments.compone
 import { RecordsComponent } from "./pages/records/records.component";
 import { SignupComponent } from "./pages/signup/signup.component";
 import { MasterLoginComponent } from "./pages/master-login/master-login.component";
-import { MasterDashboardComponent } from "./pages/master-dashboard/master-dashboard.component";
+import { MasterShellComponent } from "./pages/master/master-shell.component";
+import { MasterOverviewComponent } from "./pages/master/master-overview.component";
+import { MasterCompaniesComponent } from "./pages/master/master-companies.component";
+import { MasterFinanceComponent } from "./pages/master/master-finance.component";
+import { MasterOperationsComponent } from "./pages/master/master-operations.component";
 import { ShellComponent } from "./shell/shell.component";
 import { authInterceptor } from "./services/auth.interceptor";
 
@@ -38,7 +42,7 @@ const masterGuestGuard = () => {
   const router = inject(Router);
   if (typeof localStorage === "undefined") return true;
   const token = localStorage.getItem("masterAccessToken");
-  return token ? router.parseUrl("/admin") : true;
+  return token ? router.parseUrl("/admin/dashboard") : true;
 };
 
 export const routes: Routes = [
@@ -50,8 +54,15 @@ export const routes: Routes = [
   },
   {
     path: "admin",
-    component: MasterDashboardComponent,
+    component: MasterShellComponent,
     canActivate: [masterAuthGuard],
+    children: [
+      { path: "", pathMatch: "full", redirectTo: "dashboard" },
+      { path: "dashboard", component: MasterOverviewComponent },
+      { path: "empresas", component: MasterCompaniesComponent },
+      { path: "financeiro", component: MasterFinanceComponent },
+      { path: "operacional", component: MasterOperationsComponent },
+    ],
   },
   {
     path: "",
