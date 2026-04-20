@@ -19,12 +19,13 @@ export class TenantResolverMiddleware implements NestMiddleware {
       return next()
     }
     const host = req.headers['x-forwarded-host']?.toString() || req.headers.host || ''
-    let subdomain = extractSubdomain(host)
-    if (!subdomain && req.headers['x-tenant']) subdomain = req.headers['x-tenant'].toString()
+    let subdomain = req.headers['x-tenant']?.toString().trim() || ''
+    if (!subdomain) subdomain = extractSubdomain(host)
     if (!subdomain && process.env.DEV_TENANT_SUBDOMAIN) subdomain = process.env.DEV_TENANT_SUBDOMAIN
     if (!subdomain) return res.status(400).send({ message: 'Tenant not resolved' })
     const tenant = await this.tenants.findBySubdomain(subdomain)
     if (!tenant) return res.status(404).send({ message: 'Tenant not found' })
+    req.tenantContext = tenant
     RequestContext.run(tenant, () => next())
   }
 }

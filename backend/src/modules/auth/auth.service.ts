@@ -1,5 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import { Prisma } from '@prisma/client-tenant'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 import * as argon2 from 'argon2'
@@ -10,6 +11,8 @@ function isEmailIdentifier(value: string) {
 
 @Injectable()
 export class AuthService {
+  private readonly log = new Logger(AuthService.name)
+
   constructor(private readonly jwt: JwtService, private readonly prismaTenant: TenantPrismaService) {}
 
   async validateUser(identifier: string, password: string) {
@@ -44,8 +47,16 @@ export class AuthService {
     try {
       const user = await this.validateUserWithPrisma(prisma, identifier, password)
       return await this.issueTokensAndPersistRefresh(prisma, user)
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e
+      if (e instanceof Prisma.PrismaClientKnownRequestError || e instanceof Prisma.PrismaClientInitializationError) {
+        this.log.warn(`Login tenant DB: ${e.message}`)
+        throw new ServiceUnavailableException('Base da clínica indisponível. Verifique o deploy e as credenciais do tenant.')
+      }
+      this.log.error(e)
+      throw e
     } finally {
-      await prisma.$disconnect()
+      await prisma.$disconnect().catch(() => undefined)
     }
   }
 
@@ -77,7 +88,11 @@ export class AuthService {
     prisma: TenantPrisma,
     user: { id: string; username: string | null; email: string; name: string; role: string }
   ) {
-    const payload = { sub: user.id, email: user.email, role: user.role }
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: typeof user.role === 'string' ? user.role : String(user.role)
+    }
     const accessToken = await this.jwt.signAsync(payload, { expiresIn: '15m' })
     const refreshSecret = process.env.JWT_REFRESH_SECRET || 'refresh'
     const refreshToken = await this.jwt.signAsync(payload, { secret: refreshSecret, expiresIn: '30d' })

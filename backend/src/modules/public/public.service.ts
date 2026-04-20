@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { AuthService } from '../auth/auth.service'
@@ -11,6 +11,8 @@ function isEmailIdentifier(value: string) {
 
 @Injectable()
 export class PublicService {
+  private readonly log = new Logger(PublicService.name)
+
   constructor(private readonly provision: TenantProvisionService, private readonly master: MasterPrismaService, private readonly auth: AuthService) {}
 
   private isMasterAuthError(error: unknown) {
@@ -72,7 +74,9 @@ export class PublicService {
     let tenantCandidates: Array<{ id: string; slug: string; subdomain: string; dbName: string; dbHost: string; dbPort: number; dbUser: string; dbPassword: string }> = []
 
     if (isEmailIdentifier(normalized)) {
-      const li = await this.queryMaster(db => db.loginIdentity.findUnique({ where: { email: normalized } }))
+      const li = await this.queryMaster(db =>
+        db.loginIdentity.findFirst({ where: { email: { equals: normalized, mode: 'insensitive' } } })
+      )
       if (li) {
         const tenant = await this.queryMaster(db => db.tenant.findUnique({ where: { id: li.tenantId } }))
         if (tenant) tenantCandidates = [tenant]
@@ -114,7 +118,12 @@ export class PublicService {
       ? `file:./prisma/dev-${tenant.slug}.db`
       : `postgresql://${encodeURIComponent(tenant.dbUser)}:${encodeURIComponent(tenant.dbPassword)}@${tenant.dbHost}:${tenant.dbPort}/${tenant.dbName}?schema=public`
 
-    const res = await this.auth.loginWithTenantConnection(connectionString, normalized, password)
-    return { ...res, tenant: tenant.slug, subdomain: tenant.subdomain }
+    try {
+      const res = await this.auth.loginWithTenantConnection(connectionString, normalized, password)
+      return { ...res, tenant: tenant.slug, subdomain: tenant.subdomain }
+    } catch (e) {
+      this.log.error({ err: e }, 'public login failed')
+      throw e
+    }
   }
 }
