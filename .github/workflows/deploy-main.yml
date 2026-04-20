@@ -66,6 +66,9 @@ jobs:
           PUBLIC_WILDCARD=${{ secrets.PUBLIC_WILDCARD }}
           MASTER_SUPERADMIN_EMAIL=${{ secrets.MASTER_SUPERADMIN_EMAIL }}
           MASTER_SUPERADMIN_PASSWORD=${{ secrets.MASTER_SUPERADMIN_PASSWORD }}
+          MINIO_API_PORT=${{ secrets.MINIO_API_PORT }}
+          MINIO_CONSOLE_PORT=${{ secrets.MINIO_CONSOLE_PORT }}
+          APP_HTTP_PORT=${{ secrets.APP_HTTP_PORT }}
           EOF
 
       - name: Sync project files
