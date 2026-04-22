@@ -9,28 +9,69 @@ import { MasterAdminService } from '../../services/master-admin.service'
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="auth-layout">
-      <div class="auth-card">
-        <div class="auth-card-header">
-          <img src="/assets/logo.svg" alt="Odonto Platform" />
-          <h2>Super administrador</h2>
-          <p>Controle financeiro, operacional e cadastro de empresas</p>
+    <div style="min-height:100vh;background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f172a 100%);display:flex;align-items:center;justify-content:center;padding:24px;">
+      <div style="width:100%;max-width:400px;">
+        <div style="text-align:center;margin-bottom:40px;">
+          <div style="width:52px;height:52px;background:#2563eb;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h1 style="font-size:24px;font-weight:700;color:#f8fafc;letter-spacing:-0.4px;margin-bottom:6px;">Super Administrador</h1>
+          <p style="font-size:14px;color:#94a3b8;">Acesso restrito ao painel master do sistema</p>
         </div>
-        <form class="form" (ngSubmit)="submit()">
-          <div>
-            <label>E-mail administrativo</label>
-            <input class="input" [(ngModel)]="email" name="email" type="email" required />
-          </div>
-          <div>
-            <label>Senha</label>
-            <input class="input" [(ngModel)]="password" name="password" [type]="showPassword ? 'text' : 'password'" required />
-            <button class="btn btn-link mt-2" type="button" (click)="showPassword = !showPassword">{{ showPassword ? 'Ocultar senha' : 'Mostrar senha' }}</button>
-          </div>
-          <button class="btn btn-primary btn-block" [disabled]="loading" type="submit">{{ loading ? 'Entrando...' : 'Entrar no painel master' }}</button>
-          <p *ngIf="error" class="muted mt-2" style="color: var(--danger)">{{error}}</p>
-        </form>
+
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;box-shadow:0 20px 40px rgba(0,0,0,0.4);">
+          @if (error) {
+            <div style="padding:12px 14px;border-radius:8px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:13px;margin-bottom:18px;">{{ error }}</div>
+          }
+
+          <form class="form" (ngSubmit)="submit()" style="--border:#334155;">
+            <div class="form-group">
+              <label style="color:#94a3b8;">E-mail administrativo</label>
+              <input
+                class="input"
+                [(ngModel)]="email"
+                name="email"
+                type="email"
+                placeholder="admin@system.com"
+                autocomplete="username"
+                required
+                style="background:#0f172a;border-color:#334155;color:#f8fafc;"
+              />
+            </div>
+            <div class="form-group">
+              <label style="color:#94a3b8;">Senha</label>
+              <div class="input-wrapper">
+                <input
+                  class="input"
+                  [(ngModel)]="password"
+                  name="password"
+                  [type]="showPwd ? 'text' : 'password'"
+                  placeholder="••••••••"
+                  autocomplete="current-password"
+                  required
+                  style="background:#0f172a;border-color:#334155;color:#f8fafc;padding-right:42px;"
+                />
+                <button type="button" class="input-action" style="color:#64748b;" (click)="showPwd = !showPwd">
+                  @if (showPwd) {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  } @else {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block" style="margin-top:4px;padding:11px;" [disabled]="loading" type="submit">
+              @if (loading) { <span class="spinner"></span> Autenticando... }
+              @else { Acessar painel master }
+            </button>
+          </form>
+        </div>
+
+        <p style="text-align:center;margin-top:24px;font-size:12px;color:#475569;">
+          Acesso exclusivo para administradores do sistema
+        </p>
       </div>
-    </section>
+    </div>
   `
 })
 export class MasterLoginComponent {
@@ -38,7 +79,7 @@ export class MasterLoginComponent {
   password = ''
   error = ''
   loading = false
-  showPassword = false
+  showPwd = false
 
   constructor(private readonly master: MasterAdminService, private readonly router: Router) {}
 
@@ -46,14 +87,8 @@ export class MasterLoginComponent {
     this.error = ''
     this.loading = true
     this.master.login(this.email.trim(), this.password).subscribe({
-      next: () => {
-        this.loading = false
-        this.router.navigateByUrl('/admin/dashboard')
-      },
-      error: err => {
-        this.loading = false
-        this.error = err.error?.message || 'Falha no login master'
-      }
+      next: () => { this.loading = false; this.router.navigateByUrl('/admin/dashboard') },
+      error: (err: any) => { this.loading = false; this.error = err.error?.message || 'Credenciais inválidas' }
     })
   }
 }
