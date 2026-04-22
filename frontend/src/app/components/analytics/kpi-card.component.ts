@@ -8,9 +8,11 @@ import { KpiMetric } from '../../models/analytics.model'
   imports: [CommonModule],
   template: `
     <article class="card kpi-card">
-      <span class="kpi-title">{{metric.title}}</span>
-      <strong class="kpi-value">{{metric.value}}</strong>
-      <span class="kpi-delta" [class.down]="metric.trend === 'down'">{{metric.delta}}</span>
+      <span class="kpi-title">{{ metric.title }}</span>
+      <strong class="kpi-value">{{ metric.value }}</strong>
+      <span class="kpi-delta" [class.down]="metric.trend === 'down'">
+        {{ metric.trend === 'down' ? '▼' : '▲' }} {{ metric.delta }}
+      </span>
     </article>
   `
 })
