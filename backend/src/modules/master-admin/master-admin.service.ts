@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as argon2 from 'argon2'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
@@ -9,12 +9,18 @@ import { Plan, SubscriptionStatus, Tenant } from '@prisma/client-master'
 type SanitizedTenant = Omit<Tenant, 'dbPassword'> & { dbPassword?: never }
 
 @Injectable()
-export class MasterAdminService {
+export class MasterAdminService implements OnModuleInit {
   constructor(
     private readonly jwt: JwtService,
     private readonly master: MasterPrismaService,
     private readonly provision: TenantProvisionService
   ) {}
+
+  onModuleInit() {
+    if (!process.env.MASTER_SUPERADMIN_EMAIL || !process.env.MASTER_SUPERADMIN_PASSWORD) {
+      throw new InternalServerErrorException('MASTER_SUPERADMIN_EMAIL e MASTER_SUPERADMIN_PASSWORD são obrigatórios')
+    }
+  }
 
   private sanitizeTenant<T extends Tenant>(row: T): SanitizedTenant {
     const { dbPassword: _p, ...rest } = row
@@ -39,9 +45,12 @@ export class MasterAdminService {
   }
 
   login(email: string, password: string) {
-    const masterEmail = process.env.MASTER_SUPERADMIN_EMAIL || 'admin@odontoapp.com'
-    const masterPassword = process.env.MASTER_SUPERADMIN_PASSWORD || 'Admin@123456'
-    if (email !== masterEmail || password !== masterPassword) {
+    const masterEmail = process.env.MASTER_SUPERADMIN_EMAIL?.trim()
+    const masterPassword = process.env.MASTER_SUPERADMIN_PASSWORD?.trim()
+    if (!masterEmail || !masterPassword) {
+      throw new InternalServerErrorException('Credenciais master não configuradas')
+    }
+    if (email.trim() !== masterEmail || password !== masterPassword) {
       throw new UnauthorizedException('Credenciais inválidas')
     }
     const accessToken = this.jwt.sign(
