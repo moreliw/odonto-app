@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && head -40 {}')",
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(\"C:\\\\Users\\\\willi\\\\Documents\\\\GitHub\\\\odonto-app\\\\frontend\\\\node_modules\\\\.bin\\\\tsc\" --noEmit --project \"C:\\\\Users\\\\willi\\\\Documents\\\\GitHub\\\\odonto-app\\\\.claude\\\\worktrees\\\\quirky-brown-11e9e7\\\\frontend\\\\tsconfig.app.json\")",
+      "Bash(gh pr create --title 'feat: major UI/UX overhaul — premium design system, toast service, full CRUD pages' --body ' *)",
+      "Bash(gh auth *)",
+      "Bash(gh pr create --title 'feat: UI/UX refactor + fix master admin credentials' --body ' *)",
+      "Bash(gh pr *)"
+    ]
+  }
+}
