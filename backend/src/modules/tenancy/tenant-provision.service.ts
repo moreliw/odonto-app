@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { execSync } from 'child_process'
 import { Client as PgClient } from 'pg'
 import { MasterPrismaService } from './master-prisma.service'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
@@ -33,13 +34,21 @@ export class TenantProvisionService {
     const dbPassword = process.env.POSTGRES_PASSWORD || 'postgres'
     await this.master.tenant.create({ data: { name, slug, subdomain: s, dbName, dbHost, dbPort, dbUser, dbPassword } })
     const tenantUrl = `postgresql://${encodeURIComponent(dbUser)}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${dbName}?schema=public`
-    // Push schema
+
+    // Apply tenant schema to the newly created database
+    execSync('npx prisma db push --schema=prisma/tenant.schema.prisma --skip-generate --accept-data-loss', {
+      env: { ...process.env, TENANT_DATABASE_URL: tenantUrl },
+      stdio: 'pipe'
+    })
+
+    // Create default admin user
     const tenantPrisma = new TenantPrisma({ datasources: { db: { url: tenantUrl } } })
-    await tenantPrisma.$executeRawUnsafe('SELECT 1')
-    // Create default admin
-    const hash = await argon2.hash(adminPassword)
-    await tenantPrisma.user.create({ data: { username: usernameFromEmail(adminEmail), email: adminEmail, name: 'Administrator', passwordHash: hash, role: 'ADMIN' } })
-    await tenantPrisma.$disconnect()
+    try {
+      const hash = await argon2.hash(adminPassword)
+      await tenantPrisma.user.create({ data: { username: usernameFromEmail(adminEmail), email: adminEmail, name: 'Administrator', passwordHash: hash, role: 'ADMIN' } })
+    } finally {
+      await tenantPrisma.$disconnect()
+    }
     return { ok: true, slug, subdomain: s, dbName }
   }
 }
