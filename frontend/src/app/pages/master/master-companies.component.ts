@@ -141,8 +141,8 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
 
             <div class="grid cols-2">
               <div class="form-group">
-                <label>Preço (centavos)</label>
-                <input class="input" type="number" min="0" step="100" [(ngModel)]="editForm.priceCents" name="e_price" />
+                <label>Mensalidade (R$)</label>
+                <input class="input" type="number" min="0" step="0.01" [(ngModel)]="editForm.priceMonthlyBrl" name="e_price" />
               </div>
               <div class="form-group">
                 <label>Moeda</label>
@@ -204,7 +204,17 @@ export class MasterCompaniesComponent implements OnInit {
   clinics: ClinicRow[] = []
   editing: ClinicRow | null = null
   readonly STATUS_CLASS = STATUS_CLASS
-  editForm = { name: '', subdomain: '', internalNotes: '', plan: 'BASIC', status: 'ACTIVE', priceCents: 0, currency: 'BRL', renewsAtLocal: '', canceledAtLocal: '' }
+  editForm = {
+    name: '',
+    subdomain: '',
+    internalNotes: '',
+    plan: 'BASIC',
+    status: 'ACTIVE',
+    priceMonthlyBrl: 0,
+    currency: 'BRL',
+    renewsAtLocal: '',
+    canceledAtLocal: ''
+  }
   pwdForm = { adminEmail: '', newPassword: '' }
   editMessage = ''
   pwdMessage = ''
@@ -226,9 +236,13 @@ export class MasterCompaniesComponent implements OnInit {
     this.pwdForm = { adminEmail: '', newPassword: '' }
     const sub = c.subscription
     this.editForm = {
-      name: c.name, subdomain: c.subdomain, internalNotes: c.internalNotes || '',
-      plan: sub?.plan || 'BASIC', status: sub?.status || 'ACTIVE',
-      priceCents: sub?.priceCents ?? 0, currency: sub?.currency || 'BRL',
+      name: c.name,
+      subdomain: c.subdomain,
+      internalNotes: c.internalNotes || '',
+      plan: sub?.plan || 'BASIC',
+      status: sub?.status || 'ACTIVE',
+      priceMonthlyBrl: (sub?.priceCents ?? 0) / 100,
+      currency: sub?.currency || 'BRL',
       renewsAtLocal: sub?.renewsAt ? this.toLocal(sub.renewsAt) : '',
       canceledAtLocal: sub?.canceledAt ? this.toLocal(sub.canceledAt) : ''
     }
@@ -252,10 +266,13 @@ export class MasterCompaniesComponent implements OnInit {
     this.editMessage = ''
     this.saving = true
     const body = {
-      name: this.editForm.name, subdomain: this.editForm.subdomain,
+      name: this.editForm.name,
+      subdomain: this.editForm.subdomain,
       internalNotes: this.editForm.internalNotes || null,
-      plan: this.editForm.plan, status: this.editForm.status,
-      priceCents: Number(this.editForm.priceCents), currency: this.editForm.currency,
+      plan: this.editForm.plan,
+      status: this.editForm.status,
+      priceMonthlyBrl: Number(this.editForm.priceMonthlyBrl),
+      currency: this.editForm.currency,
       renewsAt: this.fromLocal(this.editForm.renewsAtLocal),
       canceledAt: this.fromLocal(this.editForm.canceledAtLocal)
     }

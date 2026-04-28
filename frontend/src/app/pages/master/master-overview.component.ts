@@ -94,8 +94,8 @@ import { ToastService } from '../../services/toast.service'
                 </select>
               </div>
               <div class="form-group">
-                <label>Preço (centavos)</label>
-                <input class="input" [(ngModel)]="form.priceCents" name="priceCents" type="number" min="1000" step="100" />
+                <label>Mensalidade (R$)</label>
+                <input class="input" [(ngModel)]="form.priceMonthlyBrl" name="priceMonthlyBrl" type="number" min="0.01" step="0.01" />
               </div>
             </div>
             @if (createMessage) {
@@ -135,7 +135,7 @@ export class MasterOverviewComponent implements OnInit {
   createMessage = ''
   createSuccess = false
   saving = false
-  form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceCents: 4900 }
+  form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 49.9 }
 
   get summaryRows() {
     return [
@@ -165,7 +165,7 @@ export class MasterOverviewComponent implements OnInit {
         this.saving = false
         this.createSuccess = true
         this.createMessage = 'Empresa criada com banco de dados isolado.'
-        this.form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceCents: 4900 }
+        this.form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 49.9 }
         this.load()
         this.toast.success('Empresa criada com sucesso')
       },
