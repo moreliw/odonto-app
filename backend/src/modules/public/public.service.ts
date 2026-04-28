@@ -11,6 +11,10 @@ function isEmailIdentifier(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+/** Mensagem única: 401 aqui não é “falta de token”; é falha de autenticação da clínica. */
+const CLINIC_LOGIN_FAIL =
+  'Não foi possível entrar com estas credenciais da clínica. Verifique e-mail e senha, ou cadastre uma clínica. Super administrador da plataforma: use /admin/login (não use esta tela).'
+
 @Injectable()
 export class PublicService {
   private readonly log = new Logger(PublicService.name)
@@ -68,9 +72,23 @@ export class PublicService {
     return { ok: true, subdomain: result.subdomain, slug: result.slug }
   }
 
+  private masterSuperadminEmail() {
+    return (process.env.MASTER_SUPERADMIN_EMAIL || 'admin@odontoapp.com').toLowerCase()
+  }
+
   async loginByIdentifier(identifier: string, password: string) {
     const normalized = identifier.trim()
-    if (!normalized || !password) throw new UnauthorizedException('Credenciais inválidas')
+    if (!normalized || !password) {
+      throw new UnauthorizedException(
+        'Informe usuário ou e-mail e a senha. Esta rota não exige cabeçalho Authorization; 401 aqui significa dados incorretos ou tipo de conta errado.'
+      )
+    }
+
+    if (isEmailIdentifier(normalized) && normalized.toLowerCase() === this.masterSuperadminEmail()) {
+      throw new UnauthorizedException(
+        'Este e-mail é do super administrador da plataforma. Abra /admin/login — não use o login da clínica (/login).'
+      )
+    }
 
     const useSqlite = process.env.DEV_SQLITE === 'true'
     let tenantCandidates: Array<{ id: string; slug: string; subdomain: string; dbName: string; dbHost: string; dbPort: number; dbUser: string; dbPassword: string }> = []
@@ -125,7 +143,7 @@ export class PublicService {
       }
     }
 
-    if (!tenantCandidates.length) throw new UnauthorizedException('Credenciais inválidas')
+    if (!tenantCandidates.length) throw new UnauthorizedException(CLINIC_LOGIN_FAIL)
     const tenant = tenantCandidates[0]
     const connectionString = useSqlite
       ? `file:./prisma/dev-${tenant.slug}.db`
@@ -136,6 +154,9 @@ export class PublicService {
       return { ...res, tenant: tenant.slug, subdomain: tenant.subdomain }
     } catch (e) {
       this.log.error({ err: e }, 'public login failed')
+      if (e instanceof UnauthorizedException) {
+        throw new UnauthorizedException(CLINIC_LOGIN_FAIL)
+      }
       throw e
     }
   }

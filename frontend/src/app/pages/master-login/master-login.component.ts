@@ -1,13 +1,13 @@
 import { Component } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
-import { Router } from '@angular/router'
+import { Router, RouterLink } from '@angular/router'
 import { MasterAdminService } from '../../services/master-admin.service'
 
 @Component({
   selector: 'app-master-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div style="min-height:100vh;background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f172a 100%);display:flex;align-items:center;justify-content:center;padding:24px;">
       <div style="width:100%;max-width:400px;">
@@ -65,6 +65,22 @@ import { MasterAdminService } from '../../services/master-admin.service'
               @else { Acessar painel master }
             </button>
           </form>
+
+          <div style="margin-top:20px;padding-top:20px;border-top:1px solid #334155;">
+            <p style="margin:0 0 10px;font-size:13px;color:#94a3b8;font-weight:600;">Nova empresa na plataforma</p>
+            <p style="margin:0 0 14px;font-size:12px;color:#64748b;line-height:1.5;">
+              Cadastre uma clínica com banco isolado e administrador. Depois você gerencia plano e cobrança no painel, em Empresas.
+            </p>
+            <a
+              routerLink="/signup"
+              style="display:block;text-align:center;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;background:#0f172a;border:1px solid #3b82f6;color:#60a5fa;"
+            >
+              Cadastrar nova empresa (clínica)
+            </a>
+            <p style="margin:12px 0 0;font-size:11px;color:#475569;text-align:center;line-height:1.4;">
+              Você será redirecionado ao cadastro público. Com o painel master aberto, use também <strong>Visão geral → Nova empresa</strong>.
+            </p>
+          </div>
         </div>
 
         <p style="text-align:center;margin-top:24px;font-size:12px;color:#475569;">
@@ -88,7 +104,11 @@ export class MasterLoginComponent {
     this.loading = true
     this.master.login(this.email.trim(), this.password).subscribe({
       next: () => { this.loading = false; this.router.navigateByUrl('/admin/dashboard') },
-      error: (err: any) => { this.loading = false; this.error = err.error?.message || 'Credenciais inválidas' }
+      error: (err: any) => {
+        this.loading = false
+        const m = err.error?.message
+        this.error = Array.isArray(m) ? m.join(' ') : m || 'Credenciais inválidas'
+      }
     })
   }
 }
