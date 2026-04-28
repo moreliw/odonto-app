@@ -6,7 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { HttpAllExceptionsFilter } from './http-exception.filter'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false })
+  const app = await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true })
   app.useLogger(app.get(Logger))
   app.setGlobalPrefix('api')
   app.useGlobalFilters(new HttpAllExceptionsFilter())

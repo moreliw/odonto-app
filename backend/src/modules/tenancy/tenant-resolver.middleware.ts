@@ -25,6 +25,16 @@ export class TenantResolverMiddleware implements NestMiddleware {
     if (!subdomain) return res.status(400).send({ message: 'Tenant not resolved' })
     const tenant = await this.tenants.findBySubdomain(subdomain)
     if (!tenant) return res.status(404).send({ message: 'Tenant not found' })
+    const policy = await this.tenants.getAccessPolicyBySubdomain(subdomain)
+    if (!policy.allowed) {
+      const msg =
+        policy.status === 'PAST_DUE'
+          ? 'Assinatura em atraso. Regularize o pagamento para continuar.'
+          : policy.status === 'CANCELED'
+            ? 'Assinatura cancelada. Reative o plano para acessar.'
+            : 'Assinatura pendente de ativação. Conclua o pagamento para acessar.'
+      return res.status(402).send({ message: msg, subscriptionStatus: policy.status || 'PENDING' })
+    }
     req.tenantContext = tenant
     RequestContext.run(tenant, () => next())
   }

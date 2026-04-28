@@ -15,9 +15,23 @@ enum Plan {
 }
 
 enum SubscriptionStatus {
+  PENDING
   TRIAL
   ACTIVE
   PAST_DUE
+  CANCELED
+}
+
+enum PaymentProvider {
+  STRIPE
+}
+
+enum SignupIntentStatus {
+  PENDING
+  PROCESSING
+  PROVISIONED
+  FAILED
+  EXPIRED
   CANCELED
 }
 
@@ -36,6 +50,8 @@ model Tenant {
   updatedAt   DateTime @updatedAt
   subscription Subscription?
   loginIdentities LoginIdentity[]
+  signupIntents   SignupIntent[]
+  paymentEvents   PaymentEvent[]
 }
 
 model LoginIdentity {
@@ -51,10 +67,70 @@ model Subscription {
   tenant       Tenant              @relation(fields: [tenantId], references: [id])
   tenantId     String              @unique
   plan         Plan
-  status       SubscriptionStatus  @default(ACTIVE)
+  status       SubscriptionStatus  @default(PENDING)
+  provider     PaymentProvider?
+  providerCustomerId String?
+  providerSubscriptionId String?   @unique
   priceCents   Int
   currency     String              @default("BRL")
   startedAt    DateTime            @default(now())
+  activatedAt  DateTime?
+  lastPaymentAt DateTime?
+  currentPeriodEnd DateTime?
   renewsAt     DateTime?
   canceledAt   DateTime?
+}
+
+model SignupIntent {
+  id                 String            @id @default(uuid())
+  clinicName         String
+  clinicSlug         String
+  requestedSubdomain String
+  adminName          String?
+  adminEmail         String
+  adminPasswordHash  String
+  plan               Plan
+  priceCents         Int
+  currency           String            @default("BRL")
+  provider           PaymentProvider   @default(STRIPE)
+  status             SignupIntentStatus @default(PENDING)
+  providerSessionId  String?           @unique
+  providerCustomerId String?
+  providerSubscriptionId String?
+  checkoutUrl        String?
+  checkoutExpiresAt  DateTime?
+  paidAt             DateTime?
+  activatedAt        DateTime?
+  failedReason       String?
+  metadata           Json?
+  tenantId           String?
+  tenant             Tenant?           @relation(fields: [tenantId], references: [id])
+  paymentEvents      PaymentEvent[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([adminEmail])
+  @@index([clinicSlug])
+  @@index([requestedSubdomain])
+}
+
+model PaymentEvent {
+  id             String          @id @default(uuid())
+  provider       PaymentProvider @default(STRIPE)
+  externalEventId String         @unique
+  type           String
+  livemode       Boolean         @default(false)
+  status         String          @default("RECEIVED")
+  payload        Json
+  error          String?
+  receivedAt     DateTime        @default(now())
+  processedAt    DateTime?
+  tenantId       String?
+  tenant         Tenant?         @relation(fields: [tenantId], references: [id])
+  signupIntentId String?
+  signupIntent   SignupIntent?   @relation(fields: [signupIntentId], references: [id])
+
+  @@index([type])
+  @@index([tenantId])
+  @@index([signupIntentId])
 }

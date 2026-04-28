@@ -1,124 +1,172 @@
-import { Component } from '@angular/core'
+import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
-import { Router, RouterLink } from '@angular/router'
+import { ActivatedRoute, RouterLink } from '@angular/router'
+
+type Plan = {
+  code: 'BASIC' | 'PRO'
+  name: string
+  priceCents: number
+  currency: string
+  description: string
+  features: string[]
+}
 
 @Component({
   selector: 'app-signup',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <div>
-      <div class="page-header">
-        <div class="page-header-left">
-          <h1>Criar nova clínica</h1>
-          <p>Provisiona um banco de dados isolado e configura o administrador inicial</p>
+    <div class="signup-flow">
+      <div class="signup-panel card">
+        <div class="signup-panel-head">
+          <span class="landing-chip">Cadastro + pagamento automático</span>
+          <h1>Crie sua clínica e ative sua assinatura</h1>
+          <p>Após o pagamento aprovado, seu acesso é liberado automaticamente.</p>
         </div>
-      </div>
 
-      <div style="max-width:640px;">
-        <div class="card">
-          @if (message) {
-            <div style="padding:14px;border-radius:8px;margin-bottom:18px;"
-              [style.background]="success ? 'var(--success-bg)' : 'var(--danger-bg)'"
-              [style.color]="success ? 'var(--success-text)' : 'var(--danger-text)'"
-              [style.border]="success ? '1px solid #bbf7d0' : '1px solid #fecaca'"
-            >{{ message }}</div>
-          }
+        @if (message) {
+          <div
+            class="signup-alert"
+            [style.background]="success ? 'var(--success-bg)' : 'var(--danger-bg)'"
+            [style.color]="success ? 'var(--success-text)' : 'var(--danger-text)'"
+          >
+            {{ message }}
+          </div>
+        }
 
-          <form class="form" (ngSubmit)="submit()">
+        <form class="form" (ngSubmit)="submit()">
+          <div class="form-group">
+            <label>Nome da clínica *</label>
+            <input class="input" [(ngModel)]="clinicName" name="clinicName" placeholder="Ex.: Clínica Sorriso Ideal" required />
+          </div>
+
+          <div class="grid cols-2">
             <div class="form-group">
-              <label>Nome da clínica *</label>
-              <input class="input" [(ngModel)]="name" name="name" placeholder="Ex.: Clínica Saúde & Sorriso" required />
+              <label>Nome do responsável *</label>
+              <input class="input" [(ngModel)]="adminName" name="adminName" placeholder="Ex.: Dra. Ana Souza" required />
             </div>
-
             <div class="form-group">
-              <label>Subdomínio <span class="muted" style="font-weight:400;">(opcional — gerado automaticamente)</span></label>
-              <input class="input" [(ngModel)]="subdomain" name="subdomain" placeholder="ex.: saude-sorriso" />
-              <span class="text-xs muted">Usado para identificar a clínica na plataforma</span>
+              <label>Subdomínio (opcional)</label>
+              <input class="input" [(ngModel)]="subdomain" name="subdomain" placeholder="sorriso-ideal" />
             </div>
+          </div>
 
-            <div class="grid cols-2">
-              <div class="form-group">
-                <label>E-mail do administrador *</label>
-                <input class="input" [(ngModel)]="adminEmail" name="adminEmail" type="email" placeholder="admin@clinica.com" required />
-              </div>
-              <div class="form-group">
-                <label>Senha inicial *</label>
-                <input class="input" [(ngModel)]="adminPassword" name="adminPassword" type="password" placeholder="Mínimo 8 caracteres" required minlength="8" />
-              </div>
-            </div>
-
+          <div class="grid cols-2">
             <div class="form-group">
-              <label>Plano</label>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;">
-                <div
-                  style="border:2px solid;border-radius:10px;padding:16px;cursor:pointer;transition:all 0.15s;"
-                  [style.border-color]="plan === 'BASIC' ? 'var(--primary)' : 'var(--border)'"
-                  [style.background]="plan === 'BASIC' ? 'var(--primary-50)' : 'var(--surface)'"
-                  (click)="plan = 'BASIC'"
+              <label>E-mail do administrador *</label>
+              <input class="input" [(ngModel)]="adminEmail" name="adminEmail" type="email" placeholder="admin@clinica.com" required />
+            </div>
+            <div class="form-group">
+              <label>Senha *</label>
+              <input class="input" [(ngModel)]="adminPassword" name="adminPassword" type="password" minlength="8" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Plano *</label>
+            <div class="signup-plans">
+              @for (p of plans; track p.code) {
+                <button
+                  type="button"
+                  class="signup-plan-option"
+                  [class.active]="plan === p.code"
+                  (click)="plan = p.code"
                 >
-                  <div style="font-weight:700;font-size:15px;color:var(--text);">BASIC</div>
-                  <div style="font-size:22px;font-weight:800;color:var(--primary);margin:6px 0;">R$ 49<span style="font-size:13px;font-weight:400;color:var(--muted);">/mês</span></div>
-                  <div class="text-xs muted">Ideal para clínicas pequenas</div>
-                </div>
-                <div
-                  style="border:2px solid;border-radius:10px;padding:16px;cursor:pointer;transition:all 0.15s;"
-                  [style.border-color]="plan === 'PRO' ? 'var(--primary)' : 'var(--border)'"
-                  [style.background]="plan === 'PRO' ? 'var(--primary-50)' : 'var(--surface)'"
-                  (click)="plan = 'PRO'"
-                >
-                  <div style="font-weight:700;font-size:15px;color:var(--text);">PRO</div>
-                  <div style="font-size:22px;font-weight:800;color:var(--primary);margin:6px 0;">R$ 99<span style="font-size:13px;font-weight:400;color:var(--muted);">/mês</span></div>
-                  <div class="text-xs muted">Multi-usuários e relatórios</div>
-                </div>
-              </div>
+                  <strong>{{ p.name }}</strong>
+                  <span class="price">R$ {{ (p.priceCents / 100) | number:'1.2-2' }}/mês</span>
+                  <small>{{ p.description }}</small>
+                </button>
+              }
             </div>
+          </div>
 
-            <div style="display:flex;gap:10px;margin-top:6px;">
-              <a routerLink="/" class="btn btn-ghost">Cancelar</a>
-              <button class="btn btn-primary" [disabled]="saving" type="submit">
-                @if (saving) { <span class="spinner"></span> Criando clínica... }
-                @else { Criar clínica }
-              </button>
-            </div>
-          </form>
-        </div>
+          <div class="signup-footer-actions">
+            <a routerLink="/" class="btn btn-ghost">Voltar</a>
+            <button class="btn btn-primary" [disabled]="saving" type="submit">
+              @if (saving) { <span class="spinner"></span> Redirecionando para pagamento... }
+              @else { Continuar para pagamento }
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   `
 })
-export class SignupComponent {
-  name = ''
+export class SignupComponent implements OnInit {
+  clinicName = ''
+  adminName = ''
   subdomain = ''
   adminEmail = ''
   adminPassword = ''
   plan: 'BASIC' | 'PRO' = 'BASIC'
-  message = ''
-  success = false
+  plans: Plan[] = [
+    {
+      code: 'BASIC',
+      name: 'Basic',
+      priceCents: 4900,
+      currency: 'BRL',
+      description: 'Ideal para clínicas em crescimento.',
+      features: []
+    },
+    {
+      code: 'PRO',
+      name: 'Pro',
+      priceCents: 9900,
+      currency: 'BRL',
+      description: 'Operação completa para escalar.',
+      features: []
+    }
+  ]
   saving = false
+  success = false
+  message = ''
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private readonly http: HttpClient, private readonly route: ActivatedRoute) {}
+
+  ngOnInit() {
+    this.route.queryParamMap.subscribe(params => {
+      if (params.get('canceled') === '1') {
+        this.success = false
+        this.message = 'Pagamento não concluído. Você pode tentar novamente.'
+      }
+    })
+    this.http.get<Plan[]>('/api/public/plans').subscribe({
+      next: plans => {
+        if (Array.isArray(plans) && plans.length) this.plans = plans
+      }
+    })
+  }
 
   submit() {
     this.message = ''
     this.saving = true
-    const body: any = { name: this.name, adminEmail: this.adminEmail, adminPassword: this.adminPassword, plan: this.plan }
-    if (this.subdomain.trim()) body.subdomain = this.subdomain.trim()
-    this.http.post<{ ok: boolean; subdomain: string }>('/api/public/signup', body).subscribe({
-      next: res => {
-        this.saving = false
-        this.success = true
-        this.message = `Clínica criada! Subdomínio: ${res.subdomain}. Você será redirecionado para o login.`
-        localStorage.setItem('tenant', res.subdomain)
-        setTimeout(() => this.router.navigateByUrl('/login'), 2500)
-      },
-      error: err => {
-        this.saving = false
-        this.success = false
-        this.message = err.error?.message || 'Falha ao criar clínica. Tente novamente.'
-      }
-    })
+    this.http
+      .post<{ checkoutUrl: string }>('/api/public/billing/checkout-session', {
+        clinicName: this.clinicName.trim(),
+        adminName: this.adminName.trim(),
+        subdomain: this.subdomain.trim() || undefined,
+        adminEmail: this.adminEmail.trim(),
+        adminPassword: this.adminPassword,
+        plan: this.plan
+      })
+      .subscribe({
+        next: res => {
+          this.saving = false
+          this.success = true
+          if (res.checkoutUrl) {
+            location.href = res.checkoutUrl
+            return
+          }
+          this.message = 'Checkout criado, mas não foi possível redirecionar automaticamente.'
+        },
+        error: err => {
+          this.saving = false
+          this.success = false
+          const msg = err.error?.message
+          this.message = Array.isArray(msg) ? msg.join(' ') : msg || 'Falha ao iniciar o pagamento.'
+        }
+      })
   }
 }

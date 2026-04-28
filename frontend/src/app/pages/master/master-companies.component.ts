@@ -10,7 +10,16 @@ type ClinicRow = {
   loginIdentities?: { email: string }[]
 }
 
-const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAST_DUE: 'late', CANCELED: 'neutral' }
+type PaymentEventRow = {
+  id: string
+  type: string
+  status: string
+  receivedAt: string
+  processedAt?: string | null
+  error?: string | null
+}
+
+const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', TRIAL: 'pending', PAST_DUE: 'late', CANCELED: 'neutral' }
 
 @Component({
   selector: 'app-master-companies',
@@ -131,6 +140,7 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
               <div class="form-group">
                 <label>Status assinatura</label>
                 <select class="select" [(ngModel)]="editForm.status" name="e_status">
+                  <option value="PENDING">PENDING</option>
                   <option value="TRIAL">TRIAL</option>
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="PAST_DUE">PAST_DUE</option>
@@ -175,6 +185,40 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
           <hr style="border:none;border-top:1px solid var(--border);margin:24px 0" />
 
           <div style="margin-bottom:12px;">
+            <h4 style="font-size:14px;font-weight:700;margin-bottom:4px;">Eventos de pagamento</h4>
+            <p class="muted text-sm">Histórico de webhooks e processamento financeiro desta clínica.</p>
+          </div>
+          @if (eventsLoading) {
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:12px;">
+              <span class="spinner spinner-dark"></span>
+              Carregando eventos...
+            </div>
+          } @else if (paymentEvents.length === 0) {
+            <div style="font-size:13px;color:var(--muted);padding:10px 12px;background:var(--surface-2);border-radius:8px;margin-bottom:12px;">
+              Nenhum evento de pagamento encontrado para esta clínica.
+            </div>
+          } @else {
+            <div style="display:grid;gap:8px;margin-bottom:12px;max-height:220px;overflow:auto;">
+              @for (ev of paymentEvents; track ev.id) {
+                <div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <strong style="font-size:12px;">{{ ev.type }}</strong>
+                    <span class="badge" [class.badge-success]="ev.status === 'PROCESSED'" [class.badge-danger]="ev.status === 'FAILED'" [class.badge-neutral]="ev.status !== 'PROCESSED' && ev.status !== 'FAILED'">
+                      {{ ev.status }}
+                    </span>
+                  </div>
+                  <div style="font-size:12px;color:var(--muted);">Recebido: {{ ev.receivedAt | date:'dd/MM/yyyy HH:mm' }}</div>
+                  @if (ev.error) {
+                    <div style="font-size:12px;color:var(--danger-text);margin-top:4px;">{{ ev.error }}</div>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:20px 0 24px" />
+
+          <div style="margin-bottom:12px;">
             <h4 style="font-size:14px;font-weight:700;margin-bottom:4px;">Redefinir senha do administrador</h4>
             <p class="muted text-sm">Altera o login do ADMIN desta clínica (hash Argon2).</p>
           </div>
@@ -203,6 +247,8 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
 export class MasterCompaniesComponent implements OnInit {
   clinics: ClinicRow[] = []
   editing: ClinicRow | null = null
+  paymentEvents: PaymentEventRow[] = []
+  eventsLoading = false
   readonly STATUS_CLASS = STATUS_CLASS
   editForm = {
     name: '',
@@ -231,6 +277,7 @@ export class MasterCompaniesComponent implements OnInit {
 
   openEdit(c: ClinicRow) {
     this.editing = c
+    this.loadPaymentEvents(c.id)
     this.editMessage = ''
     this.pwdMessage = ''
     this.pwdForm = { adminEmail: '', newPassword: '' }
@@ -301,6 +348,20 @@ export class MasterCompaniesComponent implements OnInit {
         this.toast.success('Senha redefinida com sucesso')
       },
       error: (err: any) => { this.pwdSaving = false; this.pwdMessage = err.error?.message || 'Falha ao redefinir' }
+    })
+  }
+
+  private loadPaymentEvents(tenantId: string) {
+    this.eventsLoading = true
+    this.http.get<PaymentEventRow[]>(`/api/master/payments/events?tenantId=${encodeURIComponent(tenantId)}`).subscribe({
+      next: rows => {
+        this.eventsLoading = false
+        this.paymentEvents = rows
+      },
+      error: () => {
+        this.eventsLoading = false
+        this.paymentEvents = []
+      }
     })
   }
 

@@ -43,6 +43,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
           router.navigateByUrl("/login");
           return throwError(() => err);
         }
+        if (req.url.includes("/api/public/")) {
+          return throwError(() => err);
+        }
         return auth.refresh().pipe(
           switchMap((res) => {
             if (!res.accessToken) {
@@ -67,6 +70,18 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
             return throwError(() => refreshErr);
           }),
         );
+      }
+      if (
+        err instanceof HttpErrorResponse &&
+        err.status === 402
+      ) {
+        const msg = err.error?.message;
+        if (typeof sessionStorage !== "undefined" && msg) {
+          sessionStorage.setItem("authBlockedMessage", String(msg));
+        }
+        auth.logout();
+        router.navigateByUrl("/login");
+        return throwError(() => err);
       }
       if (
         err instanceof HttpErrorResponse &&

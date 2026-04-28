@@ -42,7 +42,22 @@ function tenantMetaFromMasterUrl(masterDatabaseUrl: string, dbName: string) {
 export class TenantProvisionService {
   constructor(private readonly master: MasterPrismaService) {}
 
-  async provision({ name, subdomain, adminEmail, adminPassword }: { name: string; subdomain?: string; adminEmail: string; adminPassword: string }) {
+  async provision({
+    name,
+    subdomain,
+    adminEmail,
+    adminPassword,
+    adminPasswordHash,
+    adminName
+  }: {
+    name: string
+    subdomain?: string
+    adminEmail: string
+    adminPassword?: string
+    adminPasswordHash?: string
+    adminName?: string
+  }) {
+    if (!adminPassword && !adminPasswordHash) throw new Error('Missing admin password data')
     const slug = slugify(name)
     const s = subdomain || slug
     const masterUrl = process.env.MASTER_DATABASE_URL || ''
@@ -71,9 +86,15 @@ export class TenantProvisionService {
 
       const tenantPrisma = new TenantPrisma({ datasources: { db: { url: tenantUrl } } })
       try {
-        const hash = await argon2.hash(adminPassword)
+        const hash = adminPasswordHash || (await argon2.hash(adminPassword!))
         await tenantPrisma.user.create({
-          data: { username: usernameFromEmail(adminEmail), email: adminEmail, name: 'Administrator', passwordHash: hash, role: 'ADMIN' }
+          data: {
+            username: usernameFromEmail(adminEmail),
+            email: adminEmail,
+            name: adminName?.trim() || 'Administrator',
+            passwordHash: hash,
+            role: 'ADMIN'
+          }
         })
       } finally {
         await tenantPrisma.$disconnect()

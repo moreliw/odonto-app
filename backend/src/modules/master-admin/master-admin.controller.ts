@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { MasterAdminService } from './master-admin.service'
 import { IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -47,7 +47,7 @@ class UpdateClinicDto {
   @IsEnum(['BASIC', 'PRO'] as any)
   plan?: Plan
   @IsOptional()
-  @IsEnum(['TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED'] as any)
+  @IsEnum(['PENDING', 'TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED'] as any)
   status?: SubscriptionStatus
   @IsOptional()
   @IsInt()
@@ -148,5 +148,11 @@ export class MasterAdminController {
   @Get('finance/summary')
   financeSummary() {
     return this.service.financeSummary()
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Get('payments/events')
+  paymentEvents(@Query('tenantId') tenantId?: string) {
+    return this.service.paymentEvents(tenantId)
   }
 }

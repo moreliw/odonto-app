@@ -1,4 +1,4 @@
-import { Component } from '@angular/core'
+import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { RouterLink, Router } from '@angular/router'
@@ -78,7 +78,7 @@ import { AuthService } from '../../services/auth.service'
     </div>
   `,
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   identifier = ''
   password = ''
   error = ''
@@ -87,13 +87,22 @@ export class LoginComponent {
 
   constructor(private auth: AuthService, private router: Router) {}
 
+  ngOnInit() {
+    if (typeof sessionStorage === 'undefined') return
+    const blocked = sessionStorage.getItem('authBlockedMessage')
+    if (blocked) {
+      this.error = blocked
+      sessionStorage.removeItem('authBlockedMessage')
+    }
+  }
+
   submit() {
     this.error = ''
     this.loading = true
     this.auth.login(this.identifier.trim(), this.password).subscribe({
       next: () => {
         this.loading = false
-        this.router.navigateByUrl('/')
+        this.router.navigateByUrl('/app')
       },
       error: (err: any) => {
         this.loading = false

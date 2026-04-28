@@ -5,6 +5,7 @@ import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { Plan, SubscriptionStatus, Tenant } from '@prisma/client-master'
+import { BillingService } from '../billing/billing.service'
 
 type SanitizedTenant = Omit<Tenant, 'dbPassword'> & { dbPassword?: never }
 
@@ -13,7 +14,8 @@ export class MasterAdminService implements OnModuleInit {
   constructor(
     private readonly jwt: JwtService,
     private readonly master: MasterPrismaService,
-    private readonly provision: TenantProvisionService
+    private readonly provision: TenantProvisionService,
+    private readonly billing: BillingService
   ) {}
 
   onModuleInit() {
@@ -190,9 +192,14 @@ export class MasterAdminService implements OnModuleInit {
         slug: t.slug,
         plan: s.plan,
         status: s.status,
+        provider: s.provider,
+        providerSubscriptionId: s.providerSubscriptionId,
         priceCents: s.priceCents,
         currency: s.currency,
         startedAt: s.startedAt,
+        activatedAt: s.activatedAt,
+        lastPaymentAt: s.lastPaymentAt,
+        currentPeriodEnd: s.currentPeriodEnd,
         renewsAt: s.renewsAt,
         canceledAt: s.canceledAt,
         countsForMrr: activeStatuses.includes(s.status)
@@ -308,6 +315,7 @@ export class MasterAdminService implements OnModuleInit {
       PRO: subscriptions.filter(item => item.plan === 'PRO').length
     }
     const byStatus = {
+      PENDING: subscriptions.filter(item => item.status === 'PENDING').length,
       ACTIVE: subscriptions.filter(item => item.status === 'ACTIVE').length,
       TRIAL: subscriptions.filter(item => item.status === 'TRIAL').length,
       PAST_DUE: subscriptions.filter(item => item.status === 'PAST_DUE').length,
@@ -329,9 +337,16 @@ export class MasterAdminService implements OnModuleInit {
         priceCents: s.priceCents,
         currency: s.currency,
         startedAt: s.startedAt,
+        activatedAt: s.activatedAt,
+        lastPaymentAt: s.lastPaymentAt,
+        currentPeriodEnd: s.currentPeriodEnd,
         renewsAt: s.renewsAt,
         tenant: { id: s.tenant.id, name: s.tenant.name, subdomain: s.tenant.subdomain }
       }))
     }
+  }
+
+  async paymentEvents(tenantId?: string) {
+    return this.billing.listPaymentEvents(tenantId)
   }
 }

@@ -141,6 +141,7 @@ export class MasterOverviewComponent implements OnInit {
     return [
       { label: 'Plano BASIC', value: this.finance?.byPlan?.BASIC || 0 },
       { label: 'Plano PRO', value: this.finance?.byPlan?.PRO || 0 },
+      { label: 'Pendentes', value: this.finance?.byStatus?.PENDING || 0 },
       { label: 'Ativas', value: this.finance?.byStatus?.ACTIVE || 0 },
       { label: 'Trial', value: this.finance?.byStatus?.TRIAL || 0 },
       { label: 'Em atraso', value: this.finance?.byStatus?.PAST_DUE || 0 },

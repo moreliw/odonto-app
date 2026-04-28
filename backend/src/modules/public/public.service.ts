@@ -2,7 +2,7 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { AuthService } from '../auth/auth.service'
-import { Prisma as PrismaMaster } from '@prisma/client-master'
+import { Prisma as PrismaMaster, SubscriptionStatus } from '@prisma/client-master'
 import { Prisma as PrismaTenant } from '@prisma/client-tenant'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { PrismaClient as MasterPrisma } from '@prisma/client-master'
@@ -85,13 +85,27 @@ export class PublicService {
     const priceCents = plan === 'PRO' ? 9900 : 4900
     const tenant = await this.queryMaster(db => db.tenant.findUnique({ where: { slug: result.slug } }))
     if (!tenant) throw new Error('Tenant not found after provision')
-    await this.queryMaster(db => db.subscription.create({ data: { tenantId: tenant.id, plan, priceCents } }))
+    await this.queryMaster(db => db.subscription.create({ data: { tenantId: tenant.id, plan, priceCents, status: 'ACTIVE' } }))
     await this.queryMaster(db => db.loginIdentity.create({ data: { email: adminEmail, tenantId: tenant.id } }))
     return { ok: true, subdomain: result.subdomain, slug: result.slug }
   }
 
   private masterSuperadminEmail() {
     return (process.env.MASTER_SUPERADMIN_EMAIL || 'admin@odontoapp.com').toLowerCase()
+  }
+
+  private async assertTenantAccess(tenantId: string) {
+    const sub = await this.queryMaster(db => db.subscription.findUnique({ where: { tenantId } }))
+    const status: SubscriptionStatus | 'PENDING' = sub?.status || 'PENDING'
+    if (status === 'ACTIVE' || status === 'TRIAL') return
+    const label: Record<SubscriptionStatus | 'PENDING', string> = {
+      ACTIVE: 'ativa',
+      TRIAL: 'em trial',
+      PAST_DUE: 'em atraso',
+      CANCELED: 'cancelada',
+      PENDING: 'pendente'
+    }
+    throw new UnauthorizedException(`A assinatura da sua clínica está ${label[status]}. Regularize para continuar.`)
   }
 
   async loginByIdentifier(identifier: string, password: string) {
@@ -157,6 +171,7 @@ export class PublicService {
 
     if (!tenantCandidates.length) throw new UnauthorizedException(CLINIC_LOGIN_FAIL)
     const tenant = tenantCandidates[0]
+    await this.assertTenantAccess(tenant.id)
     const connectionString = tenantConnectionString(tenant, useSqlite)
 
     try {
