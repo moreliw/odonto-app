@@ -73,8 +73,6 @@ import { AuthService } from '../../services/auth.service'
 
         <div class="auth-footer-link" style="margin-top:20px;">
           <a routerLink="/signup">Criar clínica</a>
-          <span class="muted" style="margin:0 6px">·</span>
-          <a routerLink="/admin/login">Super admin</a>
         </div>
       </div>
     </div>

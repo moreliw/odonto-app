@@ -11,9 +11,27 @@ function isEmailIdentifier(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
-/** Mensagem única: 401 aqui não é “falta de token”; é falha de autenticação da clínica. */
-const CLINIC_LOGIN_FAIL =
-  'Não foi possível entrar com estas credenciais da clínica. Verifique e-mail e senha, ou cadastre uma clínica. Super administrador da plataforma: use /admin/login (não use esta tela).'
+/** Mesma origem que o provisionamento: credenciais na linha Tenant costumam estar erradas no Docker se vierem de default postgres/postgres. */
+function tenantDatabaseUrlForLogin(dbName: string): string | null {
+  const masterUrl = process.env.MASTER_DATABASE_URL || ''
+  if (!masterUrl) return null
+  const u = new URL(masterUrl)
+  u.pathname = '/' + dbName.replace(/^\//, '')
+  return u.toString()
+}
+
+function tenantConnectionString(
+  tenant: { slug: string; dbName: string; dbHost: string; dbPort: number; dbUser: string; dbPassword: string },
+  useSqlite: boolean
+): string {
+  if (useSqlite) return `file:./prisma/dev-${tenant.slug}.db`
+  const fromMaster = tenantDatabaseUrlForLogin(tenant.dbName)
+  if (fromMaster) return fromMaster
+  return `postgresql://${encodeURIComponent(tenant.dbUser)}:${encodeURIComponent(tenant.dbPassword)}@${tenant.dbHost}:${tenant.dbPort}/${tenant.dbName}?schema=public`
+}
+
+/** 401 aqui: falha de autenticação da clínica (sem detalhes internos para o usuário final). */
+const CLINIC_LOGIN_FAIL = 'Não foi possível entrar. Verifique e-mail ou usuário e senha.'
 
 @Injectable()
 export class PublicService {
@@ -79,15 +97,11 @@ export class PublicService {
   async loginByIdentifier(identifier: string, password: string) {
     const normalized = identifier.trim()
     if (!normalized || !password) {
-      throw new UnauthorizedException(
-        'Informe usuário ou e-mail e a senha. Esta rota não exige cabeçalho Authorization; 401 aqui significa dados incorretos ou tipo de conta errado.'
-      )
+      throw new UnauthorizedException('Informe e-mail ou usuário e a senha.')
     }
 
     if (isEmailIdentifier(normalized) && normalized.toLowerCase() === this.masterSuperadminEmail()) {
-      throw new UnauthorizedException(
-        'Este e-mail é do super administrador da plataforma. Abra /admin/login — não use o login da clínica (/login).'
-      )
+      throw new UnauthorizedException('Este e-mail não é de acesso à clínica. Use o e-mail do cadastro da sua clínica.')
     }
 
     const useSqlite = process.env.DEV_SQLITE === 'true'
@@ -109,9 +123,7 @@ export class PublicService {
     if (!tenantCandidates.length) {
       const tenants = await this.queryMaster(db => db.tenant.findMany({ orderBy: { createdAt: 'desc' } }))
       for (const tenant of tenants) {
-        const connectionString = useSqlite
-          ? `file:./prisma/dev-${tenant.slug}.db`
-          : `postgresql://${encodeURIComponent(tenant.dbUser)}:${encodeURIComponent(tenant.dbPassword)}@${tenant.dbHost}:${tenant.dbPort}/${tenant.dbName}?schema=public`
+        const connectionString = tenantConnectionString(tenant, useSqlite)
         const tenantPrisma = new TenantPrisma({ datasources: { db: { url: connectionString } } })
         try {
           let hit: { id: string } | null | undefined
@@ -145,9 +157,7 @@ export class PublicService {
 
     if (!tenantCandidates.length) throw new UnauthorizedException(CLINIC_LOGIN_FAIL)
     const tenant = tenantCandidates[0]
-    const connectionString = useSqlite
-      ? `file:./prisma/dev-${tenant.slug}.db`
-      : `postgresql://${encodeURIComponent(tenant.dbUser)}:${encodeURIComponent(tenant.dbPassword)}@${tenant.dbHost}:${tenant.dbPort}/${tenant.dbName}?schema=public`
+    const connectionString = tenantConnectionString(tenant, useSqlite)
 
     try {
       const res = await this.auth.loginWithTenantConnection(connectionString, normalized, password)
