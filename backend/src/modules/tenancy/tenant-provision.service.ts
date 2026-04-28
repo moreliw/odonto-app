@@ -14,6 +14,11 @@ function usernameFromEmail(email: string) {
   return slugify(raw).replace(/-/g, '_')
 }
 
+/** Nomes com hífen exigem aspas no PostgreSQL: CREATE DATABASE "tenant_x-y" */
+function quotePgIdent(ident: string) {
+  return '"' + ident.replace(/"/g, '""') + '"'
+}
+
 @Injectable()
 export class TenantProvisionService {
   constructor(private readonly master: MasterPrismaService) {}
@@ -26,7 +31,7 @@ export class TenantProvisionService {
     const dbName = `tenant_${slug}`
     const pg = new PgClient({ connectionString: masterUrl })
     await pg.connect()
-    await pg.query(`CREATE DATABASE ${dbName}`)
+    await pg.query(`CREATE DATABASE ${quotePgIdent(dbName)}`)
     await pg.end()
     const dbHost = process.env.DB_HOST || 'postgres-master'
     const dbPort = Number(process.env.DB_PORT || '5432')

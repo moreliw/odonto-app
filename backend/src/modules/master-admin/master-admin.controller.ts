@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { MasterAdminService } from './master-admin.service'
-import { IsEmail, IsEnum, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator'
+import { IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator'
+import { Type } from 'class-transformer'
 import { Plan, SubscriptionStatus } from '@prisma/client-master'
 import { MasterAdminGuard } from './master-admin.guard'
 
@@ -25,9 +26,11 @@ class CreateClinicDto {
   adminPassword: string
   @IsEnum(['BASIC', 'PRO'] as any)
   plan: Plan
-  @IsInt()
-  @Min(1000)
-  priceCents: number
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  /** Mensalidade em reais (ex.: 49.9). Armazenada como centavos no banco. */
+  priceMonthlyBrl: number
 }
 
 class UpdateClinicDto {
@@ -50,6 +53,12 @@ class UpdateClinicDto {
   @IsInt()
   @Min(0)
   priceCents?: number
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  /** Alternativa a priceCents: valor mensal em reais */
+  priceMonthlyBrl?: number
   @IsOptional()
   @IsString()
   currency?: string
@@ -112,13 +121,21 @@ export class MasterAdminController {
   @UseGuards(MasterAdminGuard)
   @Post('clinics')
   createClinic(@Body() dto: CreateClinicDto) {
-    return this.service.createClinic(dto)
+    const priceCents = Math.round(dto.priceMonthlyBrl * 100)
+    const { priceMonthlyBrl: _p, ...rest } = dto
+    return this.service.createClinic({ ...rest, priceCents })
   }
 
   @UseGuards(MasterAdminGuard)
   @Patch('clinics/:id')
   updateClinic(@Param('id') id: string, @Body() dto: UpdateClinicDto) {
-    return this.service.updateClinic(id, dto)
+    const { priceMonthlyBrl, ...rest } = dto
+    const priceCents =
+      typeof priceMonthlyBrl === 'number' ? Math.round(priceMonthlyBrl * 100) : undefined
+    return this.service.updateClinic(id, {
+      ...rest,
+      ...(typeof priceCents === 'number' ? { priceCents } : {})
+    })
   }
 
   @UseGuards(MasterAdminGuard)
