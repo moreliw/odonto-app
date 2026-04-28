@@ -82,7 +82,7 @@ export class PublicService {
 
   async signup({ name, adminEmail, adminPassword, plan }: { name: string; adminEmail: string; adminPassword: string; plan: 'BASIC' | 'PRO' }) {
     const result = await this.provision.provision({ name, adminEmail, adminPassword })
-    const priceCents = plan === 'PRO' ? 9900 : 4900
+    const priceCents = plan === 'PRO' ? 27900 : 12900
     const tenant = await this.queryMaster(db => db.tenant.findUnique({ where: { slug: result.slug } }))
     if (!tenant) throw new Error('Tenant not found after provision')
     await this.queryMaster(db => db.subscription.create({ data: { tenantId: tenant.id, plan, priceCents, status: 'ACTIVE' } }))

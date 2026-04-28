@@ -40,7 +40,7 @@ const PLAN_CATALOG: Record<Plan, PlanPublicInfo> = {
   BASIC: {
     code: 'BASIC',
     name: 'Basic',
-    priceCents: 4900,
+    priceCents: 12900,
     currency: 'BRL',
     description: 'Perfeito para clínicas em crescimento.',
     features: ['Agenda e pacientes', 'Prontuário digital', 'Suporte por e-mail']
@@ -48,7 +48,7 @@ const PLAN_CATALOG: Record<Plan, PlanPublicInfo> = {
   PRO: {
     code: 'PRO',
     name: 'Pro',
-    priceCents: 9900,
+    priceCents: 27900,
     currency: 'BRL',
     description: 'Gestão completa para clínicas com maior volume.',
     features: ['Tudo do Basic', 'Operação multiusuário', 'Dashboard operacional avançado']
@@ -101,10 +101,11 @@ export class BillingService {
     if (this.stripeClient !== undefined) return this.stripeClient
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim()
     if (!secretKey) {
+      this.log.error('STRIPE_SECRET_KEY nao configurada no backend')
       this.stripeClient = null
       return this.stripeClient
     }
-    this.stripeClient = new Stripe(secretKey)
+    this.stripeClient = new Stripe(secretKey, { timeout: 15000, maxNetworkRetries: 0 })
     return this.stripeClient
   }
 
@@ -253,7 +254,7 @@ export class BillingService {
                 }
               }
             ]
-      })
+      }, { timeout: 15000, maxNetworkRetries: 0 })
 
       await this.master.signupIntent.update({
         where: { id: intent.id },
@@ -283,7 +284,17 @@ export class BillingService {
         }
       })
       this.log.error({ err: error }, 'stripe checkout session creation failed')
-      throw new ServiceUnavailableException('Não foi possível iniciar o pagamento agora. Tente novamente.')
+      const maybeStripeType =
+        error && typeof error === 'object' && 'type' in error
+          ? String((error as any).type || '')
+          : ''
+      const isConnectionLike =
+        maybeStripeType.toLowerCase().includes('connection') ||
+        (error instanceof Error && /timeout|network|ECONN|ETIMEDOUT|socket/i.test(error.message))
+      if (isConnectionLike) {
+        throw new ServiceUnavailableException('Gateway de pagamento indisponivel no momento. Tente novamente em instantes.')
+      }
+      throw new ServiceUnavailableException('Nao foi possivel iniciar o pagamento agora. Tente novamente.')
     }
   }
 

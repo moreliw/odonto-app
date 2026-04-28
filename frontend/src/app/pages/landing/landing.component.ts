@@ -183,7 +183,7 @@ type Faq = {
             <article class="lp-price-card">
               <h3>Basic</h3>
               <p class="lp-plan-note">Ideal para clínicas em crescimento</p>
-              <strong>R$ 49 <span>/mês</span></strong>
+              <strong>R$ 129 <span>/mês</span></strong>
               <ul>
                 <li>Agenda completa de consultas</li>
                 <li>Prontuário digital organizado</li>
@@ -195,7 +195,7 @@ type Faq = {
               <span class="lp-badge">Recomendado</span>
               <h3>Pro</h3>
               <p class="lp-plan-note">Para clínicas com equipe e maior volume</p>
-              <strong>R$ 99 <span>/mês</span></strong>
+              <strong>R$ 279 <span>/mês</span></strong>
               <ul>
                 <li>Tudo do plano Basic</li>
                 <li>Relatórios operacionais avançados</li>

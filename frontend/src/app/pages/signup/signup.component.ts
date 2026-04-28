@@ -105,7 +105,7 @@ export class SignupComponent implements OnInit {
     {
       code: 'BASIC',
       name: 'Basic',
-      priceCents: 4900,
+      priceCents: 12900,
       currency: 'BRL',
       description: 'Ideal para clínicas em crescimento.',
       features: []
@@ -113,7 +113,7 @@ export class SignupComponent implements OnInit {
     {
       code: 'PRO',
       name: 'Pro',
-      priceCents: 9900,
+      priceCents: 27900,
       currency: 'BRL',
       description: 'Operação completa para escalar.',
       features: []
@@ -135,6 +135,10 @@ export class SignupComponent implements OnInit {
     this.http.get<Plan[]>('/api/public/plans').subscribe({
       next: plans => {
         if (Array.isArray(plans) && plans.length) this.plans = plans
+      },
+      error: () => {
+        this.success = false
+        this.message = 'Não foi possível carregar os planos agora. Exibindo valores padrão.'
       }
     })
   }
@@ -165,6 +169,11 @@ export class SignupComponent implements OnInit {
           this.saving = false
           this.success = false
           const msg = err.error?.message
+          const asText = typeof err?.error === 'string' ? err.error : ''
+          if (err?.status === 502 || /502 Bad Gateway/i.test(asText)) {
+            this.message = 'Serviço de pagamento indisponível (502). Verifique se o backend está online e tente novamente.'
+            return
+          }
           this.message = Array.isArray(msg) ? msg.join(' ') : msg || 'Falha ao iniciar o pagamento.'
         }
       })

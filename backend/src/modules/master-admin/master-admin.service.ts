@@ -275,7 +275,7 @@ export class MasterAdminService implements OnModuleInit {
         tenantId: id,
         plan: data.plan || 'BASIC',
         status: data.status || 'ACTIVE',
-        priceCents: typeof data.priceCents === 'number' ? data.priceCents : 4900,
+        priceCents: typeof data.priceCents === 'number' ? data.priceCents : 12900,
         ...(data.currency !== undefined ? { currency: data.currency } : {}),
         ...(data.renewsAt !== undefined && data.renewsAt
           ? { renewsAt: new Date(data.renewsAt) }

@@ -135,7 +135,7 @@ export class MasterOverviewComponent implements OnInit {
   createMessage = ''
   createSuccess = false
   saving = false
-  form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 49.9 }
+  form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 129 }
 
   get summaryRows() {
     return [
@@ -166,7 +166,7 @@ export class MasterOverviewComponent implements OnInit {
         this.saving = false
         this.createSuccess = true
         this.createMessage = 'Empresa criada com banco de dados isolado.'
-        this.form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 49.9 }
+        this.form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 129 }
         this.load()
         this.toast.success('Empresa criada com sucesso')
       },

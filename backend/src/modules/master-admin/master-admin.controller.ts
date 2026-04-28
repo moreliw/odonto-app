@@ -29,7 +29,7 @@ class CreateClinicDto {
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
-  /** Mensalidade em reais (ex.: 49.9). Armazenada como centavos no banco. */
+  /** Mensalidade em reais (ex.: 129.0). Armazenada como centavos no banco. */
   priceMonthlyBrl: number
 }
 
