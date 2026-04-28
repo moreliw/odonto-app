@@ -66,10 +66,14 @@ jobs:
           PUBLIC_WILDCARD=${{ secrets.PUBLIC_WILDCARD }}
           MASTER_SUPERADMIN_EMAIL=${{ secrets.MASTER_SUPERADMIN_EMAIL }}
           MASTER_SUPERADMIN_PASSWORD=${{ secrets.MASTER_SUPERADMIN_PASSWORD }}
+          SEED_CLINIC_NAME=${{ secrets.SEED_CLINIC_NAME }}
+          SEED_ADMIN_EMAIL=${{ secrets.SEED_ADMIN_EMAIL }}
+          SEED_ADMIN_PASSWORD=${{ secrets.SEED_ADMIN_PASSWORD }}
           MINIO_API_PORT=${{ secrets.MINIO_API_PORT }}
           MINIO_CONSOLE_PORT=${{ secrets.MINIO_CONSOLE_PORT }}
           APP_HTTP_PORT=${{ secrets.APP_HTTP_PORT }}
           EOF
+          sed -i 's/^[[:space:]]*//' .deploy.env
 
       - name: Sync project files
         run: |
