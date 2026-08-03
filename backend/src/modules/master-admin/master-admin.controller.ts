@@ -24,11 +24,11 @@ class CreateClinicDto {
   @IsString()
   @MinLength(8)
   adminPassword: string
-  @IsEnum(['BASIC', 'PRO'] as any)
+  @IsEnum(['FREE', 'BASIC', 'PRO'] as any)
   plan: Plan
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
+  @Min(0)
   /** Mensalidade em reais (ex.: 129.0). Armazenada como centavos no banco. */
   priceMonthlyBrl: number
 }
@@ -44,7 +44,7 @@ class UpdateClinicDto {
   @IsString()
   internalNotes?: string | null
   @IsOptional()
-  @IsEnum(['BASIC', 'PRO'] as any)
+  @IsEnum(['FREE', 'BASIC', 'PRO'] as any)
   plan?: Plan
   @IsOptional()
   @IsEnum(['PENDING', 'TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED'] as any)

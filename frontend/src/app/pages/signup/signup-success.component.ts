@@ -5,7 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router'
 
 type SessionStatusResponse = {
   clinicName: string
-  plan: 'BASIC' | 'PRO'
+  plan: 'FREE' | 'BASIC' | 'PRO'
   subdomain: string
   onboardingStatus: 'PENDING' | 'PROCESSING' | 'PROVISIONED' | 'FAILED' | 'EXPIRED' | 'CANCELED'
   subscriptionStatus: 'PENDING' | 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'

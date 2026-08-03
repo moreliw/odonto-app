@@ -133,6 +133,7 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
               <div class="form-group">
                 <label>Plano</label>
                 <select class="select" [(ngModel)]="editForm.plan" name="e_plan">
+                  <option value="FREE">FREE</option>
                   <option value="BASIC">BASIC</option>
                   <option value="PRO">PRO</option>
                 </select>

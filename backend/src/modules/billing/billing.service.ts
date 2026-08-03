@@ -6,7 +6,7 @@ import {
   NotFoundException,
   ServiceUnavailableException
 } from '@nestjs/common'
-import { Prisma, Plan, SignupIntentStatus, SubscriptionStatus } from '@prisma/client-master'
+import { Prisma, Plan, SignupIntent, SignupIntentStatus, SubscriptionStatus } from '@prisma/client-master'
 import Stripe = require('stripe')
 import * as argon2 from 'argon2'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
@@ -37,6 +37,14 @@ type StripeInvoice = any
 type StripeSubscription = any
 
 const PLAN_CATALOG: Record<Plan, PlanPublicInfo> = {
+  FREE: {
+    code: 'FREE',
+    name: 'Teste Gratuito',
+    priceCents: 0,
+    currency: 'BRL',
+    description: 'Uso interno para testar o fluxo completo de assinatura, sem cobrança.',
+    features: ['Todos os módulos liberados', 'Sem cartão de crédito', 'Ativação imediata']
+  },
   BASIC: {
     code: 'BASIC',
     name: 'Basic',
@@ -172,9 +180,6 @@ export class BillingService {
   }
 
   async createCheckoutSession(input: CheckoutRequest) {
-    const stripe = this.getStripeClient()
-    if (!stripe) throw new ServiceUnavailableException('Pagamentos temporariamente indisponíveis.')
-
     const plan = PLAN_CATALOG[input.plan]
     if (!plan) throw new BadRequestException('Plano inválido.')
 
@@ -211,6 +216,13 @@ export class BillingService {
         }
       }
     })
+
+    if (plan.priceCents === 0) {
+      return this.activateFreeSignup(intent, plan)
+    }
+
+    const stripe = this.getStripeClient()
+    if (!stripe) throw new ServiceUnavailableException('Pagamentos temporariamente indisponíveis.')
 
     const successUrl = `${this.getAppBaseUrl()}/signup/success?session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${this.getAppBaseUrl()}/signup?canceled=1`
@@ -298,6 +310,94 @@ export class BillingService {
     }
   }
 
+  /** Ativa clínicas do plano gratuito de teste sem passar pelo Stripe. */
+  private async activateFreeSignup(intent: SignupIntent, plan: PlanPublicInfo) {
+    const sessionId = `free-${intent.id}`
+
+    await this.master.signupIntent.update({
+      where: { id: intent.id },
+      data: { providerSessionId: sessionId, status: 'PROCESSING', paidAt: new Date() }
+    })
+
+    try {
+      const provisioned = await this.provision.provision({
+        name: intent.clinicName,
+        subdomain: intent.requestedSubdomain,
+        adminEmail: intent.adminEmail,
+        adminPasswordHash: intent.adminPasswordHash,
+        adminName: intent.adminName || undefined
+      })
+
+      const tenant = await this.master.tenant.findUnique({ where: { slug: provisioned.slug } })
+      if (!tenant) throw new Error('Tenant provisionado não encontrado no master.')
+
+      await this.master.loginIdentity.upsert({
+        where: { email: intent.adminEmail },
+        update: { tenantId: tenant.id },
+        create: { email: intent.adminEmail, tenantId: tenant.id }
+      })
+
+      const now = new Date()
+      await this.master.subscription.upsert({
+        where: { tenantId: tenant.id },
+        update: {
+          plan: intent.plan,
+          status: 'ACTIVE',
+          priceCents: 0,
+          currency: intent.currency,
+          provider: null,
+          providerCustomerId: null,
+          providerSubscriptionId: null,
+          activatedAt: now,
+          lastPaymentAt: now,
+          currentPeriodEnd: null,
+          renewsAt: null,
+          canceledAt: null
+        },
+        create: {
+          tenantId: tenant.id,
+          plan: intent.plan,
+          status: 'ACTIVE',
+          priceCents: 0,
+          currency: intent.currency,
+          startedAt: now,
+          activatedAt: now,
+          lastPaymentAt: now
+        }
+      })
+
+      await this.master.signupIntent.update({
+        where: { id: intent.id },
+        data: { status: 'PROVISIONED', activatedAt: now, tenantId: tenant.id }
+      })
+
+      await this.sendWelcomeEmail({
+        to: intent.adminEmail,
+        adminName: intent.adminName || 'Administrador',
+        clinicName: intent.clinicName,
+        subdomain: tenant.subdomain
+      })
+    } catch (error) {
+      await this.master.signupIntent.update({
+        where: { id: intent.id },
+        data: {
+          status: 'FAILED',
+          failedReason: error instanceof Error ? error.message : 'Free signup activation failed'
+        }
+      })
+      this.log.error({ err: error }, 'free signup activation failed')
+      throw new ServiceUnavailableException('Não foi possível ativar a clínica de teste agora. Tente novamente.')
+    }
+
+    return {
+      intentId: intent.id,
+      checkoutUrl: `${this.getAppBaseUrl()}/signup/success?session_id=${sessionId}`,
+      sessionId,
+      expiresAt: null,
+      plan
+    }
+  }
+
   async getCheckoutSessionStatus(sessionId: string) {
     const intent = await this.master.signupIntent.findFirst({
       where: { providerSessionId: sessionId },
@@ -305,7 +405,8 @@ export class BillingService {
     })
     if (!intent) throw new NotFoundException('Sessão de checkout não encontrada.')
 
-    const stripe = this.getStripeClient()
+    const isFreeSession = intent.providerSessionId?.startsWith('free-') ?? false
+    const stripe = isFreeSession ? null : this.getStripeClient()
     let stripeSessionStatus: string | null = null
     let stripePaymentStatus: string | null = null
 

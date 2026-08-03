@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http'
 import { ActivatedRoute, RouterLink } from '@angular/router'
 
 type Plan = {
-  code: 'BASIC' | 'PRO'
+  code: 'FREE' | 'BASIC' | 'PRO'
   name: string
   priceCents: number
   currency: string
@@ -100,7 +100,7 @@ export class SignupComponent implements OnInit {
   subdomain = ''
   adminEmail = ''
   adminPassword = ''
-  plan: 'BASIC' | 'PRO' = 'BASIC'
+  plan: 'FREE' | 'BASIC' | 'PRO' = 'BASIC'
   plans: Plan[] = [
     {
       code: 'BASIC',

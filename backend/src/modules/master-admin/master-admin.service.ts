@@ -311,6 +311,7 @@ export class MasterAdminService implements OnModuleInit {
     const mrrCents = active.reduce((acc, item) => acc + item.priceCents, 0)
     const arrCents = mrrCents * 12
     const byPlan = {
+      FREE: subscriptions.filter(item => item.plan === 'FREE').length,
       BASIC: subscriptions.filter(item => item.plan === 'BASIC').length,
       PRO: subscriptions.filter(item => item.plan === 'PRO').length
     }

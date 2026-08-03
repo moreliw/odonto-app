@@ -32,7 +32,7 @@ class CreateCheckoutSessionDto {
   @MaxLength(128)
   adminPassword: string
 
-  @IsEnum(['BASIC', 'PRO'] as any)
+  @IsEnum(['FREE', 'BASIC', 'PRO'] as any)
   plan: Plan
 }
 
