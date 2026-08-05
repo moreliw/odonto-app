@@ -1,4 +1,4 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common'
+import { Controller, ForbiddenException, Get, Req, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { Request } from 'express'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
@@ -9,7 +9,10 @@ export class DashboardController {
   constructor(private readonly prismaTenant: TenantPrismaService) {}
 
   @Get('metrics')
-  async metrics() {
+  async metrics(@Req() req: Request) {
+    if ((req as any).user?.role !== 'ADMIN') {
+      throw new ForbiddenException('Apenas o administrador da clínica pode acessar os indicadores gerais.')
+    }
     const prisma: any = this.prismaTenant.getClient()
     const now = new Date()
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())

@@ -45,6 +45,7 @@ export class TenantBillingController {
 
   @Get('subscription')
   async subscription(@Req() req: Request) {
+    this.assertAdmin(req)
     const used = await this.dentistCount()
     return this.billing.getSubscriptionForTenant(this.tenantId(req), used)
   }

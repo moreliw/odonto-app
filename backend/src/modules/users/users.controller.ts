@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { UsersService } from './users.service'
 import { AuthGuard } from '@nestjs/passport'
 import { IsEmail, IsString, IsEnum, IsOptional, Matches, MinLength } from 'class-validator'
@@ -39,14 +39,22 @@ class UpdateUserDto {
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
+  private assertAdmin(req: Request) {
+    if ((req as any).user?.role !== 'ADMIN') {
+      throw new ForbiddenException('Apenas o administrador da clínica pode gerenciar a equipe.')
+    }
+  }
+
   @Get()
-  list(@Query('role') role?: RoleLocal) {
+  list(@Req() req: Request, @Query('role') role?: RoleLocal) {
+    this.assertAdmin(req)
     return this.users.list(role)
   }
 
   /** Quantos dentistas o plano permite e quantos já foram cadastrados. */
   @Get('dentist-quota')
-  dentistQuota() {
+  dentistQuota(@Req() req: Request) {
+    this.assertAdmin(req)
     return this.users.dentistQuota()
   }
 
