@@ -175,7 +175,7 @@ export class RecordsComponent implements OnInit {
 
   loadRecords(patientId: string) {
     this.loadingRecords = true
-    this.http.get<PatientRecord[]>(`/api/records/${patientId}`).subscribe({
+    this.http.get<PatientRecord[]>(`/api/records/patient/${patientId}`).subscribe({
       next: (res: PatientRecord[]) => { this.records = res; this.loadingRecords = false },
       error: () => { this.loadingRecords = false; this.toast.error('Falha ao carregar prontuários') }
     })

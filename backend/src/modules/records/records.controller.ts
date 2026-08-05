@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
 import { RecordsService } from './records.service'
 import { AuthGuard } from '@nestjs/passport'
-import { IsString } from 'class-validator'
+import { IsDefined, IsString } from 'class-validator'
 
 class RecordDto {
   @IsString()
   patientId: string
-  content: any
+
+  @IsDefined()
+  content: unknown
 }
 
 @UseGuards(AuthGuard('jwt'))
