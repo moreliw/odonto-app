@@ -1,5 +1,6 @@
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 # Copy backend package manifests
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 RUN npm install
@@ -12,6 +13,7 @@ RUN npm run build
 
 FROM node:22-bookworm-slim
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
