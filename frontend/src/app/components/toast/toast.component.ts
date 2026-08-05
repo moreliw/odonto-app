@@ -10,10 +10,9 @@ const ICONS: Record<string, string> = {
 }
 
 @Component({
-  selector: 'app-toasts',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
+    selector: 'app-toasts',
+    imports: [CommonModule],
+    template: `
     <div class="toast-container">
       @for (t of svc.toasts(); track t.id) {
         <div class="toast toast-{{t.type}}" (click)="svc.dismiss(t.id)" role="alert">

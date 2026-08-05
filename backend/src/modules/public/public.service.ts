@@ -97,7 +97,9 @@ export class PublicService {
   private async assertTenantAccess(tenantId: string) {
     const sub = await this.queryMaster(db => db.subscription.findUnique({ where: { tenantId } }))
     const status: SubscriptionStatus | 'PENDING' = sub?.status || 'PENDING'
-    if (status === 'ACTIVE' || status === 'TRIAL') return
+    // Mesmo com pagamento atrasado ou assinatura encerrada, o responsável
+    // precisa conseguir entrar para regularizar ou reativar pelo módulo Plano.
+    if (status === 'ACTIVE' || status === 'TRIAL' || status === 'PAST_DUE' || status === 'CANCELED') return
     const label: Record<SubscriptionStatus | 'PENDING', string> = {
       ACTIVE: 'ativa',
       TRIAL: 'em trial',
@@ -161,7 +163,7 @@ export class PublicService {
             tenantCandidates = [tenant]
             break
           }
-        } catch (e) {
+        } catch {
           continue
         } finally {
           await tenantPrisma.$disconnect()

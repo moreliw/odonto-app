@@ -4,6 +4,7 @@ import { RawBodyRequest } from '@nestjs/common'
 import { Request } from 'express'
 import { Plan } from '@prisma/client-master'
 import { BillingService } from './billing.service'
+import { Throttle } from '@nestjs/throttler'
 
 class CreateCheckoutSessionDto {
   @IsString()
@@ -32,7 +33,7 @@ class CreateCheckoutSessionDto {
   @MaxLength(128)
   adminPassword: string
 
-  @IsEnum(['FREE', 'BASIC', 'PRO'] as any)
+  @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
   plan: Plan
 }
 
@@ -46,6 +47,7 @@ export class BillingController {
   }
 
   @Post('billing/checkout-session')
+  @Throttle({ default: { ttl: 60_000, limit: 8 } })
   createCheckoutSession(@Body() dto: CreateCheckoutSessionDto) {
     return this.billing.createCheckoutSession({
       clinicName: dto.clinicName,

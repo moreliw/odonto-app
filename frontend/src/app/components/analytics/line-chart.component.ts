@@ -6,14 +6,13 @@ import { ChartPoint } from '../../models/analytics.model'
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler)
 
 @Component({
-  selector: 'app-line-chart',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
+    selector: 'app-line-chart',
+    imports: [CommonModule],
+    template: `
     <article class="card chart-card">
       <div class="chart-title-row">
-        <h2>Tendência de receita</h2>
-        <span class="muted">Últimos 7 meses</span>
+        <h2>{{ title }}</h2>
+        <span class="muted">{{ subtitle }}</span>
       </div>
       <canvas #canvas></canvas>
     </article>
@@ -21,6 +20,9 @@ Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearS
 })
 export class LineChartComponent implements AfterViewInit, OnChanges {
   @Input() points: ChartPoint[] = []
+  @Input() title = 'Tendência'
+  @Input() subtitle = ''
+  @Input() color = '#2563eb'
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>
   private chart: Chart | null = null
 
@@ -45,9 +47,9 @@ export class LineChartComponent implements AfterViewInit, OnChanges {
         datasets: [
           {
             data: this.points.map(point => point.value),
-            borderColor: '#22c55e',
-            backgroundColor: 'rgba(34, 197, 94, 0.12)',
-            pointBackgroundColor: '#22c55e',
+            borderColor: this.color,
+            backgroundColor: this.hexToRgba(this.color, 0.12),
+            pointBackgroundColor: this.color,
             tension: 0.35,
             fill: true
           }
@@ -57,9 +59,17 @@ export class LineChartComponent implements AfterViewInit, OnChanges {
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false } },
-          y: { grid: { color: '#ecf2ff' }, beginAtZero: true }
+          y: { grid: { color: '#ecf2ff' }, beginAtZero: true, ticks: { precision: 0 } }
         }
       }
     })
+  }
+
+  private hexToRgba(hex: string, alpha: number) {
+    const m = hex.replace('#', '')
+    const r = parseInt(m.substring(0, 2), 16)
+    const g = parseInt(m.substring(2, 4), 16)
+    const b = parseInt(m.substring(4, 6), 16)
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
   }
 }

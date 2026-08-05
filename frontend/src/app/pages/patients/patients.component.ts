@@ -7,10 +7,9 @@ import { ToastService } from '../../services/toast.service'
 type Patient = { id: string; name: string; email?: string; phone?: string; birthDate?: string; document?: string; createdAt?: string }
 
 @Component({
-  selector: 'app-patients',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
+    selector: 'app-patients',
+    imports: [CommonModule, FormsModule],
+    template: `
     <div>
       <!-- Page Header -->
       <div class="page-header">

@@ -6,12 +6,14 @@ import {
   NotFoundException,
   ServiceUnavailableException
 } from '@nestjs/common'
-import { Prisma, Plan, SignupIntent, SignupIntentStatus, SubscriptionStatus } from '@prisma/client-master'
+import { Prisma, Plan, SignupIntent, SubscriptionStatus } from '@prisma/client-master'
 import Stripe = require('stripe')
 import * as argon2 from 'argon2'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { MailerService } from '../mailer/mailer.service'
+import { AuthService } from '../auth/auth.service'
+import { DENTIST_LIMIT_BY_PLAN, PLAN_LABEL } from './plan-limits'
 
 type CheckoutRequest = {
   clinicName: string
@@ -36,7 +38,15 @@ type StripeCheckoutSession = any
 type StripeInvoice = any
 type StripeSubscription = any
 
-const PLAN_CATALOG: Record<Plan, PlanPublicInfo> = {
+/**
+ * Planos vendáveis hoje. Os priceCents precisam bater com o valor dos price IDs
+ * configurados no Stripe (STRIPE_PRICE_*_MONTHLY), senão o cliente vê um preço
+ * na landing e é cobrado outro no checkout.
+ *
+ * Em produção, cada plano precisa de um Price ID fixo e validado. Assim a
+ * aplicação recusa o checkout se o valor configurado divergir do catálogo.
+ */
+const PLAN_CATALOG: Partial<Record<Plan, PlanPublicInfo>> = {
   FREE: {
     code: 'FREE',
     name: 'Teste Gratuito',
@@ -47,19 +57,27 @@ const PLAN_CATALOG: Record<Plan, PlanPublicInfo> = {
   },
   BASIC: {
     code: 'BASIC',
-    name: 'Basic',
+    name: 'Essencial',
     priceCents: 12900,
     currency: 'BRL',
-    description: 'Perfeito para clínicas em crescimento.',
-    features: ['Agenda e pacientes', 'Prontuário digital', 'Suporte por e-mail']
+    description: 'Para profissionais autônomos e consultórios menores.',
+    features: ['Agenda e pacientes', 'Prontuário digital', 'Financeiro básico', 'Suporte por e-mail']
   },
   PRO: {
     code: 'PRO',
-    name: 'Pro',
+    name: 'Profissional',
     priceCents: 27900,
     currency: 'BRL',
-    description: 'Gestão completa para clínicas com maior volume.',
-    features: ['Tudo do Basic', 'Operação multiusuário', 'Dashboard operacional avançado']
+    description: 'Para consultórios e clínicas que trabalham com equipe.',
+    features: ['Tudo do Essencial', 'Até 3 dentistas', 'Perfis de acesso', 'Suporte prioritário']
+  },
+  CLINIC: {
+    code: 'CLINIC',
+    name: 'Clínica',
+    priceCents: 44900,
+    currency: 'BRL',
+    description: 'Para clínicas com vários profissionais e volume alto de atendimento.',
+    features: ['Tudo do Profissional', 'Dentistas ilimitados', 'Armazenamento ampliado', 'Atendimento prioritário']
   }
 }
 
@@ -94,15 +112,30 @@ function readableSubscriptionStatus(status: SubscriptionStatus) {
 export class BillingService {
   private readonly log = new Logger(BillingService.name)
   private stripeClient: Stripe.Stripe | null | undefined
+  private readonly priceIdCache = new Map<Plan, Promise<string>>()
 
   constructor(
     private readonly master: MasterPrismaService,
     private readonly provision: TenantProvisionService,
-    private readonly mailer: MailerService
+    private readonly mailer: MailerService,
+    private readonly auth: AuthService
   ) {}
 
   getPublicPlans() {
-    return Object.values(PLAN_CATALOG)
+    return Object.values(PLAN_CATALOG).filter(plan => plan.code !== 'FREE' || this.freeSignupsEnabled())
+  }
+
+  private freeSignupsEnabled() {
+    return process.env.ALLOW_FREE_SIGNUP === 'true'
+  }
+
+  private trialDays() {
+    const parsed = Number(process.env.STRIPE_TRIAL_DAYS || '7')
+    return Number.isFinite(parsed) ? Math.max(0, Math.min(365, Math.trunc(parsed))) : 7
+  }
+
+  private stripeKeyIsLive() {
+    return process.env.STRIPE_SECRET_KEY?.trim().startsWith('sk_live_') ?? false
   }
 
   private getStripeClient() {
@@ -110,6 +143,13 @@ export class BillingService {
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim()
     if (!secretKey) {
       this.log.error('STRIPE_SECRET_KEY nao configurada no backend')
+      this.stripeClient = null
+      return this.stripeClient
+    }
+    const expectedLivemode = process.env.STRIPE_EXPECTED_LIVEMODE?.trim()
+    const keyIsLive = secretKey.startsWith('sk_live_')
+    if (expectedLivemode && keyIsLive !== (expectedLivemode === 'true')) {
+      this.log.error('STRIPE_SECRET_KEY pertence a um ambiente diferente de STRIPE_EXPECTED_LIVEMODE')
       this.stripeClient = null
       return this.stripeClient
     }
@@ -142,6 +182,56 @@ export class BillingService {
       default:
         return 'PENDING'
     }
+  }
+
+  private stripeSubscriptionPeriodEnd(subscription: StripeSubscription | null | undefined) {
+    if (!subscription) return null
+    const topLevel = subscription.current_period_end
+    const itemLevel = subscription.items?.data?.[0]?.current_period_end
+    return asIsoOrNull(topLevel || itemLevel)
+  }
+
+  private planFromStripeSubscription(subscription: StripeSubscription): Plan | null {
+    const price = subscription.items?.data?.[0]?.price
+    if (!price) return null
+    const priceId = typeof price === 'string' ? price : price.id
+    for (const code of ['BASIC', 'PRO', 'CLINIC'] as Plan[]) {
+      if (this.configuredPriceId(code) === priceId) return code
+    }
+
+    const metadataPlan = typeof price === 'string' ? null : price.metadata?.plan
+    if (metadataPlan && PLAN_CATALOG[metadataPlan as Plan]) return metadataPlan as Plan
+
+    if (typeof price !== 'string') {
+      const byAmount = Object.values(PLAN_CATALOG).find(
+        plan =>
+          plan.code !== 'FREE' &&
+          price.unit_amount === plan.priceCents &&
+          price.currency === plan.currency.toLowerCase() &&
+          price.recurring?.interval === 'month'
+      )
+      return byAmount?.code || null
+    }
+    return null
+  }
+
+  private async retrieveStripeSubscription(id: string | null | undefined) {
+    if (!id) return null
+    const stripe = this.getStripeClient()
+    if (!stripe) return null
+    return stripe.subscriptions.retrieve(id)
+  }
+
+  private expandableId(value: unknown) {
+    if (typeof value === 'string') return value
+    if (value && typeof value === 'object' && 'id' in value) return String((value as { id: unknown }).id)
+    return null
+  }
+
+  private invoiceSubscriptionId(invoice: StripeInvoice) {
+    const direct = this.expandableId(invoice?.subscription)
+    if (direct) return direct
+    return this.expandableId(invoice?.parent?.subscription_details?.subscription)
   }
 
   private async isSubdomainAvailable(subdomain: string) {
@@ -181,6 +271,9 @@ export class BillingService {
 
   async createCheckoutSession(input: CheckoutRequest) {
     const plan = PLAN_CATALOG[input.plan]
+    if (plan?.code === 'FREE' && !this.freeSignupsEnabled()) {
+      throw new BadRequestException('O plano gratuito é restrito ao ambiente interno de testes.')
+    }
     if (!plan) throw new BadRequestException('Plano inválido.')
 
     const clinicName = input.clinicName.trim()
@@ -226,46 +319,36 @@ export class BillingService {
 
     const successUrl = `${this.getAppBaseUrl()}/signup/success?session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${this.getAppBaseUrl()}/signup?canceled=1`
-    const configuredPriceId =
-      plan.code === 'PRO'
-        ? process.env.STRIPE_PRICE_PRO_MONTHLY?.trim()
-        : process.env.STRIPE_PRICE_BASIC_MONTHLY?.trim()
+    const trialDays = this.trialDays()
 
     try {
+      const priceId = await this.resolvePriceId(stripe, plan)
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         client_reference_id: intent.id,
         success_url: successUrl,
         cancel_url: cancelUrl,
         customer_email: adminEmail,
+        payment_method_collection: trialDays > 0 ? 'if_required' : 'always',
         metadata: {
           intentId: intent.id,
           clinicSlug: clinicSlug.slice(0, 40),
           plan: plan.code
         },
         subscription_data: {
+          ...(trialDays > 0
+            ? {
+                trial_period_days: trialDays,
+                trial_settings: { end_behavior: { missing_payment_method: 'cancel' as const } }
+              }
+            : {}),
           metadata: {
             intentId: intent.id,
             clinicSlug: clinicSlug.slice(0, 40),
             plan: plan.code
           }
         },
-        line_items: configuredPriceId
-          ? [{ price: configuredPriceId, quantity: 1 }]
-          : [
-              {
-                quantity: 1,
-                price_data: {
-                  currency: plan.currency.toLowerCase(),
-                  unit_amount: plan.priceCents,
-                  recurring: { interval: 'month' },
-                  product_data: {
-                    name: `Odonto SaaS ${plan.name}`,
-                    description: plan.description
-                  }
-                }
-              }
-            ]
+        line_items: [{ price: priceId, quantity: 1 }]
       }, { timeout: 15000, maxNetworkRetries: 0 })
 
       await this.master.signupIntent.update({
@@ -352,7 +435,8 @@ export class BillingService {
           lastPaymentAt: now,
           currentPeriodEnd: null,
           renewsAt: null,
-          canceledAt: null
+          canceledAt: null,
+          cancelAtPeriodEnd: false
         },
         create: {
           tenantId: tenant.id,
@@ -399,7 +483,7 @@ export class BillingService {
   }
 
   async getCheckoutSessionStatus(sessionId: string) {
-    const intent = await this.master.signupIntent.findFirst({
+    let intent = await this.master.signupIntent.findFirst({
       where: { providerSessionId: sessionId },
       include: { tenant: { include: { subscription: true } } }
     })
@@ -407,12 +491,14 @@ export class BillingService {
 
     const isFreeSession = intent.providerSessionId?.startsWith('free-') ?? false
     const stripe = isFreeSession ? null : this.getStripeClient()
+    let stripeSession: StripeCheckoutSession | null = null
     let stripeSessionStatus: string | null = null
     let stripePaymentStatus: string | null = null
 
     if (stripe && intent.providerSessionId) {
       try {
         const session = await stripe.checkout.sessions.retrieve(intent.providerSessionId)
+        stripeSession = session
         stripeSessionStatus = session.status || null
         stripePaymentStatus = session.payment_status || null
       } catch (error) {
@@ -420,7 +506,44 @@ export class BillingService {
       }
     }
 
+    // Resiliência ao atraso/erro de webhook: o retorno do Checkout também pode
+    // concluir o provisionamento, sempre pela mesma rotina idempotente.
+    if (
+      stripeSession &&
+      stripeSessionStatus === 'complete' &&
+      ['paid', 'no_payment_required'].includes(stripePaymentStatus || '') &&
+      intent.status !== 'PROVISIONED'
+    ) {
+      await this.onCheckoutSessionPaid(stripeSession)
+      const refreshed = await this.master.signupIntent.findUnique({
+        where: { id: intent.id },
+        include: { tenant: { include: { subscription: true } } }
+      })
+      if (refreshed) intent = refreshed
+    }
+
     const subscriptionStatus = intent.tenant?.subscription?.status || 'PENDING'
+    const loginAllowed = subscriptionStatus === 'ACTIVE' || subscriptionStatus === 'TRIAL'
+
+    // Login automático: a clínica acabou de ser criada, o usuário não deveria
+    // digitar a senha de novo numa tela técnica de "status do onboarding".
+    // Só emite token quando o tenant já está pronto para uso; falha aqui não
+    // deve quebrar o polling — o frontend cai para a tela de login manual.
+    let auth: { accessToken: string; refreshToken: string; user: { id: string; email: string; name: string; role: string } } | null = null
+    if (loginAllowed && intent.tenant) {
+      try {
+        const url = this.tenantConnectionUrl(intent.tenant.dbName, intent.tenant.slug)
+        const issued = await this.auth.issueTokensForNewAccount(url, intent.adminEmail)
+        auth = {
+          accessToken: issued.accessToken,
+          refreshToken: issued.refreshToken,
+          user: { id: issued.user.id, email: issued.user.email, name: issued.user.name, role: issued.user.role }
+        }
+      } catch (error) {
+        this.log.warn(`auto-login token issuance failed for ${intent.adminEmail}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+
     return {
       intentId: intent.id,
       clinicName: intent.clinicName,
@@ -428,10 +551,11 @@ export class BillingService {
       subdomain: intent.tenant?.subdomain || intent.requestedSubdomain,
       onboardingStatus: intent.status,
       subscriptionStatus,
-      loginAllowed: subscriptionStatus === 'ACTIVE' || subscriptionStatus === 'TRIAL',
+      loginAllowed,
+      auth,
       message:
         intent.status === 'PROVISIONED'
-          ? 'Sua clínica foi ativada com sucesso. Você já pode fazer login.'
+          ? 'Sua clínica foi ativada com sucesso.'
           : intent.status === 'FAILED'
             ? 'Seu onboarding falhou e precisa de revisão da equipe de suporte.'
             : intent.status === 'EXPIRED'
@@ -442,6 +566,234 @@ export class BillingService {
         checkoutStatus: stripeSessionStatus,
         paymentStatus: stripePaymentStatus
       }
+    }
+  }
+
+  /** Mesma derivação usada no provisionamento (tenant-provision.service.ts): troca o path do MASTER_DATABASE_URL pelo dbName do tenant. Evita depender de dbUser/dbPassword salvos no Tenant, que já causaram credenciais erradas em Docker. */
+  private tenantConnectionUrl(dbName: string, slug: string) {
+    if (process.env.DEV_SQLITE === 'true') return `file:./prisma/dev-${slug}.db`
+    const masterUrl = process.env.MASTER_DATABASE_URL || ''
+    if (!masterUrl) throw new Error('MASTER_DATABASE_URL não configurada')
+    const u = new URL(masterUrl)
+    u.pathname = '/' + dbName.replace(/^\//, '')
+    return u.toString()
+  }
+
+  /**
+   * Price ID configurado no Stripe para cada plano. Nunca reaproveitar o Price
+   * de outro plano — isso cobraria do cliente um valor diferente do anunciado.
+   */
+  private configuredPriceId(plan: Plan): string | undefined {
+    const byPlan: Partial<Record<Plan, string | undefined>> = {
+      BASIC: process.env.STRIPE_PRICE_BASIC_MONTHLY?.trim(),
+      PRO: process.env.STRIPE_PRICE_PRO_MONTHLY?.trim(),
+      CLINIC: process.env.STRIPE_PRICE_CLINIC_MONTHLY?.trim()
+    }
+    return byPlan[plan] || undefined
+  }
+
+  private assertPriceMatchesPlan(price: any, plan: PlanPublicInfo) {
+    const currency = plan.currency.toLowerCase()
+    const valid =
+      price.active &&
+      price.unit_amount === plan.priceCents &&
+      price.currency === currency &&
+      price.recurring?.interval === 'month'
+    if (!valid) {
+      this.log.error(
+        `Stripe Price ${price.id} diverge do plano ${plan.code}: esperado ${currency} ${plan.priceCents}/month.`
+      )
+      throw new ServiceUnavailableException('O preço deste plano está temporariamente indisponível para cobrança.')
+    }
+  }
+
+  /**
+   * Em live mode, todo plano precisa apontar para um Price explícito e validado.
+   * Em sandbox, lookup_key evita criar preços duplicados a cada reinício.
+   */
+  private resolvePriceId(stripe: Stripe.Stripe, plan: PlanPublicInfo): Promise<string> {
+    const cached = this.priceIdCache.get(plan.code)
+    if (cached) return cached
+
+    const promise = (async () => {
+      const configured = this.configuredPriceId(plan.code)
+      if (configured) {
+        const price = await stripe.prices.retrieve(configured)
+        this.assertPriceMatchesPlan(price, plan)
+        return price.id
+      }
+
+      if (this.stripeKeyIsLive()) {
+        this.log.error(`STRIPE_PRICE_${plan.code}_MONTHLY não configurado em live mode.`)
+        throw new ServiceUnavailableException('O preço deste plano ainda não está configurado para cobrança.')
+      }
+
+      const lookupKey = `odontoapp_${plan.code.toLowerCase()}_monthly`
+      const existing = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 })
+      if (existing.data[0]) {
+        this.assertPriceMatchesPlan(existing.data[0], plan)
+        return existing.data[0].id
+      }
+
+      const price = await stripe.prices.create({
+        unit_amount: plan.priceCents,
+        currency: plan.currency.toLowerCase(),
+        recurring: { interval: 'month' },
+        lookup_key: lookupKey,
+        metadata: { plan: plan.code },
+        product_data: {
+          name: `OdontoApp ${plan.name}`,
+          metadata: { product: 'odontoapp', plan: plan.code }
+        }
+      })
+      return price.id
+    })()
+
+    this.priceIdCache.set(plan.code, promise)
+    promise.catch(() => this.priceIdCache.delete(plan.code))
+    return promise
+  }
+
+  /** Assinatura atual da clínica autenticada + planos disponíveis para troca. */
+  async getSubscriptionForTenant(tenantId: string, dentistUsed: number) {
+    const subscription = await this.master.subscription.findUnique({ where: { tenantId } })
+    const plan = subscription?.plan ?? 'FREE'
+    const catalog = PLAN_CATALOG[plan]
+    return {
+      plan,
+      planLabel: PLAN_LABEL[plan],
+      priceCents: subscription?.priceCents ?? catalog?.priceCents ?? 0,
+      status: subscription?.status ?? 'PENDING',
+      provider: subscription?.provider ?? null,
+      renewsAt: subscription?.renewsAt ?? null,
+      currentPeriodEnd: subscription?.currentPeriodEnd ?? null,
+      canceledAt: subscription?.canceledAt ?? null,
+      cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd ?? false,
+      dentistLimit: DENTIST_LIMIT_BY_PLAN[plan],
+      dentistUsed,
+      availablePlans: Object.values(PLAN_CATALOG)
+        .filter(p => p.code !== 'FREE')
+        .map(p => ({ ...p, dentistLimit: DENTIST_LIMIT_BY_PLAN[p.code] }))
+    }
+  }
+
+  /**
+   * Troca o plano da clínica autenticada. Três caminhos possíveis:
+   *  - alvo é FREE: cancela a assinatura no Stripe (se houver) e volta pra grátis na hora.
+   *  - já existe assinatura Stripe ativa: atualiza o preço da mesma assinatura (com proração), sem novo checkout.
+   *  - não existe assinatura Stripe (ex.: estava no FREE): cria um novo Checkout Session e devolve a URL pro frontend redirecionar.
+   */
+  async changeTenantPlan(tenantId: string, targetPlanCode: Plan, adminEmail: string, dentistUsed: number) {
+    const target = PLAN_CATALOG[targetPlanCode]
+    if (!target) throw new BadRequestException('Plano inválido.')
+
+    const limit = DENTIST_LIMIT_BY_PLAN[targetPlanCode]
+    if (limit !== null && dentistUsed > limit) {
+      throw new ConflictException(
+        `O plano ${PLAN_LABEL[targetPlanCode]} permite até ${limit} ${limit === 1 ? 'dentista' : 'dentistas'} e sua clínica tem ${dentistUsed} cadastrados. Remova dentistas em Equipe antes de trocar de plano.`
+      )
+    }
+
+    const subscription = await this.master.subscription.findUnique({ where: { tenantId } })
+    if (
+      subscription?.plan === targetPlanCode &&
+      ['ACTIVE', 'TRIAL'].includes(subscription.status) &&
+      !subscription.cancelAtPeriodEnd
+    ) {
+      throw new BadRequestException('Esse já é o plano atual da clínica.')
+    }
+
+    const now = new Date()
+
+    // Uma assinatura paga conserva o acesso até o fim do período contratado.
+    if (target.priceCents === 0) {
+      if (subscription?.provider === 'STRIPE' && subscription.providerSubscriptionId) {
+        return this.cancelTenantSubscription(tenantId)
+      }
+      await this.master.subscription.upsert({
+        where: { tenantId },
+        update: {
+          plan: 'FREE',
+          status: 'ACTIVE',
+          priceCents: 0,
+          provider: null,
+          providerCustomerId: null,
+          providerSubscriptionId: null,
+          activatedAt: now,
+          currentPeriodEnd: null,
+          renewsAt: null,
+          canceledAt: null,
+          cancelAtPeriodEnd: false
+        },
+        create: { tenantId, plan: 'FREE', status: 'ACTIVE', priceCents: 0, startedAt: now, activatedAt: now }
+      })
+      return { ok: true, message: `Plano alterado para ${target.name}.` }
+    }
+
+    const stripe = this.getStripeClient()
+    if (!stripe) throw new ServiceUnavailableException('Pagamentos temporariamente indisponíveis.')
+
+    // Já existe assinatura Stripe ativa: troca o preço na mesma assinatura, sem novo checkout.
+    if (
+      subscription?.provider === 'STRIPE' &&
+      subscription.providerSubscriptionId &&
+      ['ACTIVE', 'TRIAL'].includes(subscription.status)
+    ) {
+      try {
+        const stripeSub = await stripe.subscriptions.retrieve(subscription.providerSubscriptionId)
+        const itemId = stripeSub.items.data[0]?.id
+        if (!itemId) throw new Error('Assinatura sem item de cobrança no Stripe.')
+        const priceId = await this.resolvePriceId(stripe, target)
+        const updated = await stripe.subscriptions.update(subscription.providerSubscriptionId, {
+          items: [{ id: itemId, price: priceId }],
+          payment_behavior: 'pending_if_incomplete',
+          proration_behavior: 'always_invoice',
+          cancel_at_period_end: false,
+          metadata: { ...stripeSub.metadata, plan: targetPlanCode, tenantId },
+          expand: ['latest_invoice']
+        })
+        if ((updated as any).pending_update) {
+          const invoice = (updated as any).latest_invoice
+          const redirect = typeof invoice === 'object' ? invoice?.hosted_invoice_url : null
+          return {
+            ok: false,
+            redirect: redirect || undefined,
+            message: 'A alteração será concluída assim que o pagamento for confirmado.'
+          }
+        }
+
+        await this.onSubscriptionUpdated(updated as StripeSubscription)
+        return { ok: true, message: `Plano alterado para ${target.name}.` }
+      } catch (error) {
+        this.log.error({ err: error }, 'failed to update stripe subscription price')
+        throw new ServiceUnavailableException('Não foi possível alterar o plano agora. Tente novamente em instantes.')
+      }
+    }
+
+    // Sem assinatura Stripe ativa (ex.: estava no plano gratuito): precisa de um novo checkout.
+    const successUrl = `${this.getAppBaseUrl()}/app/billing?upgraded=1`
+    const cancelUrl = `${this.getAppBaseUrl()}/app/billing?canceled=1`
+    try {
+      const priceId = await this.resolvePriceId(stripe, target)
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: 'subscription',
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+          customer: subscription?.providerCustomerId || undefined,
+          customer_email: subscription?.providerCustomerId ? undefined : adminEmail,
+          payment_method_collection: 'always',
+          metadata: { kind: 'plan_change', tenantId, plan: targetPlanCode },
+          subscription_data: { metadata: { kind: 'plan_change', tenantId, plan: targetPlanCode } },
+          line_items: [{ price: priceId, quantity: 1 }]
+        },
+        { timeout: 15000, maxNetworkRetries: 0 }
+      )
+      if (!session.url) throw new ServiceUnavailableException('Falha ao gerar link de pagamento.')
+      return { redirect: session.url }
+    } catch (error) {
+      this.log.error({ err: error }, 'failed to create plan-change checkout session')
+      throw new ServiceUnavailableException('Não foi possível iniciar o pagamento agora. Tente novamente.')
     }
   }
 
@@ -463,20 +815,39 @@ export class BillingService {
       throw new BadRequestException('Assinatura de webhook inválida.')
     }
 
+    const expectedLivemode = process.env.STRIPE_EXPECTED_LIVEMODE?.trim()
+    if (expectedLivemode && Boolean(event.livemode) !== (expectedLivemode === 'true')) {
+      this.log.warn(`stripe event ${event.id} rejected: livemode does not match this environment`)
+      throw new BadRequestException('Evento Stripe pertence a outro ambiente.')
+    }
+
     const existing = await this.master.paymentEvent.findUnique({
       where: { externalEventId: event.id }
     })
-    if (existing) return { received: true, duplicate: true }
+    if (existing?.status === 'PROCESSED') return { received: true, duplicate: true }
 
-      const eventRow = await this.master.paymentEvent.create({
-      data: {
-        externalEventId: event.id,
-        provider: 'STRIPE',
-        type: event.type,
-        livemode: Boolean(event.livemode),
-        payload: event as unknown as Prisma.InputJsonValue
-      }
-    })
+    const eventRow = existing
+      ? await this.master.paymentEvent.update({
+          where: { id: existing.id },
+          data: {
+            status: 'RECEIVED',
+            type: event.type,
+            livemode: Boolean(event.livemode),
+            payload: event as unknown as Prisma.InputJsonValue,
+            error: null,
+            processedAt: null,
+            attemptCount: { increment: 1 }
+          }
+        })
+      : await this.master.paymentEvent.create({
+          data: {
+            externalEventId: event.id,
+            provider: 'STRIPE',
+            type: event.type,
+            livemode: Boolean(event.livemode),
+            payload: event as unknown as Prisma.InputJsonValue
+          }
+        })
 
     try {
       const result = await this.processStripeEvent(event)
@@ -519,6 +890,8 @@ export class BillingService {
         return this.onInvoicePaymentFailed(event.data.object as StripeInvoice)
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
+      case 'customer.subscription.pending_update_applied':
+      case 'customer.subscription.pending_update_expired':
         return this.onSubscriptionUpdated(event.data.object as StripeSubscription)
       default:
         return { tenantId: null, signupIntentId: null }
@@ -578,18 +951,28 @@ export class BillingService {
   }
 
   private async onCheckoutSessionPaid(session: StripeCheckoutSession) {
+    // Troca de plano de uma clínica já existente (não é um novo cadastro) —
+    // não tem SignupIntent, então trata à parte, direto na Subscription.
+    if (session.metadata?.kind === 'plan_change' && session.metadata?.tenantId) {
+      return this.onPlanChangeCheckoutPaid(session)
+    }
+
     const intent = await this.findIntentBySession(session)
     if (!intent) {
       this.log.warn(`signup intent not found for checkout session ${session.id}`)
       return { tenantId: null, signupIntentId: null }
     }
 
+    const providerCustomerId = this.expandableId(session.customer) || intent.providerCustomerId
+    const providerSubscriptionId = this.expandableId(session.subscription) || intent.providerSubscriptionId
+    const stripeSubscription = await this.retrieveStripeSubscription(providerSubscriptionId)
+
     await this.master.signupIntent.update({
       where: { id: intent.id },
       data: {
         providerSessionId: session.id,
-        providerCustomerId: typeof session.customer === 'string' ? session.customer : intent.providerCustomerId,
-        providerSubscriptionId: typeof session.subscription === 'string' ? session.subscription : intent.providerSubscriptionId
+        providerCustomerId,
+        providerSubscriptionId
       }
     })
 
@@ -611,7 +994,7 @@ export class BillingService {
       where: { id: intent.id },
       data: {
         status: 'PROCESSING',
-        paidAt: new Date()
+        paidAt: session.payment_status === 'paid' ? new Date() : intent.paidAt
       }
     })
 
@@ -633,42 +1016,47 @@ export class BillingService {
     })
 
     const now = new Date()
-    const currentPeriodEnd = (() => {
-      const d = new Date(now)
-      d.setMonth(d.getMonth() + 1)
-      return d
-    })()
+    const status: SubscriptionStatus = stripeSubscription
+      ? this.toInternalSubscriptionStatus(stripeSubscription.status)
+      : session.payment_status === 'paid'
+        ? 'ACTIVE'
+        : 'TRIAL'
+    const currentPeriodEnd = this.stripeSubscriptionPeriodEnd(stripeSubscription)
+    const lastPaymentAt = session.payment_status === 'paid' ? now : null
+    const cancelAtPeriodEnd = Boolean(stripeSubscription?.cancel_at_period_end)
 
     const subscription = await this.master.subscription.upsert({
       where: { tenantId: tenant.id },
       update: {
         plan: intent.plan,
-        status: 'ACTIVE',
+        status,
         priceCents: intent.priceCents,
         currency: intent.currency,
         provider: 'STRIPE',
-        providerCustomerId: typeof session.customer === 'string' ? session.customer : intent.providerCustomerId,
-        providerSubscriptionId: typeof session.subscription === 'string' ? session.subscription : intent.providerSubscriptionId,
+        providerCustomerId,
+        providerSubscriptionId,
         activatedAt: now,
-        lastPaymentAt: now,
+        lastPaymentAt,
         currentPeriodEnd,
         renewsAt: currentPeriodEnd,
-        canceledAt: null
+        canceledAt: null,
+        cancelAtPeriodEnd
       },
       create: {
         tenantId: tenant.id,
         plan: intent.plan,
-        status: 'ACTIVE',
+        status,
         priceCents: intent.priceCents,
         currency: intent.currency,
         provider: 'STRIPE',
-        providerCustomerId: typeof session.customer === 'string' ? session.customer : intent.providerCustomerId,
-        providerSubscriptionId: typeof session.subscription === 'string' ? session.subscription : intent.providerSubscriptionId,
+        providerCustomerId,
+        providerSubscriptionId,
         startedAt: now,
         activatedAt: now,
-        lastPaymentAt: now,
+        lastPaymentAt,
         currentPeriodEnd,
-        renewsAt: currentPeriodEnd
+        renewsAt: currentPeriodEnd,
+        cancelAtPeriodEnd
       }
     })
 
@@ -693,8 +1081,69 @@ export class BillingService {
     return { tenantId: tenant.id, signupIntentId: intent.id }
   }
 
+  /** Confirma no webhook a troca de plano de uma clínica já existente (checkout criado por changeTenantPlan). */
+  private async onPlanChangeCheckoutPaid(session: StripeCheckoutSession) {
+    const tenantId = String(session.metadata.tenantId)
+    const plan = session.metadata.plan as Plan
+    const catalog = PLAN_CATALOG[plan]
+    if (!catalog) {
+      this.log.warn(`plan_change webhook with unknown plan ${plan}`)
+      return { tenantId, signupIntentId: null }
+    }
+
+    const now = new Date()
+    const providerCustomerId = this.expandableId(session.customer)
+    const providerSubscriptionId = this.expandableId(session.subscription)
+    const stripeSubscription = await this.retrieveStripeSubscription(providerSubscriptionId)
+    const status: SubscriptionStatus = stripeSubscription
+      ? this.toInternalSubscriptionStatus(stripeSubscription.status)
+      : session.payment_status === 'paid'
+        ? 'ACTIVE'
+        : 'TRIAL'
+    const currentPeriodEnd = this.stripeSubscriptionPeriodEnd(stripeSubscription)
+    const lastPaymentAt = session.payment_status === 'paid' ? now : null
+    const cancelAtPeriodEnd = Boolean(stripeSubscription?.cancel_at_period_end)
+
+    await this.master.subscription.upsert({
+      where: { tenantId },
+      update: {
+        plan,
+        status,
+        priceCents: catalog.priceCents,
+        currency: catalog.currency,
+        provider: 'STRIPE',
+        providerCustomerId: providerCustomerId || undefined,
+        providerSubscriptionId: providerSubscriptionId || undefined,
+        activatedAt: now,
+        lastPaymentAt,
+        currentPeriodEnd,
+        renewsAt: currentPeriodEnd,
+        canceledAt: null,
+        cancelAtPeriodEnd
+      },
+      create: {
+        tenantId,
+        plan,
+        status,
+        priceCents: catalog.priceCents,
+        currency: catalog.currency,
+        provider: 'STRIPE',
+        providerCustomerId,
+        providerSubscriptionId,
+        startedAt: now,
+        activatedAt: now,
+        lastPaymentAt,
+        currentPeriodEnd,
+        renewsAt: currentPeriodEnd,
+        cancelAtPeriodEnd
+      }
+    })
+
+    return { tenantId, signupIntentId: null }
+  }
+
   private async onInvoicePaid(invoice: StripeInvoice) {
-    const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null
+    const subscriptionId = this.invoiceSubscriptionId(invoice)
     if (!subscriptionId) return { tenantId: null, signupIntentId: null }
 
     const subscription = await this.master.subscription.findFirst({
@@ -703,16 +1152,25 @@ export class BillingService {
     })
     if (!subscription) return { tenantId: null, signupIntentId: null }
 
-    const periodEndFromLine = invoice.lines.data[0]?.period?.end
-    const currentPeriodEnd = asIsoOrNull(periodEndFromLine) || subscription.currentPeriodEnd || null
+    const stripeSubscription = await this.retrieveStripeSubscription(subscriptionId)
+    const periodEndFromLine = invoice.lines?.data?.[0]?.period?.end
+    const currentPeriodEnd =
+      this.stripeSubscriptionPeriodEnd(stripeSubscription) ||
+      asIsoOrNull(periodEndFromLine) ||
+      subscription.currentPeriodEnd ||
+      null
+    const status = stripeSubscription
+      ? this.toInternalSubscriptionStatus(stripeSubscription.status)
+      : 'ACTIVE'
 
     await this.master.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: 'ACTIVE',
-        lastPaymentAt: new Date(),
+        status,
+        lastPaymentAt: Number(invoice.amount_paid || 0) > 0 ? new Date() : subscription.lastPaymentAt,
         currentPeriodEnd,
-        renewsAt: currentPeriodEnd
+        renewsAt: currentPeriodEnd,
+        cancelAtPeriodEnd: Boolean(stripeSubscription?.cancel_at_period_end)
       }
     })
 
@@ -720,7 +1178,7 @@ export class BillingService {
   }
 
   private async onInvoicePaymentFailed(invoice: StripeInvoice) {
-    const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null
+    const subscriptionId = this.invoiceSubscriptionId(invoice)
     if (!subscriptionId) return { tenantId: null, signupIntentId: null }
 
     const subscription = await this.master.subscription.findFirst({
@@ -766,13 +1224,19 @@ export class BillingService {
     const status = this.toInternalSubscriptionStatus(stripeSubscription.status)
     const currentPeriodEnd = asIsoOrNull(stripeSubscription.current_period_end)
     const canceledAt = asIsoOrNull(stripeSubscription.canceled_at)
+    const mappedPlan = this.planFromStripeSubscription(stripeSubscription)
+    const mappedCatalog = mappedPlan ? PLAN_CATALOG[mappedPlan] : null
 
     await this.master.subscription.update({
       where: { id: subscription.id },
       data: {
+        ...(mappedPlan && mappedCatalog
+          ? { plan: mappedPlan, priceCents: mappedCatalog.priceCents, currency: mappedCatalog.currency }
+          : {}),
         status,
-        currentPeriodEnd: currentPeriodEnd || subscription.currentPeriodEnd,
-        renewsAt: currentPeriodEnd || subscription.renewsAt,
+        currentPeriodEnd: currentPeriodEnd || this.stripeSubscriptionPeriodEnd(stripeSubscription) || subscription.currentPeriodEnd,
+        renewsAt: currentPeriodEnd || this.stripeSubscriptionPeriodEnd(stripeSubscription) || subscription.renewsAt,
+        cancelAtPeriodEnd: Boolean(stripeSubscription.cancel_at_period_end),
         canceledAt:
           status === 'CANCELED'
             ? canceledAt || new Date()
@@ -796,6 +1260,70 @@ export class BillingService {
     }
 
     return { tenantId: subscription.tenantId, signupIntentId: relatedIntent?.id || null }
+  }
+
+  async createPortalSession(tenantId: string) {
+    const subscription = await this.master.subscription.findUnique({ where: { tenantId } })
+    if (!subscription?.providerCustomerId) {
+      throw new BadRequestException('Esta assinatura ainda não possui uma cobrança vinculada.')
+    }
+    const stripe = this.getStripeClient()
+    if (!stripe) throw new ServiceUnavailableException('Pagamentos temporariamente indisponíveis.')
+
+    try {
+      const session = await stripe.billingPortal.sessions.create({
+        customer: subscription.providerCustomerId,
+        return_url: `${this.getAppBaseUrl()}/app/billing`
+      })
+      return { redirect: session.url }
+    } catch (error) {
+      this.log.error({ err: error }, 'failed to create Stripe customer portal session')
+      throw new ServiceUnavailableException('Não foi possível abrir o portal de pagamento agora.')
+    }
+  }
+
+  async cancelTenantSubscription(tenantId: string) {
+    const subscription = await this.master.subscription.findUnique({ where: { tenantId } })
+    if (!subscription) throw new NotFoundException('Assinatura não encontrada.')
+    if (subscription.cancelAtPeriodEnd) {
+      return { ok: true, message: 'A renovação desta assinatura já está cancelada.' }
+    }
+
+    if (subscription.provider !== 'STRIPE' || !subscription.providerSubscriptionId) {
+      await this.master.subscription.update({
+        where: { tenantId },
+        data: { status: 'CANCELED', canceledAt: new Date(), cancelAtPeriodEnd: false }
+      })
+      return { ok: true, message: 'Assinatura cancelada.' }
+    }
+
+    const stripe = this.getStripeClient()
+    if (!stripe) throw new ServiceUnavailableException('Pagamentos temporariamente indisponíveis.')
+    try {
+      const updated = await stripe.subscriptions.update(subscription.providerSubscriptionId, {
+        cancel_at_period_end: true
+      })
+      const currentPeriodEnd = this.stripeSubscriptionPeriodEnd(updated as StripeSubscription)
+      await this.master.subscription.update({
+        where: { tenantId },
+        data: {
+          status: this.toInternalSubscriptionStatus(updated.status),
+          cancelAtPeriodEnd: true,
+          currentPeriodEnd: currentPeriodEnd || subscription.currentPeriodEnd,
+          renewsAt: currentPeriodEnd || subscription.renewsAt,
+          canceledAt: null
+        }
+      })
+      return {
+        ok: true,
+        message: currentPeriodEnd
+          ? `Renovação cancelada. O acesso permanece ativo até ${currentPeriodEnd.toLocaleDateString('pt-BR')}.`
+          : 'Renovação cancelada. O acesso permanece ativo até o fim do período contratado.'
+      }
+    } catch (error) {
+      this.log.error({ err: error }, 'failed to schedule Stripe subscription cancellation')
+      throw new ServiceUnavailableException('Não foi possível cancelar a renovação agora. Tente novamente.')
+    }
   }
 
   async listPaymentEvents(tenantId?: string) {

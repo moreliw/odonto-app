@@ -5,10 +5,9 @@ import { Router, RouterLink } from '@angular/router'
 import { MasterAdminService } from '../../services/master-admin.service'
 
 @Component({
-  selector: 'app-master-login',
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
-  template: `
+    selector: 'app-master-login',
+    imports: [CommonModule, FormsModule, RouterLink],
+    template: `
     <div style="min-height:100vh;background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f172a 100%);display:flex;align-items:center;justify-content:center;padding:24px;">
       <div style="width:100%;max-width:400px;">
         <div style="text-align:center;margin-bottom:40px;">
@@ -51,7 +50,7 @@ import { MasterAdminService } from '../../services/master-admin.service'
                   required
                   style="background:#0f172a;border-color:#334155;color:#f8fafc;padding-right:42px;"
                 />
-                <button type="button" class="input-action" style="color:#64748b;" (click)="showPwd = !showPwd">
+                <button type="button" class="input-action" style="color:#94a3b8;" (click)="showPwd = !showPwd">
                   @if (showPwd) {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                   } @else {
@@ -68,7 +67,7 @@ import { MasterAdminService } from '../../services/master-admin.service'
 
           <div style="margin-top:20px;padding-top:20px;border-top:1px solid #334155;">
             <p style="margin:0 0 10px;font-size:13px;color:#94a3b8;font-weight:600;">Nova empresa na plataforma</p>
-            <p style="margin:0 0 14px;font-size:12px;color:#64748b;line-height:1.5;">
+            <p style="margin:0 0 14px;font-size:12px;color:#cbd5e1;line-height:1.5;">
               Cadastre uma clínica com banco isolado e administrador. Depois você gerencia plano e cobrança no painel, em Empresas.
             </p>
             <a
@@ -77,13 +76,13 @@ import { MasterAdminService } from '../../services/master-admin.service'
             >
               Cadastrar nova empresa (clínica)
             </a>
-            <p style="margin:12px 0 0;font-size:11px;color:#475569;text-align:center;line-height:1.4;">
+            <p style="margin:12px 0 0;font-size:11px;color:#94a3b8;text-align:center;line-height:1.4;">
               Você será redirecionado ao cadastro público. Com o painel master aberto, use também <strong>Visão geral → Nova empresa</strong>.
             </p>
           </div>
         </div>
 
-        <p style="text-align:center;margin-top:24px;font-size:12px;color:#475569;">
+        <p style="text-align:center;margin-top:24px;font-size:12px;color:#94a3b8;">
           Acesso exclusivo para administradores do sistema
         </p>
       </div>

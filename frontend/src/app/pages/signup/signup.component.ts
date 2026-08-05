@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http'
 import { ActivatedRoute, RouterLink } from '@angular/router'
 
 type Plan = {
-  code: 'FREE' | 'BASIC' | 'PRO'
+  code: 'FREE' | 'BASIC' | 'PRO' | 'CLINIC'
   name: string
   priceCents: number
   currency: string
@@ -14,10 +14,9 @@ type Plan = {
 }
 
 @Component({
-  selector: 'app-signup',
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
-  template: `
+    selector: 'app-signup',
+    imports: [CommonModule, FormsModule, RouterLink],
+    template: `
     <div class="signup-flow">
       <div class="signup-panel card">
         <div class="signup-panel-head">
@@ -53,14 +52,51 @@ type Plan = {
             </div>
           </div>
 
+          <div class="form-group">
+            <label>E-mail do administrador *</label>
+            <input class="input" [(ngModel)]="adminEmail" name="adminEmail" type="email" placeholder="admin@clinica.com" required />
+          </div>
+
           <div class="grid cols-2">
             <div class="form-group">
-              <label>E-mail do administrador *</label>
-              <input class="input" [(ngModel)]="adminEmail" name="adminEmail" type="email" placeholder="admin@clinica.com" required />
+              <label>Senha *</label>
+              <div class="input-wrapper">
+                <input
+                  class="input"
+                  [(ngModel)]="adminPassword"
+                  name="adminPassword"
+                  [type]="showPwd ? 'text' : 'password'"
+                  minlength="8"
+                  required
+                  style="padding-right:42px;"
+                  placeholder="Mínimo 8 caracteres"
+                />
+                <button type="button" class="input-action" (click)="showPwd = !showPwd" [attr.aria-label]="showPwd ? 'Ocultar senha' : 'Mostrar senha'">
+                  @if (showPwd) {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  } @else {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
+                </button>
+              </div>
             </div>
             <div class="form-group">
-              <label>Senha *</label>
-              <input class="input" [(ngModel)]="adminPassword" name="adminPassword" type="password" minlength="8" required />
+              <label>Confirmar senha *</label>
+              <div class="input-wrapper">
+                <input
+                  class="input"
+                  [(ngModel)]="adminPasswordConfirm"
+                  name="adminPasswordConfirm"
+                  [type]="showPwd ? 'text' : 'password'"
+                  minlength="8"
+                  required
+                  style="padding-right:42px;"
+                  placeholder="Repita a senha"
+                />
+              </div>
+              @if (adminPasswordConfirm && adminPassword !== adminPasswordConfirm) {
+                <small style="color:var(--danger-text);">As senhas não coincidem.</small>
+              }
             </div>
           </div>
 
@@ -100,22 +136,33 @@ export class SignupComponent implements OnInit {
   subdomain = ''
   adminEmail = ''
   adminPassword = ''
-  plan: 'FREE' | 'BASIC' | 'PRO' = 'BASIC'
+  adminPasswordConfirm = ''
+  showPwd = false
+  plan: 'FREE' | 'BASIC' | 'PRO' | 'CLINIC' = 'BASIC'
+  /** Fallback exibido só se /api/public/plans falhar. Espelha o PLAN_CATALOG do backend. */
   plans: Plan[] = [
     {
       code: 'BASIC',
-      name: 'Basic',
+      name: 'Essencial',
       priceCents: 12900,
       currency: 'BRL',
-      description: 'Ideal para clínicas em crescimento.',
+      description: 'Para profissionais autônomos e consultórios menores.',
       features: []
     },
     {
       code: 'PRO',
-      name: 'Pro',
+      name: 'Profissional',
       priceCents: 27900,
       currency: 'BRL',
-      description: 'Operação completa para escalar.',
+      description: 'Para consultórios e clínicas que trabalham com equipe.',
+      features: []
+    },
+    {
+      code: 'CLINIC',
+      name: 'Clínica',
+      priceCents: 44900,
+      currency: 'BRL',
+      description: 'Para clínicas com vários profissionais e volume alto de atendimento.',
       features: []
     }
   ]
@@ -145,6 +192,11 @@ export class SignupComponent implements OnInit {
 
   submit() {
     this.message = ''
+    if (this.adminPassword !== this.adminPasswordConfirm) {
+      this.success = false
+      this.message = 'As senhas não coincidem.'
+      return
+    }
     this.saving = true
     this.http
       .post<{ checkoutUrl: string }>('/api/public/billing/checkout-session', {

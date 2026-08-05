@@ -6,11 +6,26 @@ import { throwError } from "rxjs";
 import { AuthService } from "./auth.service";
 import { MasterAdminService } from "./master-admin.service";
 
+/**
+ * Domínios em que o app roda sem subdomínio de tenant real (produção não tem
+ * DNS curinga para *.odontoapp.morelidev.com hoje). Sem essa lista, o host
+ * "odontoapp.morelidev.com" (3 rótulos) era lido como subdomínio "odontoapp",
+ * um tenant que não existe — todo request autenticado voltava 404 "Tenant not
+ * found" mesmo com o tenant certo salvo no localStorage.
+ */
+const APP_BASE_HOSTS = [
+  "odontoapp.morelidev.com",
+  "odontoapp-dev.morelidev.com",
+  "localhost",
+];
+
 function subdomainFromHost(host: string) {
-  const h = host.split(":")[0];
-  const parts = h.split(".");
-  if (parts.length < 3) return "";
-  return parts[0];
+  const h = host.split(":")[0].toLowerCase();
+  for (const base of APP_BASE_HOSTS) {
+    if (h === base) return "";
+    if (h.endsWith("." + base)) return h.slice(0, h.length - base.length - 1).split(".")[0];
+  }
+  return "";
 }
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
@@ -79,8 +94,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         if (typeof sessionStorage !== "undefined" && msg) {
           sessionStorage.setItem("authBlockedMessage", String(msg));
         }
-        auth.logout();
-        router.navigateByUrl("/login");
+        if (!req.url.includes("/api/billing")) {
+          router.navigateByUrl("/app/billing");
+        }
         return throwError(() => err);
       }
       if (

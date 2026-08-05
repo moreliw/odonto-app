@@ -6,10 +6,9 @@ import { RouterLink } from '@angular/router'
 import { ToastService } from '../../services/toast.service'
 
 @Component({
-  selector: 'app-master-overview',
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
-  template: `
+    selector: 'app-master-overview',
+    imports: [CommonModule, FormsModule, RouterLink],
+    template: `
     <div class="dashboard-page">
       <div class="page-header">
         <div class="page-header-left">

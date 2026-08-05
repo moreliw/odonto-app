@@ -13,6 +13,7 @@ enum Plan {
   FREE
   BASIC
   PRO
+  CLINIC
 }
 
 enum SubscriptionStatus {
@@ -80,6 +81,7 @@ model Subscription {
   currentPeriodEnd DateTime?
   renewsAt     DateTime?
   canceledAt   DateTime?
+  cancelAtPeriodEnd Boolean             @default(false)
 }
 
 model SignupIntent {
@@ -122,6 +124,7 @@ model PaymentEvent {
   type           String
   livemode       Boolean         @default(false)
   status         String          @default("RECEIVED")
+  attemptCount   Int             @default(1)
   payload        Json
   error          String?
   receivedAt     DateTime        @default(now())

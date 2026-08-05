@@ -60,9 +60,9 @@ export class AuthService {
     }
   }
 
-  private async validateUserWithPrisma(prisma: TenantPrisma, identifier: string, password: string) {
+  private async findUserWithPrisma(prisma: TenantPrisma, identifier: string) {
     const normalized = identifier.trim()
-    if (!normalized || !password) throw new UnauthorizedException('Credenciais inválidas')
+    if (!normalized) return null
     const useSqlite = process.env.DEV_SQLITE === 'true'
     type UserRow = {
       id: string
@@ -72,7 +72,6 @@ export class AuthService {
       passwordHash: string
       role: string
     }
-    let user: UserRow | null = null
     if (useSqlite) {
       const u = await prisma.user.findFirst({
         where: isEmailIdentifier(normalized)
@@ -84,7 +83,7 @@ export class AuthService {
               ]
             }
       })
-      user = u
+      return u
         ? {
             id: u.id,
             username: u.username,
@@ -94,17 +93,22 @@ export class AuthService {
             role: typeof u.role === 'string' ? u.role : String(u.role)
           }
         : null
-    } else if (isEmailIdentifier(normalized)) {
+    }
+    if (isEmailIdentifier(normalized)) {
       const rows = await prisma.$queryRaw<UserRow[]>(
         Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role FROM "User" WHERE LOWER(email) = LOWER(${normalized}) LIMIT 1`
       )
-      user = rows[0] ?? null
-    } else {
-      const rows = await prisma.$queryRaw<UserRow[]>(
-        Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role FROM "User" WHERE LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized}) LIMIT 1`
-      )
-      user = rows[0] ?? null
+      return rows[0] ?? null
     }
+    const rows = await prisma.$queryRaw<UserRow[]>(
+      Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role FROM "User" WHERE LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized}) LIMIT 1`
+    )
+    return rows[0] ?? null
+  }
+
+  private async validateUserWithPrisma(prisma: TenantPrisma, identifier: string, password: string) {
+    if (!identifier.trim() || !password) throw new UnauthorizedException('Credenciais inválidas')
+    const user = await this.findUserWithPrisma(prisma, identifier)
     if (!user) throw new UnauthorizedException('Credenciais inválidas')
     try {
       const ok = await argon2.verify(user.passwordHash, password)
@@ -114,6 +118,23 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas')
     }
     return user
+  }
+
+  /**
+   * Emite tokens sem checar senha. Só deve ser chamado logo após o próprio
+   * backend criar a conta (fluxo de ativação de assinatura) — nunca a partir
+   * de um identificador vindo do usuário, já que não há verificação de posse
+   * da conta aqui.
+   */
+  async issueTokensForNewAccount(connectionString: string, email: string) {
+    const prisma = new TenantPrisma({ datasources: { db: { url: connectionString } } })
+    try {
+      const user = await this.findUserWithPrisma(prisma, email)
+      if (!user) throw new UnauthorizedException('Conta não encontrada após provisionamento')
+      return await this.issueTokensAndPersistRefresh(prisma, user)
+    } finally {
+      await prisma.$disconnect().catch(() => undefined)
+    }
   }
 
   private async issueTokensAndPersistRefresh(

@@ -6,21 +6,20 @@ import { DonutSlice } from '../../models/analytics.model'
 Chart.register(DoughnutController, ArcElement, Tooltip)
 
 @Component({
-  selector: 'app-donut-chart',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
+    selector: 'app-donut-chart',
+    imports: [CommonModule],
+    template: `
     <article class="card chart-card donut-wrap">
       <div class="chart-title-row">
-        <h2>Status financeiro</h2>
-        <span class="muted">Distribuição atual</span>
+        <h2>{{ title }}</h2>
+        <span class="muted">{{ subtitle }}</span>
       </div>
       <canvas #canvas></canvas>
       <div class="donut-legend">
         <div *ngFor="let item of slices" class="legend-item">
           <span class="legend-dot" [style.background]="item.color"></span>
           <span>{{item.label}}</span>
-          <strong>{{item.value}}%</strong>
+          <strong>{{item.value}}{{ valueSuffix }}</strong>
         </div>
       </div>
     </article>
@@ -28,6 +27,10 @@ Chart.register(DoughnutController, ArcElement, Tooltip)
 })
 export class DonutChartComponent implements AfterViewInit, OnChanges {
   @Input() slices: DonutSlice[] = []
+  @Input() title = 'Distribuição'
+  @Input() subtitle = ''
+  /** '%' quando os valores já vierem em percentual; '' quando forem contagens brutas. */
+  @Input() valueSuffix = '%'
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>
   private chart: Chart | null = null
 

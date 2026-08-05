@@ -12,6 +12,7 @@ datasource db {
 enum Role {
   ADMIN
   USER
+  DENTIST
 }
 
 enum AppointmentStatus {
@@ -36,12 +37,13 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   refreshTokens RefreshToken[]
+  appointments  Appointment[] @relation("DentistAppointments")
 }
 
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -66,12 +68,16 @@ model Appointment {
   id         String             @id @default(uuid())
   patient    Patient            @relation(fields: [patientId], references: [id])
   patientId  String
+  dentist    User?              @relation("DentistAppointments", fields: [dentistId], references: [id], onDelete: SetNull)
+  dentistId  String?
   startTime  DateTime
   endTime    DateTime
   status     AppointmentStatus  @default(SCHEDULED)
   notes      String?
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
+
+  @@index([dentistId])
 }
 
 model Record {

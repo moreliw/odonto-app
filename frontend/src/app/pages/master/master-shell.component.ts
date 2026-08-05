@@ -4,10 +4,9 @@ import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/rou
 import { MasterAdminService } from '../../services/master-admin.service'
 
 @Component({
-  selector: 'app-master-shell',
-  standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
-  template: `
+    selector: 'app-master-shell',
+    imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+    template: `
     <div class="layout" [class.collapsed]="collapsed">
       <aside class="sidebar" role="navigation" aria-label="Menu super admin">
         <div class="sidebar-header">

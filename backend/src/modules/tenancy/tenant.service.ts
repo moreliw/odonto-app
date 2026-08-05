@@ -7,14 +7,18 @@ export class TenantService {
   constructor(private readonly master: MasterPrismaService) {}
 
   async findBySubdomain(subdomain: string) {
-    const t = await this.master.tenant.findUnique({ where: { subdomain } })
+    const t = await this.master.tenant.findUnique({
+      where: { subdomain },
+      include: { subscription: { select: { plan: true } } }
+    })
     if (!t) return null
+    const plan = t.subscription?.plan ?? null
     if (process.env.DEV_SQLITE === 'true') {
       const url = `file:./prisma/dev-${t.slug}.db`
-      return { subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url }
+      return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan }
     }
     const url = `postgresql://${encodeURIComponent(t.dbUser)}:${encodeURIComponent(t.dbPassword)}@${t.dbHost}:${t.dbPort}/${t.dbName}?schema=public`
-    return { subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url }
+    return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan }
   }
 
   async getAccessPolicyBySubdomain(subdomain: string) {

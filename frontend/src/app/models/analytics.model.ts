@@ -4,8 +4,9 @@ export interface KpiMetric {
   id: string
   title: string
   value: string
+  /** Legenda curta abaixo do valor. Sem `trend`, é exibida sem seta de comparação — use quando não há um período anterior real para comparar. */
   delta: string
-  trend: TrendDirection
+  trend?: TrendDirection
 }
 
 export interface ChartPoint {
@@ -17,20 +18,4 @@ export interface DonutSlice {
   label: string
   value: number
   color: string
-}
-
-export interface HeatmapCell {
-  day: string
-  hour: string
-  intensity: number
-}
-
-export interface RevenueRow {
-  id: string
-  patient: string
-  procedure: string
-  doctor: string
-  status: 'PAGO' | 'PENDENTE' | 'ATRASADO'
-  amount: number
-  date: string
 }

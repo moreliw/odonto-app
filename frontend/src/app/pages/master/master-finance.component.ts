@@ -5,10 +5,9 @@ import { HttpClient } from '@angular/common/http'
 const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAST_DUE: 'late', CANCELED: 'neutral' }
 
 @Component({
-  selector: 'app-master-finance',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
+    selector: 'app-master-finance',
+    imports: [CommonModule],
+    template: `
     <div class="dashboard-page">
       <div class="page-header">
         <div class="page-header-left">

@@ -22,10 +22,9 @@ type PaymentEventRow = {
 const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', TRIAL: 'pending', PAST_DUE: 'late', CANCELED: 'neutral' }
 
 @Component({
-  selector: 'app-master-companies',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
+    selector: 'app-master-companies',
+    imports: [CommonModule, FormsModule],
+    template: `
     <div class="dashboard-page">
       <div class="page-header">
         <div class="page-header-left">
@@ -134,8 +133,9 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
                 <label>Plano</label>
                 <select class="select" [(ngModel)]="editForm.plan" name="e_plan">
                   <option value="FREE">FREE</option>
-                  <option value="BASIC">BASIC</option>
-                  <option value="PRO">PRO</option>
+                  <option value="BASIC">BASIC (Essencial)</option>
+                  <option value="PRO">PRO (Profissional)</option>
+                  <option value="CLINIC">CLINIC (Clínica)</option>
                 </select>
               </div>
               <div class="form-group">

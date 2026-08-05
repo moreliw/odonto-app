@@ -8,10 +8,9 @@ type Patient = { id: string; name: string; email?: string }
 type PatientRecord = { id: string; patientId: string; content: any; createdAt: string }
 
 @Component({
-  selector: 'app-records',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
+    selector: 'app-records',
+    imports: [CommonModule, FormsModule],
+    template: `
     <div>
       <div class="page-header">
         <div class="page-header-left">

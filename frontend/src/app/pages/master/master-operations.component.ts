@@ -3,10 +3,9 @@ import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
 
 @Component({
-  selector: 'app-master-operations',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
+    selector: 'app-master-operations',
+    imports: [CommonModule],
+    template: `
     <div class="dashboard-page">
       <div class="page-header">
         <div class="page-header-left">

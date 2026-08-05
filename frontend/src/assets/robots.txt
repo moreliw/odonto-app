@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /$
+Allow: /signup
+Disallow: /app/
+Disallow: /admin/
+Disallow: /login
+
+Sitemap: https://odontoapp.morelidev.com/sitemap.xml

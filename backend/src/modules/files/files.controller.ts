@@ -1,7 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common'
 import { S3Service } from './s3.service'
 import { AuthGuard } from '@nestjs/passport'
-import { IsOptional, IsString } from 'class-validator'
+import { IsString } from 'class-validator'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 
 class PresignDto {

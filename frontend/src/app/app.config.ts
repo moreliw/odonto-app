@@ -6,6 +6,9 @@ import { DashboardComponent } from './pages/dashboard/dashboard.component'
 import { PatientsComponent } from './pages/patients/patients.component'
 import { AppointmentsComponent } from './pages/appointments/appointments.component'
 import { RecordsComponent } from './pages/records/records.component'
+import { TeamComponent } from './pages/team/team.component'
+import { BillingComponent } from './pages/billing/billing.component'
+import { AuthService } from './services/auth.service'
 import { SignupComponent } from './pages/signup/signup.component'
 import { SignupSuccessComponent } from './pages/signup/signup-success.component'
 import { LandingComponent } from './pages/landing/landing.component'
@@ -46,6 +49,13 @@ const masterGuestGuard = () => {
   return token ? router.parseUrl('/admin/dashboard') : true
 }
 
+/** Área de gestão da equipe (cadastrar/editar dentistas) — só o administrador da clínica. */
+const adminOnlyGuard = () => {
+  const router = inject(Router)
+  const auth = inject(AuthService)
+  return auth.isAdmin() ? true : router.parseUrl('/app')
+}
+
 export const routes: Routes = [
   { path: '', component: LandingComponent },
   { path: 'signup', component: SignupComponent, canActivate: [guestGuard] },
@@ -76,7 +86,9 @@ export const routes: Routes = [
       { path: '', component: DashboardComponent },
       { path: 'patients', component: PatientsComponent },
       { path: 'appointments', component: AppointmentsComponent },
-      { path: 'records', component: RecordsComponent }
+      { path: 'records', component: RecordsComponent },
+      { path: 'team', component: TeamComponent, canActivate: [adminOnlyGuard] },
+      { path: 'billing', component: BillingComponent, canActivate: [adminOnlyGuard] }
     ]
   },
   { path: 'patients', redirectTo: '/app/patients', pathMatch: 'full' },

@@ -29,7 +29,7 @@ export class S3Service {
     return S3Service.sharedClient
   }
 
-  async presignPut(contentType: string) {
+  async presignPut(_contentType: string) {
     const ctx = this.req.tenantContext ?? RequestContext.get()
     if (!ctx) throw new Error('No tenant context')
     const key = `${ctx.slug}/${randomUUID()}`

@@ -3,11 +3,23 @@ import { Request, Response, NextFunction } from 'express'
 import { TenantService } from './tenant.service'
 import { RequestContext } from './request-context'
 
+/**
+ * Sem DNS curinga para *.PUBLIC_DOMAIN em produção, o domínio base
+ * (ex.: odontoapp.morelidev.com) tem 3 rótulos — o mesmo formato de um
+ * subdomínio real. Sem essa checagem, extractSubdomain('odontoapp.morelidev.com')
+ * devolvia 'odontoapp', que não é um tenant e derrubava toda a API com
+ * 404 "Tenant not found". Na prática o header x-tenant (enviado pelo
+ * frontend a partir do localStorage) sempre tem prioridade; isto é
+ * defesa em profundidade para chamadas diretas à API sem esse header.
+ */
 function extractSubdomain(host: string) {
-  const h = host.split(':')[0]
-  const parts = h.split('.')
-  if (parts.length < 3) return ''
-  return parts[0]
+  const h = host.split(':')[0].toLowerCase()
+  const bases = [process.env.PUBLIC_DOMAIN?.trim().toLowerCase(), 'localhost'].filter(Boolean) as string[]
+  for (const base of bases) {
+    if (h === base) return ''
+    if (h.endsWith('.' + base)) return h.slice(0, h.length - base.length - 1).split('.')[0]
+  }
+  return ''
 }
 
 @Injectable()
@@ -27,6 +39,10 @@ export class TenantResolverMiddleware implements NestMiddleware {
     if (!tenant) return res.status(404).send({ message: 'Tenant not found' })
     const policy = await this.tenants.getAccessPolicyBySubdomain(subdomain)
     if (!policy.allowed) {
+      if (url.startsWith('/api/billing') || url.startsWith('/api/auth/refresh')) {
+        req.tenantContext = tenant
+        return RequestContext.run(tenant, () => next())
+      }
       const msg =
         policy.status === 'PAST_DUE'
           ? 'Assinatura em atraso. Regularize o pagamento para continuar.'

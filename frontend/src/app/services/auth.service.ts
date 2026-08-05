@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core'
 import { HttpClient } from '@angular/common/http'
 import { BehaviorSubject, of, tap } from 'rxjs'
 
-type User = { id: string; username?: string | null; email: string; name: string; role: 'ADMIN' | 'USER' }
+export type User = { id: string; username?: string | null; email: string; name: string; role: 'ADMIN' | 'USER' | 'DENTIST' }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -31,6 +31,17 @@ export class AuthService {
       })
     )
   }
+  /** Usado pelo login automático após o cadastro: mesma persistência do login manual, sem chamar a API de novo. */
+  setSession(res: { accessToken: string; refreshToken: string; user: User; tenant?: string }) {
+    this.accessToken$.next(res.accessToken)
+    this.refreshToken = res.refreshToken
+    this.user$.next(res.user)
+    localStorage.setItem('accessToken', res.accessToken)
+    localStorage.setItem('refreshToken', res.refreshToken)
+    localStorage.setItem('user', JSON.stringify(res.user))
+    if (res.tenant) localStorage.setItem('tenant', res.tenant)
+  }
+
   getAccessToken() {
     return this.accessToken$.value
   }
@@ -47,6 +58,12 @@ export class AuthService {
   }
   getUser() {
     return this.user$.value
+  }
+  isAdmin() {
+    return this.user$.value?.role === 'ADMIN'
+  }
+  isDentist() {
+    return this.user$.value?.role === 'DENTIST'
   }
   logout() {
     this.accessToken$.next(null)

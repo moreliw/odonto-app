@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common'
 import { PublicService } from './public.service'
 import { IsEmail, IsEnum, IsString, MinLength, MaxLength } from 'class-validator'
+import { Throttle } from '@nestjs/throttler'
 
 class SignupDto {
   @IsString()
@@ -38,6 +39,7 @@ export class SignupController {
     return this.service.signup(dto)
   }
   @Post('login')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   login(@Body() dto: PublicLoginDto) {
     return this.service.loginByIdentifier(dto.identifier, dto.password)
   }

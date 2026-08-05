@@ -313,7 +313,8 @@ export class MasterAdminService implements OnModuleInit {
     const byPlan = {
       FREE: subscriptions.filter(item => item.plan === 'FREE').length,
       BASIC: subscriptions.filter(item => item.plan === 'BASIC').length,
-      PRO: subscriptions.filter(item => item.plan === 'PRO').length
+      PRO: subscriptions.filter(item => item.plan === 'PRO').length,
+      CLINIC: subscriptions.filter(item => item.plan === 'CLINIC').length
     }
     const byStatus = {
       PENDING: subscriptions.filter(item => item.status === 'PENDING').length,

@@ -4,6 +4,7 @@ import { IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength 
 import { Type } from 'class-transformer'
 import { Plan, SubscriptionStatus } from '@prisma/client-master'
 import { MasterAdminGuard } from './master-admin.guard'
+import { Throttle } from '@nestjs/throttler'
 
 class MasterLoginDto {
   @IsEmail()
@@ -24,7 +25,7 @@ class CreateClinicDto {
   @IsString()
   @MinLength(8)
   adminPassword: string
-  @IsEnum(['FREE', 'BASIC', 'PRO'] as any)
+  @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
   plan: Plan
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -44,7 +45,7 @@ class UpdateClinicDto {
   @IsString()
   internalNotes?: string | null
   @IsOptional()
-  @IsEnum(['FREE', 'BASIC', 'PRO'] as any)
+  @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
   plan?: Plan
   @IsOptional()
   @IsEnum(['PENDING', 'TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED'] as any)
@@ -84,6 +85,7 @@ export class MasterAdminController {
   constructor(private readonly service: MasterAdminService) {}
 
   @Post('auth/login')
+  @Throttle({ default: { ttl: 60_000, limit: 8 } })
   login(@Body() dto: MasterLoginDto) {
     return this.service.login(dto.email, dto.password)
   }
