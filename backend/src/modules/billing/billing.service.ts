@@ -744,11 +744,21 @@ export class BillingService {
         const itemId = stripeSub.items.data[0]?.id
         if (!itemId) throw new Error('Assinatura sem item de cobrança no Stripe.')
         const priceId = await this.resolvePriceId(stripe, target)
+
+        // O Stripe não aceita cancel_at_period_end junto de
+        // payment_behavior=pending_if_incomplete. Se o cliente havia cancelado
+        // a renovação, a escolha explícita de outro plano primeiro reativa a
+        // assinatura e só então troca o preço.
+        if (stripeSub.cancel_at_period_end) {
+          await stripe.subscriptions.update(subscription.providerSubscriptionId, {
+            cancel_at_period_end: false
+          })
+        }
+
         const updated = await stripe.subscriptions.update(subscription.providerSubscriptionId, {
           items: [{ id: itemId, price: priceId }],
           payment_behavior: 'pending_if_incomplete',
           proration_behavior: 'always_invoice',
-          cancel_at_period_end: false,
           metadata: { ...stripeSub.metadata, plan: targetPlanCode, tenantId },
           expand: ['latest_invoice']
         })
@@ -765,7 +775,8 @@ export class BillingService {
         await this.onSubscriptionUpdated(updated as StripeSubscription)
         return { ok: true, message: `Plano alterado para ${target.name}.` }
       } catch (error) {
-        this.log.error({ err: error }, 'failed to update stripe subscription price')
+        const detail = error instanceof Error ? error.message : String(error)
+        this.log.error(`failed to update stripe subscription price: ${detail}`, error instanceof Error ? error.stack : undefined)
         throw new ServiceUnavailableException('Não foi possível alterar o plano agora. Tente novamente em instantes.')
       }
     }
