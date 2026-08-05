@@ -16,6 +16,7 @@ import { TenantResolverMiddleware } from './tenancy/tenant-resolver.middleware'
 import { DashboardModule } from './dashboard/dashboard.module'
 import { MasterAdminModule } from './master-admin/master-admin.module'
 import { BillingModule } from './billing/billing.module'
+import { HealthController } from '../health.controller'
 
 @Module({
   imports: [
@@ -42,10 +43,11 @@ import { BillingModule } from './billing/billing.module'
     MasterAdminModule,
     BillingModule
   ],
+  controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }]
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantResolverMiddleware).forRoutes('*')
+    consumer.apply(TenantResolverMiddleware).forRoutes('*splat')
   }
 }
