@@ -1824,6 +1824,7 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   .mobile-more-sheet nav .mobile-more-logout { color: var(--danger-text); }
 
   .dashboard-page { gap: 14px; }
+  .dashboard-page > * { min-width: 0; }
   .dashboard-page > .page-header { display: none; }
   .dashboard-mobile-hero {
     position: relative;
@@ -1850,6 +1851,7 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
     border-radius: 50%;
     pointer-events: none;
   }
+  .dashboard-mobile-hero > div:first-child { min-width: 0; }
   .dashboard-mobile-eyebrow {
     display: block;
     margin-bottom: 6px;
