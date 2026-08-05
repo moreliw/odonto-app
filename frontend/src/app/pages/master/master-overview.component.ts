@@ -5,6 +5,15 @@ import { HttpClient } from '@angular/common/http'
 import { RouterLink } from '@angular/router'
 import { ToastService } from '../../services/toast.service'
 
+type MasterPlan = 'FREE' | 'BASIC' | 'PRO' | 'CLINIC'
+
+const PLAN_PRICE_BRL: Record<MasterPlan, number> = {
+  FREE: 0,
+  BASIC: 129,
+  PRO: 279,
+  CLINIC: 449
+}
+
 @Component({
     selector: 'app-master-overview',
     imports: [CommonModule, FormsModule, RouterLink],
@@ -74,27 +83,45 @@ import { ToastService } from '../../services/toast.service'
               <label>Subdomínio <span class="muted" style="font-weight:400;">(opcional)</span></label>
               <input class="input" [(ngModel)]="form.subdomain" name="subdomain" placeholder="clinica-nome" />
             </div>
+            <div class="form-group">
+              <label>E-mail do admin *</label>
+              <input class="input" [(ngModel)]="form.adminEmail" name="adminEmail" type="email" required />
+            </div>
             <div class="grid cols-2">
               <div class="form-group">
-                <label>E-mail do admin *</label>
-                <input class="input" [(ngModel)]="form.adminEmail" name="adminEmail" type="email" required />
+                <label>Senha inicial *</label>
+                <div class="input-wrapper">
+                  <input class="input" [(ngModel)]="form.adminPassword" name="adminPassword" [type]="showCreatePassword ? 'text' : 'password'" minlength="8" required style="padding-right:42px;" />
+                  <button type="button" class="input-action" (click)="showCreatePassword = !showCreatePassword" [attr.aria-label]="showCreatePassword ? 'Ocultar senha' : 'Mostrar senha'">
+                    @if (showCreatePassword) {
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    } @else {
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
+                  </button>
+                </div>
               </div>
               <div class="form-group">
-                <label>Senha inicial *</label>
-                <input class="input" [(ngModel)]="form.adminPassword" name="adminPassword" type="password" required />
+                <label>Confirmar senha *</label>
+                <input class="input" [(ngModel)]="form.adminPasswordConfirm" name="adminPasswordConfirm" [type]="showCreatePassword ? 'text' : 'password'" minlength="8" required />
+                @if (form.adminPasswordConfirm && form.adminPassword !== form.adminPasswordConfirm) {
+                  <small style="color:var(--danger-text);">As senhas não coincidem.</small>
+                }
               </div>
             </div>
             <div class="grid cols-2">
               <div class="form-group">
                 <label>Plano</label>
-                <select class="select" [(ngModel)]="form.plan" name="plan">
-                  <option value="BASIC">BASIC</option>
-                  <option value="PRO">PRO</option>
+                <select class="select" [(ngModel)]="form.plan" name="plan" (ngModelChange)="onPlanChange($event)">
+                  <option value="FREE">FREE (Teste interno)</option>
+                  <option value="BASIC">BASIC (Essencial)</option>
+                  <option value="PRO">PRO (Profissional)</option>
+                  <option value="CLINIC">CLINIC (Clínica)</option>
                 </select>
               </div>
               <div class="form-group">
                 <label>Mensalidade (R$)</label>
-                <input class="input" [(ngModel)]="form.priceMonthlyBrl" name="priceMonthlyBrl" type="number" min="0.01" step="0.01" />
+                <input class="input" [(ngModel)]="form.priceMonthlyBrl" name="priceMonthlyBrl" type="number" min="0" step="0.01" />
               </div>
             </div>
             @if (createMessage) {
@@ -134,12 +161,15 @@ export class MasterOverviewComponent implements OnInit {
   createMessage = ''
   createSuccess = false
   saving = false
-  form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 129 }
+  showCreatePassword = false
+  form = this.emptyForm()
 
   get summaryRows() {
     return [
+      { label: 'Plano FREE', value: this.finance?.byPlan?.FREE || 0 },
       { label: 'Plano BASIC', value: this.finance?.byPlan?.BASIC || 0 },
       { label: 'Plano PRO', value: this.finance?.byPlan?.PRO || 0 },
+      { label: 'Plano CLINIC', value: this.finance?.byPlan?.CLINIC || 0 },
       { label: 'Pendentes', value: this.finance?.byStatus?.PENDING || 0 },
       { label: 'Ativas', value: this.finance?.byStatus?.ACTIVE || 0 },
       { label: 'Trial', value: this.finance?.byStatus?.TRIAL || 0 },
@@ -157,15 +187,26 @@ export class MasterOverviewComponent implements OnInit {
     this.http.get<any>('/api/master/operations/overview').subscribe((res: any) => this.ops = res)
   }
 
+  onPlanChange(plan: MasterPlan) {
+    this.form.priceMonthlyBrl = PLAN_PRICE_BRL[plan]
+  }
+
   createClinic() {
     this.createMessage = ''
+    if (this.form.adminPassword !== this.form.adminPasswordConfirm) {
+      this.createSuccess = false
+      this.createMessage = 'As senhas não coincidem.'
+      return
+    }
     this.saving = true
-    this.http.post('/api/master/clinics', this.form).subscribe({
+    const { adminPasswordConfirm: _confirmation, ...body } = this.form
+    this.http.post('/api/master/clinics', body).subscribe({
       next: () => {
         this.saving = false
         this.createSuccess = true
         this.createMessage = 'Empresa criada com banco de dados isolado.'
-        this.form = { name: '', subdomain: '', adminEmail: '', adminPassword: '', plan: 'BASIC', priceMonthlyBrl: 129 }
+        this.form = this.emptyForm()
+        this.showCreatePassword = false
         this.load()
         this.toast.success('Empresa criada com sucesso')
       },
@@ -175,5 +216,17 @@ export class MasterOverviewComponent implements OnInit {
         this.createMessage = err.error?.message || 'Erro ao criar empresa'
       }
     })
+  }
+
+  private emptyForm() {
+    return {
+      name: '',
+      subdomain: '',
+      adminEmail: '',
+      adminPassword: '',
+      adminPasswordConfirm: '',
+      plan: 'BASIC' as MasterPlan,
+      priceMonthlyBrl: PLAN_PRICE_BRL.BASIC
+    }
   }
 }

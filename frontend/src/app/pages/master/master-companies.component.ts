@@ -230,7 +230,23 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
             </div>
             <div class="form-group">
               <label>Nova senha *</label>
-              <input class="input" [(ngModel)]="pwdForm.newPassword" name="p_new" type="password" placeholder="Mínimo 8 caracteres" />
+              <div class="input-wrapper">
+                <input class="input" [(ngModel)]="pwdForm.newPassword" name="p_new" [type]="showResetPassword ? 'text' : 'password'" minlength="8" required placeholder="Mínimo 8 caracteres" style="padding-right:42px;" />
+                <button type="button" class="input-action" (click)="showResetPassword = !showResetPassword" [attr.aria-label]="showResetPassword ? 'Ocultar senha' : 'Mostrar senha'">
+                  @if (showResetPassword) {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  } @else {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
+                </button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Confirmar nova senha *</label>
+              <input class="input" [(ngModel)]="pwdForm.newPasswordConfirm" name="p_new_confirm" [type]="showResetPassword ? 'text' : 'password'" minlength="8" required placeholder="Repita a senha" />
+              @if (pwdForm.newPasswordConfirm && pwdForm.newPassword !== pwdForm.newPasswordConfirm) {
+                <small style="color:var(--danger-text);">As senhas não coincidem.</small>
+              }
             </div>
             @if (pwdMessage) {
               <div style="font-size:13px;" [style.color]="pwdMessage.includes('atualizada') ? 'var(--success-text)' : 'var(--danger-text)'">{{ pwdMessage }}</div>
@@ -262,7 +278,8 @@ export class MasterCompaniesComponent implements OnInit {
     renewsAtLocal: '',
     canceledAtLocal: ''
   }
-  pwdForm = { adminEmail: '', newPassword: '' }
+  pwdForm = { adminEmail: '', newPassword: '', newPasswordConfirm: '' }
+  showResetPassword = false
   editMessage = ''
   pwdMessage = ''
   saving = false
@@ -281,7 +298,8 @@ export class MasterCompaniesComponent implements OnInit {
     this.loadPaymentEvents(c.id)
     this.editMessage = ''
     this.pwdMessage = ''
-    this.pwdForm = { adminEmail: '', newPassword: '' }
+    this.pwdForm = { adminEmail: '', newPassword: '', newPasswordConfirm: '' }
+    this.showResetPassword = false
     const sub = c.subscription
     this.editForm = {
       name: c.name,
@@ -338,6 +356,10 @@ export class MasterCompaniesComponent implements OnInit {
   resetPassword() {
     if (!this.editing) return
     this.pwdMessage = ''
+    if (this.pwdForm.newPassword !== this.pwdForm.newPasswordConfirm) {
+      this.pwdMessage = 'As senhas não coincidem.'
+      return
+    }
     this.pwdSaving = true
     const body: { newPassword: string; adminEmail?: string } = { newPassword: this.pwdForm.newPassword }
     if (this.pwdForm.adminEmail.trim()) body.adminEmail = this.pwdForm.adminEmail.trim()
@@ -346,6 +368,8 @@ export class MasterCompaniesComponent implements OnInit {
         this.pwdSaving = false
         this.pwdMessage = res?.message || 'Senha atualizada com sucesso.'
         this.pwdForm.newPassword = ''
+        this.pwdForm.newPasswordConfirm = ''
+        this.showResetPassword = false
         this.toast.success('Senha redefinida com sucesso')
       },
       error: (err: any) => { this.pwdSaving = false; this.pwdMessage = err.error?.message || 'Falha ao redefinir' }
