@@ -1,77 +1,73 @@
+name: odonto-app-dev
+
 services:
-  postgres-master:
+  postgres-master-dev:
     image: postgres:16-alpine
-    container_name: postgres-master
+    container_name: postgres-master-dev
     restart: unless-stopped
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=master
+      - POSTGRES_DB=${POSTGRES_DB:-master_dev}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     networks:
-      - odonto-net
+      - odonto-net-dev
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  redis:
+  redis-dev:
     image: redis:7-alpine
-    container_name: redis
+    container_name: redis-dev
     restart: unless-stopped
     volumes:
       - ./data/redis:/data
     networks:
-      - odonto-net
+      - odonto-net-dev
 
-  minio:
+  minio-dev:
     image: quay.io/minio/minio:latest
-    container_name: minio
+    container_name: minio-dev
     restart: unless-stopped
     environment:
       - MINIO_ROOT_USER=${S3_ACCESS_KEY}
       - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
     command: server /data --console-address ":9001"
-    ports:
-      - "${MINIO_API_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - ./data/minio:/data
     networks:
-      - odonto-net
+      odonto-net-dev:
+        aliases:
+          - minio
 
-  app-backend:
+  app-backend-dev:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: app-backend
+    container_name: app-backend-dev
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - APP_ENV=production
+      - APP_ENV=development
       - PORT=3000
       - MASTER_DATABASE_URL=${MASTER_DATABASE_URL}
-      # Opcional: já refletidos em MASTER_DATABASE_URL; expostos para scripts/debug
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - LOG_TO_FILE=${LOG_TO_FILE}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_TO_FILE=${LOG_TO_FILE:-false}
       - S3_ENDPOINT=${S3_ENDPOINT}
       - S3_ACCESS_KEY=${S3_ACCESS_KEY}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       - S3_BUCKET=${S3_BUCKET}
       - REDIS_URL=${REDIS_URL}
-      - DEV_TENANT_SUBDOMAIN=${DEV_TENANT_SUBDOMAIN}
       - MASTER_ADMIN_TOKEN=${MASTER_ADMIN_TOKEN}
       - MASTER_SUPERADMIN_EMAIL=${MASTER_SUPERADMIN_EMAIL}
       - MASTER_SUPERADMIN_PASSWORD=${MASTER_SUPERADMIN_PASSWORD}
-      - SEED_CLINIC_NAME=${SEED_CLINIC_NAME}
-      - SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
-      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_USER=${SMTP_USER}
@@ -80,34 +76,41 @@ services:
       - PUBLIC_APP_URL=${PUBLIC_APP_URL}
       - PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
       - PUBLIC_WILDCARD=${PUBLIC_WILDCARD}
-      - ALLOW_FREE_SIGNUP=${ALLOW_FREE_SIGNUP:-false}
+      - ALLOW_FREE_SIGNUP=${ALLOW_FREE_SIGNUP:-true}
       - STRIPE_TRIAL_DAYS=${STRIPE_TRIAL_DAYS:-7}
-      - STRIPE_EXPECTED_LIVEMODE=${STRIPE_EXPECTED_LIVEMODE:-true}
+      - STRIPE_EXPECTED_LIVEMODE=${STRIPE_EXPECTED_LIVEMODE:-false}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - STRIPE_PRICE_BASIC_MONTHLY=${STRIPE_PRICE_BASIC_MONTHLY}
       - STRIPE_PRICE_PRO_MONTHLY=${STRIPE_PRICE_PRO_MONTHLY}
       - STRIPE_PRICE_CLINIC_MONTHLY=${STRIPE_PRICE_CLINIC_MONTHLY}
     depends_on:
-      - postgres-master
-      - redis
-      - minio
+      postgres-master-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_started
+      minio-dev:
+        condition: service_started
     volumes:
       - ./data/logs:/var/log
     networks:
-      - odonto-net
+      odonto-net-dev:
+        aliases:
+          - app-backend
 
-  app-frontend:
+  app-frontend-dev:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: app-frontend
+    container_name: app-frontend-dev
     restart: unless-stopped
+    depends_on:
+      - app-backend-dev
     networks:
-      - odonto-net
+      - odonto-net-dev
     ports:
-      - "${APP_HTTP_PORT:-80}:8080"
+      - "${APP_HTTP_PORT:-8087}:8080"
 
 networks:
-  odonto-net:
+  odonto-net-dev:
     driver: bridge

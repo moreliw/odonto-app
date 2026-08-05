@@ -1,4 +1,4 @@
-FROM node:20-bullseye-slim AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 # Copy backend package manifests
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
@@ -10,7 +10,7 @@ COPY src ./src
 RUN npm run prisma:generate
 RUN npm run build
 
-FROM node:20-bullseye-slim
+FROM node:22-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/package.json ./package.json

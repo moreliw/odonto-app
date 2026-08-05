@@ -1,0 +1,70 @@
+name: Deploy OdontoApp
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      DEPLOY_PATH: ${{ github.ref_name == 'main' && '/opt/odonto-app' || '/opt/odonto-app-dev' }}
+      COMPOSE_FILE: ${{ github.ref_name == 'main' && 'docker-compose.yml' || 'docker-compose.dev.yml' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate source
+        run: |
+          docker compose -f docker-compose.yml --env-file .env.example config --quiet
+          docker compose -f docker-compose.dev.yml --env-file .env.example config --quiet
+          docker run --rm -v "$PWD:/repo" -w /repo node:22-bookworm-slim sh -lc \
+            'cd backend && npm ci && npm run prisma:generate && npm run lint && npm run typecheck && npm run build'
+          docker run --rm -v "$PWD:/repo" -w /repo node:22-alpine sh -lc \
+            'cd frontend && npm ci && npm run lint && npm run typecheck && npm run build'
+
+      - name: Configure SSH
+        run: |
+          test -n "${SSH_HOST}" && test -n "${SSH_USER}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${SSH_PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Prepare release directory
+        run: ssh -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" "mkdir -p '${DEPLOY_PATH}'"
+
+      - name: Synchronize release
+        run: |
+          rsync -az --delete \
+            --exclude ".git" \
+            --exclude ".claude" \
+            --exclude ".tmp" \
+            --exclude ".env" \
+            --exclude "node_modules" \
+            --exclude "backend/node_modules" \
+            --exclude "frontend/node_modules" \
+            --exclude "backend/dist" \
+            --exclude "frontend/dist" \
+            --exclude "frontend/.angular" \
+            --exclude "data" \
+            -e "ssh -p ${SSH_PORT}" \
+            ./ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
+
+      - name: Deploy and verify health
+        run: |
+          ssh -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" \
+            "cd '${DEPLOY_PATH}' && bash scripts/deploy-environment.sh '${COMPOSE_FILE}'"
