@@ -150,7 +150,7 @@ type Plan = {
 
               <fieldset class="signup-plan-field signup-field--full">
                 <legend>Escolha seu plano</legend>
-                <div class="signup-plans" role="radiogroup" aria-label="Plano da clínica">
+                <div class="signup-plans" [class.signup-plans--four]="plans.length >= 4" role="radiogroup" aria-label="Plano da clínica">
                   @for (p of plans; track p.code) {
                     <button type="button" class="signup-plan-option" [class.active]="plan === p.code" role="radio" [attr.aria-checked]="plan === p.code" (click)="plan = p.code">
                       <span class="signup-plan-head">
