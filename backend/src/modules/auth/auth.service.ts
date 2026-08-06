@@ -21,8 +21,9 @@ export class AuthService {
     const prisma = this.prismaTenant.getClient()
     const user = await prisma.user.findFirst({
       where: isEmailIdentifier(normalized)
-        ? { email: { equals: normalized, mode: 'insensitive' } }
+        ? { email: { equals: normalized, mode: 'insensitive' }, active: true }
         : {
+            active: true,
             OR: [
               { username: { equals: normalized, mode: 'insensitive' } },
               { email: { equals: normalized, mode: 'insensitive' } }
@@ -71,6 +72,7 @@ export class AuthService {
       name: string
       passwordHash: string
       role: string
+      active: boolean
     }
     if (useSqlite) {
       const u = await prisma.user.findFirst({
@@ -90,18 +92,19 @@ export class AuthService {
             email: u.email,
             name: u.name,
             passwordHash: u.passwordHash,
-            role: typeof u.role === 'string' ? u.role : String(u.role)
+            role: typeof u.role === 'string' ? u.role : String(u.role),
+            active: u.active
           }
         : null
     }
     if (isEmailIdentifier(normalized)) {
       const rows = await prisma.$queryRaw<UserRow[]>(
-        Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role FROM "User" WHERE LOWER(email) = LOWER(${normalized}) LIMIT 1`
+        Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role, active FROM "User" WHERE LOWER(email) = LOWER(${normalized}) LIMIT 1`
       )
       return rows[0] ?? null
     }
     const rows = await prisma.$queryRaw<UserRow[]>(
-      Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role FROM "User" WHERE LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized}) LIMIT 1`
+      Prisma.sql`SELECT id, username, email, name, "passwordHash", role::text AS role, active FROM "User" WHERE LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized}) LIMIT 1`
     )
     return rows[0] ?? null
   }
@@ -109,7 +112,7 @@ export class AuthService {
   private async validateUserWithPrisma(prisma: TenantPrisma, identifier: string, password: string) {
     if (!identifier.trim() || !password) throw new UnauthorizedException('Credenciais inválidas')
     const user = await this.findUserWithPrisma(prisma, identifier)
-    if (!user) throw new UnauthorizedException('Credenciais inválidas')
+    if (!user || !user.active) throw new UnauthorizedException('Credenciais inválidas')
     try {
       const ok = await argon2.verify(user.passwordHash, password)
       if (!ok) throw new UnauthorizedException('Credenciais inválidas')
@@ -130,8 +133,28 @@ export class AuthService {
     const prisma = new TenantPrisma({ datasources: { db: { url: connectionString } } })
     try {
       const user = await this.findUserWithPrisma(prisma, email)
-      if (!user) throw new UnauthorizedException('Conta não encontrada após provisionamento')
+      if (!user || !user.active) throw new UnauthorizedException('Conta não encontrada após provisionamento')
       return await this.issueTokensAndPersistRefresh(prisma, user)
+    } finally {
+      await prisma.$disconnect().catch(() => undefined)
+    }
+  }
+
+  /** Sessão assistida emitida exclusivamente por uma rota protegida pelo MasterAdminGuard. */
+  async issueMasterSupportSession(connectionString: string, userId?: string) {
+    const prisma = new TenantPrisma({ datasources: { db: { url: connectionString } } })
+    try {
+      const user = userId
+        ? await prisma.user.findFirst({ where: { id: userId, active: true } })
+        : await prisma.user.findFirst({ where: { role: 'ADMIN', active: true }, orderBy: { createdAt: 'asc' } })
+      if (!user) throw new UnauthorizedException('Nenhum administrador ativo encontrado nesta clínica.')
+      const payload = { sub: user.id, email: user.email, role: String(user.role), support: true }
+      const accessToken = await this.jwt.signAsync(payload, { expiresIn: '20m' })
+      return {
+        accessToken,
+        refreshToken: '',
+        user: { id: user.id, username: user.username, email: user.email, name: user.name, role: user.role }
+      }
     } finally {
       await prisma.$disconnect().catch(() => undefined)
     }
@@ -155,8 +178,8 @@ export class AuthService {
 
   async refresh(token: string) {
     const prisma = this.prismaTenant.getClient()
-    const saved = await prisma.refreshToken.findUnique({ where: { token } })
-    if (!saved || saved.expiresAt.getTime() < Date.now()) throw new UnauthorizedException()
+    const saved = await prisma.refreshToken.findUnique({ where: { token }, include: { user: true } })
+    if (!saved || !saved.user.active || saved.expiresAt.getTime() < Date.now()) throw new UnauthorizedException()
     const refreshSecret = process.env.JWT_REFRESH_SECRET || 'refresh'
     const decoded = await this.jwt.verifyAsync(token, { secret: refreshSecret })
     const payload = { sub: decoded.sub, email: decoded.email, role: decoded.role }

@@ -41,7 +41,7 @@ const PLAN_PRICE_BRL: Record<MasterPlan, number> = {
           </div>
           <span class="kpi-title">Empresas</span>
           <strong class="kpi-value">{{ finance?.totals?.clinics ?? '—' }}</strong>
-          <span class="kpi-delta">{{ finance?.totals?.activeClinics ?? 0 }} ativas</span>
+          <span class="kpi-delta">{{ finance?.totals?.activeClinics ?? 0 }} ativas · {{ finance?.totals?.complimentaryClinics ?? 0 }} com benefício</span>
         </article>
         <article class="card kpi-card">
           <div class="kpi-icon" style="background:var(--success-bg);color:var(--success-text);">
@@ -103,7 +103,16 @@ const PLAN_PRICE_BRL: Record<MasterPlan, number> = {
               </div>
               <div class="form-group">
                 <label>Confirmar senha *</label>
-                <input class="input" [(ngModel)]="form.adminPasswordConfirm" name="adminPasswordConfirm" [type]="showCreatePassword ? 'text' : 'password'" minlength="8" required />
+                <div class="input-wrapper">
+                  <input class="input" [(ngModel)]="form.adminPasswordConfirm" name="adminPasswordConfirm" [type]="showCreatePasswordConfirm ? 'text' : 'password'" minlength="8" required style="padding-right:42px;" />
+                  <button type="button" class="input-action" (click)="showCreatePasswordConfirm = !showCreatePasswordConfirm" [attr.aria-label]="showCreatePasswordConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'">
+                    @if (showCreatePasswordConfirm) {
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    } @else {
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
+                  </button>
+                </div>
                 @if (form.adminPasswordConfirm && form.adminPassword !== form.adminPasswordConfirm) {
                   <small style="color:var(--danger-text);">As senhas não coincidem.</small>
                 }
@@ -162,6 +171,7 @@ export class MasterOverviewComponent implements OnInit {
   createSuccess = false
   saving = false
   showCreatePassword = false
+  showCreatePasswordConfirm = false
   form = this.emptyForm()
 
   get summaryRows() {
@@ -170,6 +180,7 @@ export class MasterOverviewComponent implements OnInit {
       { label: 'Plano BASIC', value: this.finance?.byPlan?.BASIC || 0 },
       { label: 'Plano PRO', value: this.finance?.byPlan?.PRO || 0 },
       { label: 'Plano CLINIC', value: this.finance?.byPlan?.CLINIC || 0 },
+      { label: 'Benefícios ativos', value: this.finance?.totals?.complimentaryClinics || 0 },
       { label: 'Pendentes', value: this.finance?.byStatus?.PENDING || 0 },
       { label: 'Ativas', value: this.finance?.byStatus?.ACTIVE || 0 },
       { label: 'Trial', value: this.finance?.byStatus?.TRIAL || 0 },
@@ -207,6 +218,7 @@ export class MasterOverviewComponent implements OnInit {
         this.createMessage = 'Empresa criada com banco de dados isolado.'
         this.form = this.emptyForm()
         this.showCreatePassword = false
+        this.showCreatePasswordConfirm = false
         this.load()
         this.toast.success('Empresa criada com sucesso')
       },

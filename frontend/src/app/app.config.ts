@@ -19,6 +19,8 @@ import { MasterOverviewComponent } from './pages/master/master-overview.componen
 import { MasterCompaniesComponent } from './pages/master/master-companies.component'
 import { MasterFinanceComponent } from './pages/master/master-finance.component'
 import { MasterOperationsComponent } from './pages/master/master-operations.component'
+import { MasterUsersComponent } from './pages/master/master-users.component'
+import { MasterAuditComponent } from './pages/master/master-audit.component'
 import { ShellComponent } from './shell/shell.component'
 import { authInterceptor } from './services/auth.interceptor'
 
@@ -82,8 +84,10 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'dashboard', component: MasterOverviewComponent },
       { path: 'empresas', component: MasterCompaniesComponent },
+      { path: 'usuarios', component: MasterUsersComponent },
       { path: 'financeiro', component: MasterFinanceComponent },
-      { path: 'operacional', component: MasterOperationsComponent }
+      { path: 'operacional', component: MasterOperationsComponent },
+      { path: 'auditoria', component: MasterAuditComponent }
     ]
   },
   {

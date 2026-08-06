@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { MasterAdminService } from './master-admin.service'
-import { IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator'
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Matches, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { Plan, SubscriptionStatus } from '@prisma/client-master'
 import { MasterAdminGuard } from './master-admin.guard'
@@ -25,7 +25,7 @@ class CreateClinicDto {
   @IsString()
   @MinLength(8)
   adminPassword: string
-  @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
+  @IsEnum(Plan)
   plan: Plan
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -45,10 +45,10 @@ class UpdateClinicDto {
   @IsString()
   internalNotes?: string | null
   @IsOptional()
-  @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
+  @IsEnum(Plan)
   plan?: Plan
   @IsOptional()
-  @IsEnum(['PENDING', 'TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED'] as any)
+  @IsEnum(SubscriptionStatus)
   status?: SubscriptionStatus
   @IsOptional()
   @IsInt()
@@ -78,6 +78,76 @@ class ResetTenantAdminPasswordDto {
   @IsOptional()
   @IsEmail()
   adminEmail?: string
+}
+
+enum TenantRoleDto { ADMIN = 'ADMIN', USER = 'USER', DENTIST = 'DENTIST' }
+
+class CreateTenantUserDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-zA-Z0-9_.-]{3,32}$/)
+  username?: string
+  @IsEmail()
+  email: string
+  @IsString()
+  name: string
+  @IsString()
+  @MinLength(8)
+  password: string
+  @IsEnum(TenantRoleDto)
+  role: TenantRoleDto
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
+}
+
+class UpdateTenantUserDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-zA-Z0-9_.-]{3,32}$/)
+  username?: string
+  @IsOptional()
+  @IsEmail()
+  email?: string
+  @IsOptional()
+  @IsString()
+  name?: string
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  password?: string
+  @IsOptional()
+  @IsEnum(TenantRoleDto)
+  role?: TenantRoleDto
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
+}
+
+class SupportSessionDto {
+  @IsOptional()
+  @IsString()
+  userId?: string
+}
+
+class AccessGrantDto {
+  @IsEnum(Plan)
+  plan: Plan
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  dentistLimit?: number | null
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  reason?: string
+  @IsOptional()
+  @IsString()
+  expiresAt?: string | null
+  @IsOptional()
+  @IsBoolean()
+  stopBilling?: boolean
 }
 
 @Controller('master')
@@ -147,6 +217,42 @@ export class MasterAdminController {
   }
 
   @UseGuards(MasterAdminGuard)
+  @Get('clinics/:id/users')
+  tenantUsers(@Param('id') id: string) {
+    return this.service.listTenantUsers(id)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Post('clinics/:id/users')
+  createTenantUser(@Param('id') id: string, @Body() dto: CreateTenantUserDto) {
+    return this.service.createTenantUser(id, dto)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Patch('clinics/:id/users/:userId')
+  updateTenantUser(@Param('id') id: string, @Param('userId') userId: string, @Body() dto: UpdateTenantUserDto) {
+    return this.service.updateTenantUser(id, userId, dto)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Post('clinics/:id/support-session')
+  supportSession(@Param('id') id: string, @Body() dto: SupportSessionDto) {
+    return this.service.createSupportSession(id, dto.userId)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Post('clinics/:id/access-grant')
+  grantAccess(@Param('id') id: string, @Body() dto: AccessGrantDto) {
+    return this.service.grantAccess(id, dto)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Post('clinics/:id/access-grant/revoke')
+  revokeAccess(@Param('id') id: string) {
+    return this.service.revokeAccess(id)
+  }
+
+  @UseGuards(MasterAdminGuard)
   @Get('finance/summary')
   financeSummary() {
     return this.service.financeSummary()
@@ -156,5 +262,11 @@ export class MasterAdminController {
   @Get('payments/events')
   paymentEvents(@Query('tenantId') tenantId?: string) {
     return this.service.paymentEvents(tenantId)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Get('audit')
+  auditLogs(@Query('tenantId') tenantId?: string, @Query('action') action?: string, @Query('take') take?: string) {
+    return this.service.auditLogs({ tenantId, action, take: take ? Number(take) : undefined })
   }
 }

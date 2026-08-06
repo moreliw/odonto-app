@@ -3,10 +3,13 @@ import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
+import { AuthService, User } from '../../services/auth.service'
+import { Router } from '@angular/router'
 
 type ClinicRow = {
   id: string; name: string; subdomain: string; slug: string; internalNotes?: string | null
   subscription?: { plan: string; status: string; priceCents: number; currency: string; renewsAt?: string | null; canceledAt?: string | null } | null
+  accessGrant?: { id: string; plan: string; dentistLimit?: number | null; reason?: string | null; expiresAt?: string | null; active: boolean; stopBilling: boolean; revokedAt?: string | null } | null
   loginIdentities?: { email: string }[]
 }
 
@@ -32,11 +35,29 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
           <p>Gerencie plano, cobrança, status e redefinição de senha das clínicas</p>
         </div>
         <div class="page-header-actions">
-          <span class="badge badge-neutral">{{ clinics.length }} empresa{{ clinics.length !== 1 ? 's' : '' }}</span>
+          <span class="badge badge-neutral">{{ filteredClinics.length }} de {{ clinics.length }}</span>
           <button type="button" class="btn btn-outline btn-sm" (click)="load()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             Atualizar
           </button>
+        </div>
+      </div>
+
+      <div class="card master-filter-card">
+        <div class="master-filter-grid">
+          <div class="form-group master-filter-search">
+            <label for="master-clinic-search">Buscar clínica</label>
+            <input id="master-clinic-search" class="input" [(ngModel)]="search" placeholder="Nome, subdomínio ou e-mail do administrador" />
+          </div>
+          <div class="form-group">
+            <label for="master-clinic-status">Status</label>
+            <select id="master-clinic-status" class="select" [(ngModel)]="statusFilter">
+              <option value="ALL">Todos</option>
+              <option value="ACTIVE">Ativas</option>
+              <option value="BLOCKED">Bloqueadas</option>
+              <option value="BENEFIT">Com benefício</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -66,7 +87,7 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
                   </div>
                 </td></tr>
               }
-              @for (c of clinics; track c.id) {
+              @for (c of filteredClinics; track c.id) {
                 <tr>
                   <td>
                     <div style="display:flex;align-items:center;gap:10px;">
@@ -76,16 +97,19 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
                   </td>
                   <td class="muted text-sm">{{ c.subdomain }}</td>
                   <td>
-                    <span class="badge" [class.badge-blue]="c.subscription?.plan === 'PRO'" [class.badge-neutral]="c.subscription?.plan !== 'PRO'">
-                      {{ c.subscription?.plan || '—' }}
-                    </span>
+                    <div class="master-badge-stack">
+                      <span class="badge" [class.badge-blue]="effectivePlan(c) === 'PRO'" [class.badge-neutral]="effectivePlan(c) !== 'PRO'">{{ effectivePlan(c) }}</span>
+                      @if (isGrantActive(c.accessGrant)) { <span class="badge badge-success">Benefício</span> }
+                    </div>
                   </td>
                   <td>
-                    <span class="status-chip" [class]="STATUS_CLASS[c.subscription?.status || ''] || ''">
-                      {{ c.subscription?.status || '—' }}
-                    </span>
+                    @if (isGrantActive(c.accessGrant)) {
+                      <span class="status-chip">BENEFÍCIO ATIVO</span>
+                    } @else {
+                      <span class="status-chip" [class]="STATUS_CLASS[c.subscription?.status || ''] || ''">{{ c.subscription?.status || '—' }}</span>
+                    }
                   </td>
-                  <td class="text-sm">R$ {{ ((c.subscription?.priceCents || 0) / 100) | number:'1.2-2' }}</td>
+                  <td class="text-sm">{{ isGrantActive(c.accessGrant) ? 'R$ 0,00' : 'R$ ' + (((c.subscription?.priceCents || 0) / 100) | number:'1.2-2') }}</td>
                   <td class="muted text-sm truncate" style="max-width:160px;">{{ c.loginIdentities?.[0]?.email || '—' }}</td>
                   <td>
                     <button type="button" class="btn btn-sm btn-outline" (click)="openEdit(c)">Gerenciar</button>
@@ -100,7 +124,7 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
 
     @if (editing) {
       <div class="master-modal-backdrop" (click)="closeOnBackdrop($event)">
-        <div class="master-modal" (click)="$event.stopPropagation()">
+        <div class="master-modal master-modal-lg" (click)="$event.stopPropagation()">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;">
             <div>
               <h3>{{ editing.name }}</h3>
@@ -109,6 +133,13 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
             <button class="btn btn-icon btn-sm" (click)="editing=null" aria-label="Fechar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
+          </div>
+
+          <div class="master-clinic-actions">
+            <button type="button" class="btn btn-primary btn-sm" (click)="startSupport()" [disabled]="supportLoading">
+              {{ supportLoading ? 'Preparando acesso...' : 'Acessar clínica para suporte' }}
+            </button>
+            <a class="btn btn-outline btn-sm" [href]="clinicUrl(editing)" target="_blank" rel="noopener">Abrir login da clínica</a>
           </div>
 
           <form class="form" (ngSubmit)="saveEdit()">
@@ -185,6 +216,67 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
 
           <hr style="border:none;border-top:1px solid var(--border);margin:24px 0" />
 
+          <section aria-labelledby="benefit-title">
+            <div class="master-section-head">
+              <div>
+                <h4 id="benefit-title">Benefício e acesso especial</h4>
+                <p>Conceda plano completo gratuito, temporário ou vitalício, sem depender da assinatura da Stripe.</p>
+              </div>
+              @if (isGrantActive(editing.accessGrant)) { <span class="badge badge-success">Ativo</span> }
+            </div>
+
+            @if (isGrantActive(editing.accessGrant)) {
+              <div class="master-benefit-summary">
+                <div><span>Plano concedido</span><strong>{{ editing.accessGrant?.plan }}</strong></div>
+                <div><span>Dentistas</span><strong>{{ editing.accessGrant?.dentistLimit === null ? 'Ilimitados' : editing.accessGrant?.dentistLimit }}</strong></div>
+                <div><span>Validade</span><strong>{{ editing.accessGrant?.expiresAt ? (editing.accessGrant?.expiresAt | date:'dd/MM/yyyy') : 'Vitalício' }}</strong></div>
+                <div><span>Motivo</span><strong>{{ editing.accessGrant?.reason || 'Não informado' }}</strong></div>
+              </div>
+              <button type="button" class="btn btn-danger-outline btn-sm" (click)="revokeGrant()" [disabled]="grantSaving">
+                {{ grantSaving ? 'Processando...' : revokeConfirm ? 'Confirmar revogação' : 'Revogar benefício' }}
+              </button>
+            } @else {
+              <form class="form" (ngSubmit)="saveGrant()">
+                <div class="grid cols-2">
+                  <div class="form-group">
+                    <label>Plano liberado</label>
+                    <select class="select" [(ngModel)]="grantForm.plan" name="g_plan" (ngModelChange)="onGrantPlanChange($event)">
+                      <option value="BASIC">Essencial</option><option value="PRO">Profissional</option><option value="CLINIC">Clínica completo</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Limite de dentistas</label>
+                    <select class="select" [(ngModel)]="grantForm.limitMode" name="g_limit_mode">
+                      <option value="PLAN">Padrão do plano</option><option value="CUSTOM">Personalizado</option><option value="UNLIMITED">Ilimitado</option>
+                    </select>
+                  </div>
+                </div>
+                @if (grantForm.limitMode === 'CUSTOM') {
+                  <div class="form-group"><label>Quantidade de dentistas</label><input class="input" type="number" min="1" [(ngModel)]="grantForm.dentistLimit" name="g_limit" required /></div>
+                }
+                <div class="grid cols-2">
+                  <div class="form-group">
+                    <label>Validade</label>
+                    <select class="select" [(ngModel)]="grantForm.duration" name="g_duration">
+                      <option value="LIFETIME">Vitalício</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="365">1 ano</option><option value="CUSTOM">Data personalizada</option>
+                    </select>
+                  </div>
+                  @if (grantForm.duration === 'CUSTOM') {
+                    <div class="form-group"><label>Válido até</label><input class="input" type="datetime-local" [(ngModel)]="grantForm.expiresAtLocal" name="g_expires" required /></div>
+                  }
+                </div>
+                <div class="form-group"><label>Motivo da concessão</label><textarea class="textarea" rows="2" [(ngModel)]="grantForm.reason" name="g_reason" placeholder="Parceria, cortesia comercial, cliente fundador..." required></textarea></div>
+                <label class="master-check-row"><input type="checkbox" [(ngModel)]="grantForm.stopBilling" name="g_stop_billing" /><span>Interromper novas cobranças desta clínica. Se houver Stripe ativo, a renovação será cancelada.</span></label>
+            @if (grantMessage) {
+              <div class="master-inline-alert" [class.master-inline-alert--danger]="grantError" [class.master-inline-alert--success]="!grantError">{{ grantMessage }}</div>
+            }
+                <button type="submit" class="btn btn-primary" [disabled]="grantSaving">{{ grantSaving ? 'Concedendo...' : 'Conceder benefício' }}</button>
+              </form>
+            }
+          </section>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:24px 0" />
+
           <div style="margin-bottom:12px;">
             <h4 style="font-size:14px;font-weight:700;margin-bottom:4px;">Eventos de pagamento</h4>
             <p class="muted text-sm">Histórico de webhooks e processamento financeiro desta clínica.</p>
@@ -243,7 +335,16 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
             </div>
             <div class="form-group">
               <label>Confirmar nova senha *</label>
-              <input class="input" [(ngModel)]="pwdForm.newPasswordConfirm" name="p_new_confirm" [type]="showResetPassword ? 'text' : 'password'" minlength="8" required placeholder="Repita a senha" />
+              <div class="input-wrapper">
+                <input class="input" [(ngModel)]="pwdForm.newPasswordConfirm" name="p_new_confirm" [type]="showResetPasswordConfirm ? 'text' : 'password'" minlength="8" required placeholder="Repita a senha" style="padding-right:42px;" />
+                <button type="button" class="input-action" (click)="showResetPasswordConfirm = !showResetPasswordConfirm" [attr.aria-label]="showResetPasswordConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'">
+                  @if (showResetPasswordConfirm) {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  } @else {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
+                </button>
+              </div>
               @if (pwdForm.newPasswordConfirm && pwdForm.newPassword !== pwdForm.newPasswordConfirm) {
                 <small style="color:var(--danger-text);">As senhas não coincidem.</small>
               }
@@ -263,6 +364,8 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
 })
 export class MasterCompaniesComponent implements OnInit {
   clinics: ClinicRow[] = []
+  search = ''
+  statusFilter: 'ALL' | 'ACTIVE' | 'BLOCKED' | 'BENEFIT' = 'ALL'
   editing: ClinicRow | null = null
   paymentEvents: PaymentEventRow[] = []
   eventsLoading = false
@@ -280,17 +383,47 @@ export class MasterCompaniesComponent implements OnInit {
   }
   pwdForm = { adminEmail: '', newPassword: '', newPasswordConfirm: '' }
   showResetPassword = false
+  showResetPasswordConfirm = false
   editMessage = ''
   pwdMessage = ''
   saving = false
   pwdSaving = false
+  supportLoading = false
+  grantSaving = false
+  grantMessage = ''
+  grantError = false
+  revokeConfirm = false
+  grantForm = this.emptyGrantForm()
 
-  constructor(private readonly http: HttpClient, private toast: ToastService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly toast: ToastService,
+    private readonly auth: AuthService,
+    private readonly router: Router
+  ) {}
 
   ngOnInit() { this.load() }
 
   load() {
-    this.http.get<ClinicRow[]>('/api/master/clinics').subscribe((res: ClinicRow[]) => this.clinics = res)
+    this.http.get<ClinicRow[]>('/api/master/clinics').subscribe((res: ClinicRow[]) => {
+      this.clinics = res
+      if (this.editing) this.editing = res.find(item => item.id === this.editing?.id) || this.editing
+    })
+  }
+
+  get filteredClinics() {
+    const term = this.search.trim().toLowerCase()
+    return this.clinics.filter(clinic => {
+      const grantActive = this.isGrantActive(clinic.accessGrant)
+      const status = clinic.subscription?.status || 'PENDING'
+      const statusMatch =
+        this.statusFilter === 'ALL' ||
+        (this.statusFilter === 'BENEFIT' && grantActive) ||
+        (this.statusFilter === 'ACTIVE' && (grantActive || status === 'ACTIVE' || status === 'TRIAL')) ||
+        (this.statusFilter === 'BLOCKED' && !grantActive && status !== 'ACTIVE' && status !== 'TRIAL')
+      const termMatch = !term || [clinic.name, clinic.subdomain, clinic.loginIdentities?.[0]?.email || ''].some(value => value.toLowerCase().includes(term))
+      return statusMatch && termMatch
+    })
   }
 
   openEdit(c: ClinicRow) {
@@ -300,6 +433,11 @@ export class MasterCompaniesComponent implements OnInit {
     this.pwdMessage = ''
     this.pwdForm = { adminEmail: '', newPassword: '', newPasswordConfirm: '' }
     this.showResetPassword = false
+    this.showResetPasswordConfirm = false
+    this.grantMessage = ''
+    this.grantError = false
+    this.revokeConfirm = false
+    this.grantForm = this.emptyGrantForm()
     const sub = c.subscription
     this.editForm = {
       name: c.name,
@@ -312,6 +450,109 @@ export class MasterCompaniesComponent implements OnInit {
       renewsAtLocal: sub?.renewsAt ? this.toLocal(sub.renewsAt) : '',
       canceledAtLocal: sub?.canceledAt ? this.toLocal(sub.canceledAt) : ''
     }
+  }
+
+  isGrantActive(grant: ClinicRow['accessGrant']) {
+    if (!grant?.active) return false
+    return !grant.expiresAt || new Date(grant.expiresAt).getTime() > Date.now()
+  }
+
+  effectivePlan(clinic: ClinicRow) {
+    return this.isGrantActive(clinic.accessGrant) ? clinic.accessGrant?.plan || '—' : clinic.subscription?.plan || '—'
+  }
+
+  clinicUrl(_clinic: ClinicRow) {
+    return `${location.origin}/login`
+  }
+
+  startSupport() {
+    if (!this.editing || this.supportLoading) return
+    this.supportLoading = true
+    this.http.post<any>(`/api/master/clinics/${this.editing.id}/support-session`, {}).subscribe({
+      next: result => {
+        this.supportLoading = false
+        this.auth.setSession({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user as User, tenant: result.tenant })
+        localStorage.setItem('masterSupportSession', JSON.stringify({ clinicName: result.clinic?.name, userName: result.user?.name }))
+        this.router.navigateByUrl('/app')
+      },
+      error: (error: any) => {
+        this.supportLoading = false
+        this.toast.error(error.error?.message || 'Não foi possível iniciar o acesso assistido.')
+      }
+    })
+  }
+
+  onGrantPlanChange(plan: string) {
+    if (this.grantForm.limitMode === 'PLAN') this.grantForm.dentistLimit = plan === 'BASIC' ? 1 : plan === 'PRO' ? 3 : 1
+  }
+
+  saveGrant() {
+    if (!this.editing || this.grantSaving) return
+    this.grantMessage = ''
+    this.grantError = false
+    if (this.grantForm.reason.trim().length < 3) {
+      this.grantError = true
+      this.grantMessage = 'Informe o motivo do benefício.'
+      return
+    }
+    const dentistLimit = this.grantForm.limitMode === 'UNLIMITED'
+      ? null
+      : this.grantForm.limitMode === 'CUSTOM'
+        ? Number(this.grantForm.dentistLimit)
+        : this.grantForm.plan === 'BASIC' ? 1 : this.grantForm.plan === 'PRO' ? 3 : null
+    let expiresAt: string | null = null
+    if (this.grantForm.duration === 'CUSTOM') {
+      const custom = new Date(this.grantForm.expiresAtLocal)
+      if (Number.isNaN(custom.getTime())) { this.grantError = true; this.grantMessage = 'Informe uma validade correta.'; return }
+      expiresAt = custom.toISOString()
+    } else if (this.grantForm.duration !== 'LIFETIME') {
+      expiresAt = new Date(Date.now() + Number(this.grantForm.duration) * 24 * 60 * 60 * 1000).toISOString()
+    }
+    this.grantSaving = true
+    this.http.post<any>(`/api/master/clinics/${this.editing.id}/access-grant`, {
+      plan: this.grantForm.plan,
+      dentistLimit,
+      reason: this.grantForm.reason.trim(),
+      expiresAt,
+      stopBilling: this.grantForm.stopBilling
+    }).subscribe({
+      next: result => {
+        this.grantSaving = false
+        if (this.editing) this.editing.accessGrant = result.grant
+        this.grantMessage = 'Benefício concedido com sucesso.'
+        this.toast.success('Benefício de acesso ativado')
+        this.load()
+      },
+      error: (error: any) => {
+        this.grantSaving = false
+        this.grantError = true
+        this.grantMessage = error.error?.message || 'Não foi possível conceder o benefício.'
+      }
+    })
+  }
+
+  revokeGrant() {
+    if (!this.editing || this.grantSaving) return
+    if (!this.revokeConfirm) { this.revokeConfirm = true; return }
+    this.grantSaving = true
+    this.http.post<any>(`/api/master/clinics/${this.editing.id}/access-grant/revoke`, {}).subscribe({
+      next: result => {
+        this.grantSaving = false
+        this.revokeConfirm = false
+        if (this.editing) this.editing.accessGrant = result.grant
+        this.toast.success('Benefício revogado')
+        this.load()
+      },
+      error: (error: any) => {
+        this.grantSaving = false
+        this.revokeConfirm = false
+        this.toast.error(error.error?.message || 'Não foi possível revogar o benefício.')
+      }
+    })
+  }
+
+  private emptyGrantForm() {
+    return { plan: 'CLINIC', limitMode: 'UNLIMITED', dentistLimit: 3, duration: 'LIFETIME', expiresAtLocal: '', reason: '', stopBilling: true }
   }
 
   private toLocal(iso: string) {
@@ -370,6 +611,7 @@ export class MasterCompaniesComponent implements OnInit {
         this.pwdForm.newPassword = ''
         this.pwdForm.newPasswordConfirm = ''
         this.showResetPassword = false
+        this.showResetPasswordConfirm = false
         this.toast.success('Senha redefinida com sucesso')
       },
       error: (err: any) => { this.pwdSaving = false; this.pwdMessage = err.error?.message || 'Falha ao redefinir' }

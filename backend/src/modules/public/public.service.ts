@@ -146,6 +146,7 @@ export class PublicService {
           if (useSqlite) {
             hit = await tenantPrisma.user.findFirst({
               where: {
+                active: true,
                 OR: [
                   { username: { equals: normalized, mode: 'insensitive' } },
                   { email: { equals: normalized, mode: 'insensitive' } }
@@ -155,7 +156,7 @@ export class PublicService {
             })
           } else {
             const rows = await tenantPrisma.$queryRaw<Array<{ id: string }>>(
-              PrismaTenant.sql`SELECT id FROM "User" WHERE LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized}) LIMIT 1`
+              PrismaTenant.sql`SELECT id FROM "User" WHERE active = true AND (LOWER(COALESCE(username,'')) = LOWER(${normalized}) OR LOWER(COALESCE(email,'')) = LOWER(${normalized})) LIMIT 1`
             )
             hit = rows[0]
           }

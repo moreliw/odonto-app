@@ -11,7 +11,7 @@ import * as argon2 from 'argon2'
 type TenantRole = 'ADMIN' | 'USER' | 'DENTIST'
 type Requester = { userId: string; role: string }
 
-const USER_SELECT = { id: true, username: true, email: true, name: true, role: true, createdAt: true }
+const USER_SELECT = { id: true, username: true, email: true, name: true, role: true, active: true, createdAt: true }
 
 function usernameFromEmail(email: string) {
   const raw = email.split('@')[0] || 'user'
@@ -35,7 +35,8 @@ export class UsersService {
   /** Quantos dentistas o plano permite e quantos já existem. */
   async dentistQuota() {
     const plan = this.currentPlan()
-    const limit = DENTIST_LIMIT_BY_PLAN[plan]
+    const ctx = this.req.tenantContext ?? RequestContext.get() ?? null
+    const limit = ctx?.dentistLimit !== undefined ? ctx.dentistLimit : DENTIST_LIMIT_BY_PLAN[plan]
     const used = await this.prismaTenant.getClient().user.count({ where: { role: 'DENTIST' as never } })
     return { plan, limit, used, remaining: limit === null ? null : Math.max(limit - used, 0) }
   }
@@ -66,7 +67,7 @@ export class UsersService {
 
     try {
       return await this.prismaTenant.getClient().user.create({
-        data: { username, email: data.email, name: data.name, passwordHash: hash, role: data.role as never },
+        data: { username, email: data.email, name: data.name, passwordHash: hash, role: data.role as never, active: true },
         select: USER_SELECT
       })
     } catch (e) {

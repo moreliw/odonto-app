@@ -54,6 +54,38 @@ model Tenant {
   loginIdentities LoginIdentity[]
   signupIntents   SignupIntent[]
   paymentEvents   PaymentEvent[]
+  accessGrant     AccessGrant?
+}
+
+model AccessGrant {
+  id            String   @id @default(uuid())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      String   @unique
+  plan          Plan
+  dentistLimit  Int?
+  reason        String?
+  expiresAt     DateTime?
+  active        Boolean  @default(true)
+  stopBilling   Boolean  @default(true)
+  createdBy     String
+  revokedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model MasterAuditLog {
+  id          String   @id @default(uuid())
+  actorEmail  String
+  action      String
+  tenantId    String?
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([tenantId, createdAt])
+  @@index([action, createdAt])
 }
 
 model LoginIdentity {

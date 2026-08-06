@@ -4,6 +4,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/rou
 import { AuthService } from '../services/auth.service'
 
 const ROLE_LABEL: Record<string, string> = { ADMIN: 'Administrador', DENTIST: 'Dentista', USER: 'Equipe' }
+type MasterSupportSession = { clinicName?: string; userName?: string }
 
 @Component({
     selector: 'app-shell',
@@ -125,6 +126,16 @@ const ROLE_LABEL: Record<string, string> = { ADMIN: 'Administrador', DENTIST: 'D
           </div>
         </header>
 
+        @if (supportSession) {
+          <section class="master-support-banner" aria-label="Acesso assistido pelo administrador master">
+            <div>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              <span><strong>Acesso assistido:</strong> {{ supportSession.clinicName || 'clínica' }} como {{ supportSession.userName || userName }}</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" (click)="returnToMaster()">Voltar ao painel master</button>
+          </section>
+        }
+
         <div class="container">
           <router-outlet></router-outlet>
         </div>
@@ -207,6 +218,7 @@ export class ShellComponent {
   initial = ''
   isAdmin = false
   canAccessFinance = false
+  supportSession: MasterSupportSession | null = null
 
   constructor(private auth: AuthService, private router: Router) {
     const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('sidebarCollapsed') : null
@@ -217,6 +229,13 @@ export class ShellComponent {
     this.initial = (this.userName[0] || 'U').toUpperCase()
     this.isAdmin = this.auth.isAdmin()
     this.canAccessFinance = this.isAdmin || this.auth.isDentist()
+    if (typeof localStorage !== 'undefined') {
+      const support = localStorage.getItem('masterSupportSession')
+      if (support) {
+        try { this.supportSession = JSON.parse(support) as MasterSupportSession }
+        catch { localStorage.removeItem('masterSupportSession') }
+      }
+    }
   }
 
   toggleSidebar() {
@@ -226,6 +245,13 @@ export class ShellComponent {
 
   logout() {
     this.auth.logout()
+    if (typeof localStorage !== 'undefined') localStorage.removeItem('masterSupportSession')
     this.router.navigateByUrl('/login')
+  }
+
+  returnToMaster() {
+    this.auth.logout()
+    if (typeof localStorage !== 'undefined') localStorage.removeItem('masterSupportSession')
+    this.router.navigateByUrl('/admin/empresas')
   }
 }

@@ -18,6 +18,13 @@ type Subscription = {
   cancelAtPeriodEnd: boolean
   dentistLimit: number | null
   dentistUsed: number
+  managedByPlatform?: boolean
+  accessGrant?: {
+    plan: PlanCode
+    dentistLimit: number | null
+    reason: string | null
+    expiresAt: string | null
+  } | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -67,10 +74,20 @@ const STATUS_CLASS: Record<string, string> = {
           <div class="billing-current-info">
             <span class="muted text-sm">Plano atual</span>
             <strong>{{ subscription.plan === 'FREE' ? 'Teste Gratuito (interno)' : subscription.planLabel }}</strong>
-            <span class="status-chip" [class]="STATUS_CLASS[subscription.status]">{{ STATUS_LABEL[subscription.status] || subscription.status }}</span>
+            @if (subscription.managedByPlatform) {
+              <span class="badge badge-success">Benefício da plataforma</span>
+            } @else {
+              <span class="status-chip" [class]="STATUS_CLASS[subscription.status]">{{ STATUS_LABEL[subscription.status] || subscription.status }}</span>
+            }
           </div>
           <div class="billing-current-meta">
-            @if (subscription.priceCents > 0) {
+            @if (subscription.managedByPlatform) {
+              <div><span class="muted text-sm">Cobrança</span><strong>Sem mensalidade</strong></div>
+              <div>
+                <span class="muted text-sm">Validade</span>
+                <strong>{{ subscription.accessGrant?.expiresAt ? (subscription.accessGrant?.expiresAt | date:'dd/MM/yyyy') : 'Vitalício' }}</strong>
+              </div>
+            } @else if (subscription.priceCents > 0) {
               <div><span class="muted text-sm">Valor</span><strong>R$ {{ (subscription.priceCents / 100).toFixed(2) }}/mês</strong></div>
             }
             @if (subscription.currentPeriodEnd) {
@@ -83,7 +100,7 @@ const STATUS_CLASS: Record<string, string> = {
               <div><span class="muted text-sm">Cancelada em</span><strong>{{ subscription.canceledAt | date:'dd/MM/yyyy' }}</strong></div>
             }
           </div>
-          @if (subscription.provider === 'STRIPE') {
+          @if (subscription.provider === 'STRIPE' && !subscription.managedByPlatform) {
             <div class="billing-current-actions">
               <button class="btn btn-outline" [disabled]="processingAction" (click)="openPortal()">
                 Gerenciar pagamento e faturas
@@ -97,6 +114,12 @@ const STATUS_CLASS: Record<string, string> = {
           }
           @if (subscription.cancelAtPeriodEnd) {
             <p class="billing-cancel-notice">A renovação está cancelada. Você continua com acesso até o fim do período indicado.</p>
+          }
+          @if (subscription.managedByPlatform) {
+            <p class="billing-managed-notice">
+              Este acesso foi concedido diretamente pela administração do OdontoApp{{ subscription.accessGrant?.reason ? ': ' + subscription.accessGrant?.reason : '.' }}
+              Alterações de plano e cobrança são tratadas pelo suporte enquanto o benefício estiver ativo.
+            </p>
           }
         </div>
 
@@ -130,6 +153,8 @@ const STATUS_CLASS: Record<string, string> = {
               </ul>
               @if (isCurrentActivePlan(p.code)) {
                 <button class="btn btn-outline btn-block" disabled>Plano atual</button>
+              } @else if (subscription?.managedByPlatform) {
+                <button class="btn btn-outline btn-block" disabled>Gerenciado pela plataforma</button>
               } @else {
                 <button class="btn btn-primary btn-block" [disabled]="changing === p.code" (click)="changeTo(p.code)">
                   @if (changing === p.code) { <span class="spinner"></span> }

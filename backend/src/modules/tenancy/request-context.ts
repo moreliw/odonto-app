@@ -9,6 +9,8 @@ export type TenantContext = {
   connectionString: string
   /** Plano vigente da clínica; usado para aplicar o limite de dentistas. */
   plan?: string | null
+  /** Limite concedido pelo master; undefined usa o limite normal do plano e null significa ilimitado. */
+  dentistLimit?: number | null
 }
 
 const storage = new AsyncLocalStorage<TenantContext>()

@@ -23,7 +23,7 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
       </div>
 
       @if (summary) {
-        <div class="grid cols-3">
+        <div class="grid cols-4">
           <article class="card kpi-card">
             <div class="kpi-icon" style="background:var(--success-bg);color:var(--success-text);">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -47,6 +47,14 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
             <span class="kpi-title">Empresas cobradas</span>
             <strong class="kpi-value">{{ summary.totals.activeClinics }}</strong>
             <span class="kpi-delta">Ativas + trial</span>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-icon" style="background:#ecfeff;color:#0e7490;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/></svg>
+            </div>
+            <span class="kpi-title">Benefícios ativos</span>
+            <strong class="kpi-value">{{ summary.totals.complimentaryClinics || 0 }}</strong>
+            <span class="kpi-delta">Sem cobrança enquanto ativos</span>
           </article>
         </div>
       }
@@ -78,19 +86,32 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
                   <td><strong>{{ row.name }}</strong></td>
                   <td class="muted text-sm">{{ row.subdomain }}</td>
                   <td>
-                    <span class="badge" [class.badge-blue]="row.plan === 'PRO'" [class.badge-neutral]="row.plan !== 'PRO'">{{ row.plan }}</span>
+                    <div class="master-badge-stack">
+                      <span class="badge" [class.badge-blue]="row.effectivePlan === 'PRO'" [class.badge-neutral]="row.effectivePlan !== 'PRO'">{{ row.effectivePlan }}</span>
+                      @if (row.accessGrant) { <span class="badge badge-success">Benefício</span> }
+                    </div>
                   </td>
                   <td>
-                    <span class="status-chip" [class]="STATUS_CLASS[row.status] || ''">{{ row.status }}</span>
+                    @if (row.accessGrant) {
+                      <span class="status-chip">CORTESIA</span>
+                    } @else {
+                      <span class="status-chip" [class]="STATUS_CLASS[row.status] || ''">{{ row.status }}</span>
+                    }
                   </td>
-                  <td class="text-sm">R$ {{ (row.priceCents / 100) | number:'1.2-2' }} {{ row.currency }}</td>
+                  <td class="text-sm">{{ row.accessGrant ? 'R$ 0,00' : ('R$ ' + ((row.priceCents / 100) | number:'1.2-2') + ' ' + row.currency) }}</td>
                   <td>
                     <span class="badge" [class.badge-success]="row.countsForMrr" [class.badge-neutral]="!row.countsForMrr">
                       {{ row.countsForMrr ? 'Sim' : 'Não' }}
                     </span>
                   </td>
                   <td class="muted text-sm">{{ row.startedAt | date:'dd/MM/yyyy' }}</td>
-                  <td class="muted text-sm">{{ row.renewsAt ? (row.renewsAt | date:'dd/MM/yyyy') : '—' }}</td>
+                  <td class="muted text-sm">
+                    @if (row.accessGrant) {
+                      {{ row.accessGrant.expiresAt ? (row.accessGrant.expiresAt | date:'dd/MM/yyyy') : 'Vitalício' }}
+                    } @else {
+                      {{ row.renewsAt ? (row.renewsAt | date:'dd/MM/yyyy') : '—' }}
+                    }
+                  </td>
                 </tr>
               }
             </tbody>

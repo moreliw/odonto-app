@@ -6,10 +6,12 @@ import { MasterAdminGuard } from './master-admin.guard'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { BillingModule } from '../billing/billing.module'
+import { AuthModule } from '../auth/auth.module'
 
 @Module({
   imports: [
     BillingModule,
+    AuthModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'secret'
     })

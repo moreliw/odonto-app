@@ -657,20 +657,26 @@ export class BillingService {
   /** Assinatura atual da clínica autenticada + planos disponíveis para troca. */
   async getSubscriptionForTenant(tenantId: string, dentistUsed: number) {
     const subscription = await this.master.subscription.findUnique({ where: { tenantId } })
-    const plan = subscription?.plan ?? 'FREE'
+    const storedGrant = await this.master.accessGrant.findUnique({ where: { tenantId } })
+    const accessGrant = storedGrant?.active && (!storedGrant.expiresAt || storedGrant.expiresAt.getTime() > Date.now())
+      ? storedGrant
+      : null
+    const plan = accessGrant?.plan ?? subscription?.plan ?? 'FREE'
     const catalog = PLAN_CATALOG[plan]
     return {
       plan,
       planLabel: PLAN_LABEL[plan],
-      priceCents: subscription?.priceCents ?? catalog?.priceCents ?? 0,
-      status: subscription?.status ?? 'PENDING',
+      priceCents: accessGrant ? 0 : subscription?.priceCents ?? catalog?.priceCents ?? 0,
+      status: accessGrant ? 'ACTIVE' : subscription?.status ?? 'PENDING',
       provider: subscription?.provider ?? null,
       renewsAt: subscription?.renewsAt ?? null,
       currentPeriodEnd: subscription?.currentPeriodEnd ?? null,
       canceledAt: subscription?.canceledAt ?? null,
       cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd ?? false,
-      dentistLimit: DENTIST_LIMIT_BY_PLAN[plan],
+      dentistLimit: accessGrant ? accessGrant.dentistLimit : DENTIST_LIMIT_BY_PLAN[plan],
       dentistUsed,
+      accessGrant,
+      managedByPlatform: Boolean(accessGrant),
       availablePlans: Object.values(PLAN_CATALOG)
         .filter(p => p.code !== 'FREE')
         .map(p => ({ ...p, dentistLimit: DENTIST_LIMIT_BY_PLAN[p.code] }))
@@ -684,6 +690,10 @@ export class BillingService {
    *  - não existe assinatura Stripe (ex.: estava no FREE): cria um novo Checkout Session e devolve a URL pro frontend redirecionar.
    */
   async changeTenantPlan(tenantId: string, targetPlanCode: Plan, adminEmail: string, dentistUsed: number) {
+    const accessGrant = await this.master.accessGrant.findUnique({ where: { tenantId } })
+    if (accessGrant?.active && (!accessGrant.expiresAt || accessGrant.expiresAt.getTime() > Date.now())) {
+      throw new ConflictException('Este acesso é um benefício administrado pela plataforma. Fale com o suporte para alterar o plano.')
+    }
     const target = PLAN_CATALOG[targetPlanCode]
     if (!target) throw new BadRequestException('Plano inválido.')
 

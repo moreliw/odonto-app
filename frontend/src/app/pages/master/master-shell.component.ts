@@ -31,6 +31,11 @@ import { MasterAdminService } from '../../services/master-admin.service'
             <span>Empresas</span>
           </a>
 
+          <a routerLink="/admin/usuarios" routerLinkActive="active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Usuários</span>
+          </a>
+
           <a routerLink="/admin/financeiro" routerLinkActive="active">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             <span>Financeiro</span>
@@ -39,6 +44,12 @@ import { MasterAdminService } from '../../services/master-admin.service'
           <a routerLink="/admin/operacional" routerLinkActive="active">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             <span>Operacional</span>
+          </a>
+
+          <div class="nav-divider"></div>
+          <a routerLink="/admin/auditoria" routerLinkActive="active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Auditoria</span>
           </a>
         </nav>
 
