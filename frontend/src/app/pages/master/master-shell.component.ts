@@ -69,7 +69,7 @@ import { MasterAdminService } from '../../services/master-admin.service'
 
       <main class="content">
         <header class="topbar">
-          <button class="btn btn-icon" type="button" (click)="toggleSidebar()" aria-label="Alternar menu">
+          <button class="btn btn-icon" type="button" (click)="toggleNavigation()" aria-label="Alternar menu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <span class="topbar-chip">
@@ -83,11 +83,52 @@ import { MasterAdminService } from '../../services/master-admin.service'
           <router-outlet></router-outlet>
         </div>
       </main>
+
+      <nav class="mobile-bottom-nav master-mobile-bottom-nav" aria-label="Navegação do Super Admin">
+        <a routerLink="/admin/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>Visão geral</span>
+        </a>
+        <a routerLink="/admin/empresas" routerLinkActive="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>Empresas</span>
+        </a>
+        <a routerLink="/admin/usuarios" routerLinkActive="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg><span>Usuários</span>
+        </a>
+        <a routerLink="/admin/financeiro" routerLinkActive="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span>
+        </a>
+        <button type="button" (click)="mobileMoreOpen = !mobileMoreOpen" [class.active]="mobileMoreOpen" [attr.aria-expanded]="mobileMoreOpen" aria-controls="master-mobile-more" aria-label="Mais opções">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg><span>Mais</span>
+        </button>
+      </nav>
+
+      @if (mobileMoreOpen) {
+        <button class="mobile-more-backdrop" type="button" (click)="mobileMoreOpen=false" aria-label="Fechar menu"></button>
+        <section class="mobile-more-sheet" id="master-mobile-more" aria-label="Mais opções do Super Admin">
+          <div class="mobile-more-handle" aria-hidden="true"></div>
+          <div class="mobile-more-user">
+            <div class="avatar admin">{{ initials }}</div>
+            <div><strong>{{ displayName }}</strong><span>Super administrador</span></div>
+          </div>
+          <nav>
+            <a routerLink="/admin/operacional" (click)="mobileMoreOpen=false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Operacional
+            </a>
+            <a routerLink="/admin/auditoria" (click)="mobileMoreOpen=false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Auditoria
+            </a>
+            <button type="button" class="mobile-more-logout" (click)="logout()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sair do painel
+            </button>
+          </nav>
+        </section>
+      }
     </div>
   `
 })
 export class MasterShellComponent {
   collapsed = false
+  mobileMoreOpen = false
   displayName = 'Admin'
   initials = 'A'
 
@@ -99,7 +140,11 @@ export class MasterShellComponent {
     this.initials = (this.displayName[0] || 'A').toUpperCase()
   }
 
-  toggleSidebar() {
+  toggleNavigation() {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches) {
+      this.mobileMoreOpen = !this.mobileMoreOpen
+      return
+    }
     this.collapsed = !this.collapsed
     if (typeof localStorage !== 'undefined') localStorage.setItem('sidebarCollapsed', String(this.collapsed))
   }
