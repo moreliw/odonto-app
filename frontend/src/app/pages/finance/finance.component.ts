@@ -146,10 +146,10 @@ export class FinanceComponent implements OnInit, OnDestroy {
     this.error = ''
     forkJoin({
       summary: this.api.summary(this.from, this.to),
-      invoices: this.api.invoices({ from: this.from, to: this.to }),
+      invoices: this.api.invoices(),
       services: this.api.services(this.isAdmin),
       patients: this.http.get<PatientOption[]>('/api/patients'),
-      expenses: this.isAdmin ? this.api.expenses({ from: this.from, to: this.to }) : of([] as Expense[]),
+      expenses: this.isAdmin ? this.api.expenses() : of([] as Expense[]),
       dentists: this.isAdmin ? this.http.get<DentistOption[]>('/api/users?role=DENTIST') : of([] as DentistOption[])
     }).subscribe({
       next: result => {
@@ -180,7 +180,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
 
   loadInvoices() {
     this.loading = true
-    this.api.invoices({ search: this.search, status: this.statusFilter, from: this.from, to: this.to }).subscribe({
+    this.api.invoices({ search: this.search, status: this.statusFilter }).subscribe({
       next: invoices => { this.invoices = invoices; this.loading = false },
       error: error => { this.loading = false; this.toast.error('Falha ao carregar cobranças', this.errorMessage(error)) }
     })
@@ -188,7 +188,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
 
   loadExpenses() {
     this.loading = true
-    this.api.expenses({ search: this.search, status: this.statusFilter, from: this.from, to: this.to }).subscribe({
+    this.api.expenses({ search: this.search, status: this.statusFilter }).subscribe({
       next: expenses => { this.expenses = expenses; this.loading = false },
       error: error => { this.loading = false; this.toast.error('Falha ao carregar despesas', this.errorMessage(error)) }
     })
