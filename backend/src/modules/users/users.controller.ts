@@ -51,6 +51,13 @@ export class UsersController {
     return this.users.list(role)
   }
 
+  /** Dados do próprio usuário autenticado, para a página de perfil. */
+  @Get('me')
+  me(@Req() req: Request) {
+    const user = (req as any).user
+    return this.users.findById(user.userId)
+  }
+
   /** Quantos dentistas o plano permite e quantos já foram cadastrados. */
   @Get('dentist-quota')
   dentistQuota(@Req() req: Request) {

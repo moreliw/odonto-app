@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common'
 import { PublicService } from './public.service'
 import { IsEmail, IsEnum, IsString, MinLength, MaxLength } from 'class-validator'
 import { Throttle } from '@nestjs/throttler'
@@ -42,5 +42,11 @@ export class SignupController {
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   login(@Body() dto: PublicLoginDto) {
     return this.service.loginByIdentifier(dto.identifier, dto.password)
+  }
+
+  /** Identidade visual da clínica (nome, cor, logo). Usada pelo app após o login para aplicar o tema da clínica. */
+  @Get('branding')
+  branding(@Headers('x-tenant') tenantHeader?: string, @Query('subdomain') subdomainQuery?: string) {
+    return this.service.getBranding((tenantHeader || subdomainQuery || '').toString())
   }
 }

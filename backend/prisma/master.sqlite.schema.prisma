@@ -20,6 +20,8 @@ model Tenant {
   dbPort      Int      @default(5432)
   dbUser      String
   dbPassword  String
+  primaryColor String?
+  logoUrl      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   subscription Subscription?

@@ -8,6 +8,7 @@ import { Router } from '@angular/router'
 
 type ClinicRow = {
   id: string; name: string; subdomain: string; slug: string; internalNotes?: string | null
+  primaryColor?: string | null; logoUrl?: string | null
   subscription?: { plan: string; status: string; priceCents: number; currency: string; renewsAt?: string | null; canceledAt?: string | null } | null
   accessGrant?: { id: string; plan: string; dentistLimit?: number | null; reason?: string | null; expiresAt?: string | null; active: boolean; stopBilling: boolean; revokedAt?: string | null } | null
   loginIdentities?: { email: string }[]
@@ -157,6 +158,37 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
             <div class="form-group">
               <label>Notas internas</label>
               <textarea class="textarea" [(ngModel)]="editForm.internalNotes" name="e_notes" rows="3" placeholder="Contrato, observações comerciais..."></textarea>
+            </div>
+
+            <div class="master-section-head" style="margin-top:4px;">
+              <div>
+                <h4>Identidade visual</h4>
+                <p>Cor e logo aplicados no app da clínica após o login. Deixe em branco para usar o padrão do OdontoApp.</p>
+              </div>
+            </div>
+            <div class="grid cols-2">
+              <div class="form-group">
+                <label>Cor primária</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input
+                    type="color"
+                    [ngModel]="editForm.primaryColor || '#2563eb'"
+                    (ngModelChange)="editForm.primaryColor = $event"
+                    name="e_color_picker"
+                    style="width:40px;height:38px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;flex-shrink:0;"
+                  />
+                  <input class="input" [(ngModel)]="editForm.primaryColor" name="e_color" placeholder="#2563eb (padrão)" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>URL do logo</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  @if (editForm.logoUrl) {
+                    <img [src]="editForm.logoUrl" alt="" width="34" height="34" style="border-radius:8px;object-fit:contain;border:1px solid var(--border);flex-shrink:0;" />
+                  }
+                  <input class="input" [(ngModel)]="editForm.logoUrl" name="e_logo" placeholder="https://.../logo.png" />
+                </div>
+              </div>
             </div>
 
             <div class="grid cols-2">
@@ -374,6 +406,8 @@ export class MasterCompaniesComponent implements OnInit {
     name: '',
     subdomain: '',
     internalNotes: '',
+    primaryColor: '',
+    logoUrl: '',
     plan: 'BASIC',
     status: 'ACTIVE',
     priceMonthlyBrl: 0,
@@ -443,6 +477,8 @@ export class MasterCompaniesComponent implements OnInit {
       name: c.name,
       subdomain: c.subdomain,
       internalNotes: c.internalNotes || '',
+      primaryColor: c.primaryColor || '',
+      logoUrl: c.logoUrl || '',
       plan: sub?.plan || 'BASIC',
       status: sub?.status || 'ACTIVE',
       priceMonthlyBrl: (sub?.priceCents ?? 0) / 100,
@@ -576,6 +612,8 @@ export class MasterCompaniesComponent implements OnInit {
       name: this.editForm.name,
       subdomain: this.editForm.subdomain,
       internalNotes: this.editForm.internalNotes || null,
+      primaryColor: this.editForm.primaryColor.trim(),
+      logoUrl: this.editForm.logoUrl.trim(),
       plan: this.editForm.plan,
       status: this.editForm.status,
       priceMonthlyBrl: Number(this.editForm.priceMonthlyBrl),

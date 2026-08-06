@@ -11,6 +11,9 @@ export type TenantContext = {
   plan?: string | null
   /** Limite concedido pelo master; undefined usa o limite normal do plano e null significa ilimitado. */
   dentistLimit?: number | null
+  name?: string
+  primaryColor?: string | null
+  logoUrl?: string | null
 }
 
 const storage = new AsyncLocalStorage<TenantContext>()

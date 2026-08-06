@@ -86,6 +86,12 @@ export class UsersService {
     })
   }
 
+  async findById(id: string) {
+    const user = await this.prismaTenant.getClient().user.findUnique({ where: { id }, select: USER_SELECT })
+    if (!user) throw new NotFoundException('Usuário não encontrado.')
+    return user
+  }
+
   async update(requester: Requester, id: string, data: { name?: string; email?: string; password?: string }) {
     if (requester.role !== 'ADMIN' && requester.userId !== id) {
       throw new ForbiddenException('Você só pode editar o próprio perfil.')

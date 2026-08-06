@@ -2,6 +2,7 @@ import { Component } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router'
 import { AuthService } from '../services/auth.service'
+import { BrandingService } from '../services/branding.service'
 
 const ROLE_LABEL: Record<string, string> = { ADMIN: 'Administrador', DENTIST: 'Dentista', USER: 'Equipe' }
 type MasterSupportSession = { clinicName?: string; userName?: string }
@@ -14,13 +15,19 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
       <aside class="sidebar" role="navigation" aria-label="Menu lateral">
         <div class="sidebar-header">
           <div class="sidebar-brand">
-            <img
-              class="sidebar-brand-mark"
-              src="assets/logo-mark-96.png"
-              srcset="assets/logo-mark-96.png 1x, assets/logo-mark-192.png 2x"
-              width="30" height="30" alt="" aria-hidden="true" decoding="async"
-            />
-            <span class="brand-name">Odonto<strong>App</strong></span>
+            @if (logoUrl) {
+              <img class="sidebar-brand-mark" [src]="logoUrl" width="30" height="30" alt="" aria-hidden="true" decoding="async" />
+            } @else {
+              <img
+                class="sidebar-brand-mark"
+                src="assets/logo-mark-96.png"
+                srcset="assets/logo-mark-96.png 1x, assets/logo-mark-192.png 2x"
+                width="30" height="30" alt="" aria-hidden="true" decoding="async"
+              />
+            }
+            <span class="brand-name">
+              @if (clinicName) { {{ clinicName }} } @else { Odonto<strong>App</strong> }
+            </span>
           </div>
         </div>
 
@@ -88,8 +95,10 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
           </button>
 
           <a class="topbar-mobile-brand" routerLink="/app" aria-label="Ir para o início">
-            <img src="assets/logo-mark-96.png" width="30" height="30" alt="" aria-hidden="true" />
-            <span>Odonto<strong>App</strong></span>
+            <img [src]="logoUrl || 'assets/logo-mark-96.png'" width="30" height="30" alt="" aria-hidden="true" />
+            <span>
+              @if (clinicName) { {{ clinicName }} } @else { Odonto<strong>App</strong> }
+            </span>
           </a>
 
           <div class="spacer"></div>
@@ -115,6 +124,10 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
                     <div class="user-menu-panel-name">{{ userName }}</div>
                     <div class="user-menu-panel-role">{{ userRole }}</div>
                   </div>
+                  <a class="user-menu-logout" style="color:var(--text);" routerLink="/app/profile" (click)="userMenuOpen=false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Meu perfil
+                  </a>
                   <button class="user-menu-logout" (click)="logout()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     Sair da conta
@@ -183,6 +196,10 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
             </div>
           </div>
           <nav>
+            <a routerLink="/app/profile" (click)="mobileMoreOpen=false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Meu perfil
+            </a>
             @if (canAccessFinance) {
               <a routerLink="/app/records" (click)="mobileMoreOpen=false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -219,8 +236,10 @@ export class ShellComponent {
   isAdmin = false
   canAccessFinance = false
   supportSession: MasterSupportSession | null = null
+  logoUrl: string | null = null
+  clinicName: string | null = null
 
-  constructor(private auth: AuthService, private router: Router) {
+  constructor(private auth: AuthService, private router: Router, private branding: BrandingService) {
     const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('sidebarCollapsed') : null
     this.collapsed = stored === 'true'
     const user = this.auth.getUser()
@@ -236,6 +255,10 @@ export class ShellComponent {
         catch { localStorage.removeItem('masterSupportSession') }
       }
     }
+    this.branding.load().subscribe(res => {
+      this.logoUrl = res.logoUrl
+      this.clinicName = res.name
+    })
   }
 
   toggleSidebar() {
@@ -245,12 +268,14 @@ export class ShellComponent {
 
   logout() {
     this.auth.logout()
+    this.branding.reset()
     if (typeof localStorage !== 'undefined') localStorage.removeItem('masterSupportSession')
     this.router.navigateByUrl('/login')
   }
 
   returnToMaster() {
     this.auth.logout()
+    this.branding.reset()
     if (typeof localStorage !== 'undefined') localStorage.removeItem('masterSupportSession')
     this.router.navigateByUrl('/admin/empresas')
   }

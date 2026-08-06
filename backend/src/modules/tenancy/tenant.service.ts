@@ -22,12 +22,23 @@ export class TenantService {
     const grant = this.activeGrant(t.accessGrant)
     const plan = grant?.plan ?? t.subscription?.plan ?? null
     const dentistLimit = grant ? grant.dentistLimit : undefined
+    const branding = { name: t.name, primaryColor: t.primaryColor, logoUrl: t.logoUrl }
     if (process.env.DEV_SQLITE === 'true') {
       const url = `file:./prisma/dev-${t.slug}.db`
-      return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit }
+      return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit, ...branding }
     }
     const url = `postgresql://${encodeURIComponent(t.dbUser)}:${encodeURIComponent(t.dbPassword)}@${t.dbHost}:${t.dbPort}/${t.dbName}?schema=public`
-    return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit }
+    return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit, ...branding }
+  }
+
+  /** Dados públicos de identidade visual da clínica (sem exigir autenticação). */
+  async getBranding(subdomain: string) {
+    if (!subdomain) return { name: null, primaryColor: null, logoUrl: null }
+    const t = await this.master.tenant.findUnique({
+      where: { subdomain },
+      select: { name: true, primaryColor: true, logoUrl: true }
+    })
+    return t || { name: null, primaryColor: null, logoUrl: null }
   }
 
   async getAccessPolicyBySubdomain(subdomain: string) {

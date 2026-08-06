@@ -7,6 +7,7 @@ import { PatientsComponent } from './pages/patients/patients.component'
 import { AppointmentsComponent } from './pages/appointments/appointments.component'
 import { RecordsComponent } from './pages/records/records.component'
 import { TeamComponent } from './pages/team/team.component'
+import { ProfileComponent } from './pages/profile/profile.component'
 import { BillingComponent } from './pages/billing/billing.component'
 import { FinanceComponent } from './pages/finance/finance.component'
 import { AuthService } from './services/auth.service'
@@ -96,6 +97,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', component: DashboardComponent },
+      { path: 'profile', component: ProfileComponent },
       { path: 'patients', component: PatientsComponent },
       { path: 'appointments', component: AppointmentsComponent },
       { path: 'records', component: RecordsComponent },

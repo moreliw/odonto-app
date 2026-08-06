@@ -59,6 +59,14 @@ export class AuthService {
   getUser() {
     return this.user$.value
   }
+  /** Atualiza o usuário em cache (ex.: após editar o próprio perfil) sem exigir novo login. */
+  patchUser(patch: Partial<User>) {
+    const current = this.user$.value
+    if (!current) return
+    const updated = { ...current, ...patch }
+    this.user$.next(updated)
+    localStorage.setItem('user', JSON.stringify(updated))
+  }
   isAdmin() {
     return this.user$.value?.role === 'ADMIN'
   }

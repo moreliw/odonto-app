@@ -1,6 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
+import { TenantService } from '../tenancy/tenant.service'
 import { AuthService } from '../auth/auth.service'
 import { Prisma as PrismaMaster, SubscriptionStatus } from '@prisma/client-master'
 import { Prisma as PrismaTenant } from '@prisma/client-tenant'
@@ -37,7 +38,17 @@ const CLINIC_LOGIN_FAIL = 'Não foi possível entrar. Verifique e-mail ou usuár
 export class PublicService {
   private readonly log = new Logger(PublicService.name)
 
-  constructor(private readonly provision: TenantProvisionService, private readonly master: MasterPrismaService, private readonly auth: AuthService) {}
+  constructor(
+    private readonly provision: TenantProvisionService,
+    private readonly master: MasterPrismaService,
+    private readonly auth: AuthService,
+    private readonly tenants: TenantService
+  ) {}
+
+  /** Identidade visual pública da clínica (nome, cor, logo) para aplicar no app após o login. */
+  async getBranding(subdomain: string) {
+    return this.tenants.getBranding(subdomain.trim())
+  }
 
   private isMasterAuthError(error: unknown) {
     const message = error instanceof Error ? error.message : String(error)

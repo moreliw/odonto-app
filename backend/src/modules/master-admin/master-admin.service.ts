@@ -360,6 +360,8 @@ export class MasterAdminService implements OnModuleInit {
       name?: string
       subdomain?: string
       internalNotes?: string | null
+      primaryColor?: string
+      logoUrl?: string
       plan?: Plan
       status?: SubscriptionStatus
       priceCents?: number
@@ -371,10 +373,12 @@ export class MasterAdminService implements OnModuleInit {
     const existing = await this.master.tenant.findUnique({ where: { id } })
     if (!existing) throw new NotFoundException('Clínica não encontrada')
 
-    const tenantData: { name?: string; subdomain?: string; internalNotes?: string | null } = {}
+    const tenantData: { name?: string; subdomain?: string; internalNotes?: string | null; primaryColor?: string | null; logoUrl?: string | null } = {}
     if (data.name !== undefined) tenantData.name = data.name
     if (data.subdomain !== undefined && data.subdomain !== '') tenantData.subdomain = data.subdomain
     if (data.internalNotes !== undefined) tenantData.internalNotes = data.internalNotes
+    if (data.primaryColor !== undefined) tenantData.primaryColor = data.primaryColor.trim() || null
+    if (data.logoUrl !== undefined) tenantData.logoUrl = data.logoUrl.trim() || null
 
     const tenant =
       Object.keys(tenantData).length > 0

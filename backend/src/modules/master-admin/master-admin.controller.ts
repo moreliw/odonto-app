@@ -45,6 +45,15 @@ class UpdateClinicDto {
   @IsString()
   internalNotes?: string | null
   @IsOptional()
+  @IsString()
+  @Matches(/^(#[0-9a-fA-F]{6})?$/)
+  /** Cor primária da marca (hex). Enviar string vazia remove a personalização e volta ao azul padrão. */
+  primaryColor?: string
+  @IsOptional()
+  @IsString()
+  /** URL pública do logo. Enviar string vazia remove o logo personalizado. */
+  logoUrl?: string
+  @IsOptional()
   @IsEnum(Plan)
   plan?: Plan
   @IsOptional()

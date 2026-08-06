@@ -48,6 +48,10 @@ model Tenant {
   dbUser      String
   dbPassword  String
   internalNotes String?
+  /// Cor primária da marca da clínica (hex, ex.: #2563eb). Nulo usa o azul padrão do produto.
+  primaryColor String?
+  /// URL pública do logo da clínica, exibido na sidebar e topbar do app da clínica.
+  logoUrl      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   subscription Subscription?
