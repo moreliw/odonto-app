@@ -168,6 +168,10 @@ export class FinancialService {
     return this.http.post<Expense>(`${this.base}/expenses/${id}/pay`, data)
   }
 
+  reopenExpense(id: string) {
+    return this.http.post<Expense>(`${this.base}/expenses/${id}/reopen`, {})
+  }
+
   cancelExpense(id: string) {
     return this.http.post<Expense>(`${this.base}/expenses/${id}/cancel`, {})
   }

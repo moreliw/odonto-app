@@ -72,6 +72,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
   dentists: DentistOption[] = []
 
   invoiceModal = false
+  invoiceDetailsModal = false
   paymentModal = false
   expenseModal = false
   expensePaymentModal = false
@@ -304,6 +305,25 @@ export class FinanceComponent implements OnInit, OnDestroy {
     this.paymentModal = true
   }
 
+  openInvoiceDetails(invoice: ClinicInvoice) {
+    this.selectedInvoice = invoice
+    this.invoiceDetailsModal = true
+  }
+
+  removeInvoicePayment(paymentId: string) {
+    if (!this.isAdmin || !this.selectedInvoice || !confirm('Estornar este recebimento? O valor voltará para o saldo em aberto.')) return
+    this.saving = true
+    this.api.removePayment(this.selectedInvoice.id, paymentId).subscribe({
+      next: invoice => {
+        this.saving = false
+        this.selectedInvoice = invoice
+        this.toast.success('Recebimento estornado', 'O saldo da cobrança foi recalculado.')
+        this.loadAll()
+      },
+      error: error => { this.saving = false; this.toast.error('Não foi possível estornar', this.errorMessage(error)) }
+    })
+  }
+
   savePayment() {
     if (!this.selectedInvoice || this.paymentForm.amount <= 0 || this.paymentForm.amount > this.selectedInvoice.remainingAmount) {
       this.toast.warning('Valor inválido', 'O recebimento não pode ultrapassar o saldo em aberto.')
@@ -397,6 +417,14 @@ export class FinanceComponent implements OnInit, OnDestroy {
         this.loadAll()
       },
       error: error => { this.saving = false; this.toast.error('Não foi possível registrar', this.errorMessage(error)) }
+    })
+  }
+
+  reopenExpense(expense: Expense) {
+    if (!confirm('Estornar o pagamento desta despesa? Ela voltará para contas a pagar.')) return
+    this.api.reopenExpense(expense.id).subscribe({
+      next: () => { this.toast.success('Pagamento estornado'); this.loadAll() },
+      error: error => this.toast.error('Não foi possível estornar', this.errorMessage(error))
     })
   }
 

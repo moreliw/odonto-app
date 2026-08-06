@@ -365,6 +365,11 @@ export class FinancialController {
     return this.financial.payExpense(this.requester(req), id, dto)
   }
 
+  @Post('expenses/:id/reopen')
+  reopenExpense(@Req() req: Request, @Param('id') id: string) {
+    return this.financial.reopenExpense(this.requester(req), id)
+  }
+
   @Post('expenses/:id/cancel')
   cancelExpense(@Req() req: Request, @Param('id') id: string) {
     return this.financial.cancelExpense(this.requester(req), id)

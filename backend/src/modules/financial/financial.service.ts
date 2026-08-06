@@ -276,10 +276,12 @@ export class FinancialService {
     const current = await this.invoiceOrThrow(requester, invoiceId)
     const payment = current.payments.find((entry: any) => entry.id === paymentId)
     if (!payment) throw new NotFoundException('Recebimento não encontrado.')
-    await this.prisma.invoicePayment.delete({ where: { id: paymentId } })
     const remainingPaid = this.money(this.paymentTotal(current) - Number(payment.amount))
     const status = remainingPaid <= 0 ? 'PENDING' : remainingPaid + 0.001 >= Number(current.amount) ? 'PAID' : 'PARTIAL'
-    const invoice = await this.prisma.invoice.update({ where: { id: invoiceId }, data: { status }, include: invoiceInclude })
+    const [, invoice] = await this.prisma.$transaction([
+      this.prisma.invoicePayment.delete({ where: { id: paymentId } }),
+      this.prisma.invoice.update({ where: { id: invoiceId }, data: { status }, include: invoiceInclude })
+    ])
     return this.serializeInvoice(invoice)
   }
 
@@ -365,6 +367,18 @@ export class FinancialService {
     const expense = await this.prisma.expense.update({
       where: { id },
       data: { status: 'PAID', paidAt: new Date(input.paidAt), paymentMethod: input.method }
+    })
+    return this.serializeExpense(expense)
+  }
+
+  async reopenExpense(requester: FinancialRequester, id: string) {
+    this.assertAdmin(requester)
+    const current = await this.prisma.expense.findUnique({ where: { id } })
+    if (!current) throw new NotFoundException('Despesa não encontrada.')
+    if (current.status !== 'PAID') throw new BadRequestException('Apenas despesas pagas podem ter o pagamento estornado.')
+    const expense = await this.prisma.expense.update({
+      where: { id },
+      data: { status: 'PENDING', paidAt: null, paymentMethod: null }
     })
     return this.serializeExpense(expense)
   }
