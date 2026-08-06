@@ -16,7 +16,7 @@ type DashboardMetrics = {
   patientCount: number
   appointmentsToday: number
   revenueThisMonth: number
-  invoicesStatus: { pending: number; paid: number; cancelled: number }
+  invoicesStatus: { pending: number; partial: number; paid: number; cancelled: number }
   monthlyPatients: { label: string; count: number }[]
   todayAppointments: TodayAppointment[]
 }
@@ -262,7 +262,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { id: 'patients', title: 'Pacientes', value: String(m.patientCount), delta: 'Total cadastrados' },
       { id: 'appointments', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Agendadas para hoje' },
       { id: 'revenue', title: 'Faturamento do mês', value: revenueValue, delta: 'Cobranças pagas no mês' },
-      { id: 'pending', title: 'Cobranças pendentes', value: String(m.invoicesStatus.pending), delta: 'Aguardando pagamento' }
+      { id: 'pending', title: 'Cobranças pendentes', value: String(m.invoicesStatus.pending + m.invoicesStatus.partial), delta: 'Aguardando pagamento' }
     ]
 
     this.patientTrend = m.monthlyPatients.map(p => ({ label: p.label, value: p.count }))
@@ -270,10 +270,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.invoiceSlices = [
       { label: 'Pagas', value: m.invoicesStatus.paid, color: '#22c55e' },
       { label: 'Pendentes', value: m.invoicesStatus.pending, color: '#f59e0b' },
+      { label: 'Parciais', value: m.invoicesStatus.partial, color: '#3b82f6' },
       { label: 'Canceladas', value: m.invoicesStatus.cancelled, color: '#ef4444' }
     ].filter(s => s.value > 0)
 
-    const totalInvoices = m.invoicesStatus.paid + m.invoicesStatus.pending + m.invoicesStatus.cancelled
+    const totalInvoices = m.invoicesStatus.paid + m.invoicesStatus.pending + m.invoicesStatus.partial + m.invoicesStatus.cancelled
     const patientsInTrend = m.monthlyPatients.reduce((acc, p) => acc + p.count, 0)
     this.hasActivity = m.patientCount > 0 || m.appointmentsToday > 0 || totalInvoices > 0 || patientsInTrend > 0
   }
