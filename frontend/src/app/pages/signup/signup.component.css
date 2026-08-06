@@ -1,0 +1,279 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+.signup-page {
+  grid-template-columns: minmax(410px, .76fr) minmax(680px, 1.24fr);
+  overflow: visible;
+}
+
+.signup-showcase {
+  position: sticky;
+  top: 0;
+}
+
+.signup-showcase .login-showcase-content {
+  max-width: 570px;
+}
+
+.signup-showcase h1 {
+  font-size: clamp(37px, 3.5vw, 54px);
+}
+
+.signup-access {
+  min-height: 100vh;
+  padding-inline: clamp(28px, 4vw, 68px);
+}
+
+.signup-access-inner {
+  width: min(100%, 760px);
+  margin-block: 12px 30px;
+  padding-top: 10px;
+}
+
+.signup-card {
+  padding: 34px 36px 36px;
+}
+
+.signup-card-header {
+  margin-bottom: 24px;
+}
+
+.signup-card-header p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.signup-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px 16px;
+}
+
+.signup-field--full {
+  grid-column: 1 / -1;
+}
+
+.signup-password-error {
+  color: #b91c1c;
+  font-size: 11.5px;
+}
+
+.signup-plan-field {
+  min-width: 0;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.signup-plan-field legend {
+  margin-bottom: 8px;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.signup-plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.signup-plan-option {
+  min-width: 0;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 15px;
+  border: 1px solid #dbe3ed;
+  border-radius: 14px;
+  outline: none;
+  background: #fbfdff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.signup-plan-option:hover {
+  border-color: #93b8f8;
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.signup-plan-option.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .1);
+}
+
+.signup-plan-option:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .28);
+  outline-offset: 2px;
+}
+
+.signup-plan-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.signup-plan-head strong {
+  color: #0b1f33;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.signup-plan-check {
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 21px;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  background: #fff;
+  color: transparent;
+}
+
+.signup-plan-check svg {
+  width: 13px;
+  height: 13px;
+}
+
+.signup-plan-option.active .signup-plan-check {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.signup-plan-option .price {
+  color: #1d4ed8;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.signup-plan-option .price small {
+  color: #64748b;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 550;
+}
+
+.signup-plan-description {
+  color: #64748b;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.signup-submit {
+  margin-top: 2px;
+}
+
+.signup-alert--success {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.signup-login-link {
+  width: min(100%, 520px);
+  margin-inline: auto;
+}
+
+@media (max-width: 1180px) {
+  .signup-page {
+    grid-template-columns: minmax(390px, .72fr) minmax(610px, 1.28fr);
+  }
+
+  .signup-showcase {
+    padding: 42px;
+  }
+
+  .signup-access {
+    padding-inline: 28px;
+  }
+
+  .signup-card {
+    padding-inline: 28px;
+  }
+}
+
+@media (max-width: 900px) {
+  .signup-page {
+    display: block;
+  }
+
+  .signup-access-inner {
+    width: min(100%, 720px);
+    margin: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .signup-form {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-field--full {
+    grid-column: auto;
+  }
+
+  .signup-plans {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-plan-option {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .signup-access {
+    padding-inline: 12px;
+  }
+
+  .signup-access-inner {
+    padding-top: 4px;
+  }
+
+  .signup-card {
+    padding: 28px 20px 24px;
+  }
+
+  .signup-card-header {
+    margin-bottom: 22px;
+  }
+
+  .signup-form {
+    gap: 16px;
+  }
+
+  .signup-login-link {
+    width: 100%;
+  }
+}
+
+@media (max-width: 370px) {
+  .signup-access {
+    padding-inline: 9px;
+  }
+
+  .signup-card {
+    padding-inline: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signup-plan-option {
+    transition: none;
+  }
+}
