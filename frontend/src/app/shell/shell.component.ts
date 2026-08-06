@@ -46,6 +46,13 @@ const ROLE_LABEL: Record<string, string> = { ADMIN: 'Administrador', DENTIST: 'D
             <span>Prontuário</span>
           </a>
 
+          @if (canAccessFinance) {
+            <a routerLink="/app/finance" routerLinkActive="active" aria-label="Financeiro">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h4M6 9h4M6 15h7"/></svg>
+              <span>Financeiro</span>
+            </a>
+          }
+
           @if (isAdmin) {
             <p class="nav-section-title">Gestão</p>
             <a routerLink="/app/team" routerLinkActive="active" aria-label="Equipe">
@@ -136,10 +143,17 @@ const ROLE_LABEL: Record<string, string> = { ADMIN: 'Administrador', DENTIST: 'D
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
           <span>Pacientes</span>
         </a>
-        <a routerLink="/app/records" routerLinkActive="active" aria-label="Prontuário">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          <span>Prontuário</span>
-        </a>
+        @if (canAccessFinance) {
+          <a routerLink="/app/finance" routerLinkActive="active" aria-label="Financeiro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h4M6 9h4M6 15h7"/></svg>
+            <span>Financeiro</span>
+          </a>
+        } @else {
+          <a routerLink="/app/records" routerLinkActive="active" aria-label="Prontuário">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Prontuário</span>
+          </a>
+        }
         <button type="button" (click)="mobileMoreOpen = !mobileMoreOpen" [class.active]="mobileMoreOpen" [attr.aria-expanded]="mobileMoreOpen" aria-controls="mobile-more-menu" aria-label="Mais opções">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
           <span>Mais</span>
@@ -158,6 +172,12 @@ const ROLE_LABEL: Record<string, string> = { ADMIN: 'Administrador', DENTIST: 'D
             </div>
           </div>
           <nav>
+            @if (canAccessFinance) {
+              <a routerLink="/app/records" (click)="mobileMoreOpen=false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Prontuário
+              </a>
+            }
             @if (isAdmin) {
               <a routerLink="/app/team" (click)="mobileMoreOpen=false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
@@ -186,6 +206,7 @@ export class ShellComponent {
   userRole = ''
   initial = ''
   isAdmin = false
+  canAccessFinance = false
 
   constructor(private auth: AuthService, private router: Router) {
     const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('sidebarCollapsed') : null
@@ -195,6 +216,7 @@ export class ShellComponent {
     this.userRole = ROLE_LABEL[user?.role || ''] || 'Equipe'
     this.initial = (this.userName[0] || 'U').toUpperCase()
     this.isAdmin = this.auth.isAdmin()
+    this.canAccessFinance = this.isAdmin || this.auth.isDentist()
   }
 
   toggleSidebar() {

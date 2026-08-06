@@ -1,0 +1,321 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div>
+      <span class="finance-eyebrow">Controle financeiro</span>
+      <h1>{{ isAdmin ? 'Financeiro da clínica' : 'Minha produção' }}</h1>
+      <p>{{ isAdmin ? 'Recebimentos, despesas e resultados em um só lugar.' : 'Acompanhe suas cobranças e valores recebidos.' }}</p>
+    </div>
+    <div class="finance-header-actions">
+      <button class="btn btn-outline" type="button" (click)="privacy.toggle()" [attr.aria-label]="hideValues ? 'Mostrar valores' : 'Esconder valores'">
+        @if (hideValues) {
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"/></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+        }
+        <span>{{ hideValues ? 'Mostrar valores' : 'Esconder valores' }}</span>
+      </button>
+      @if (isAdmin) {
+        <button class="btn btn-outline finance-desktop-action" type="button" (click)="openExpense()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Nova despesa
+        </button>
+      }
+      <button class="btn btn-primary" type="button" (click)="openInvoice()">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Nova cobrança
+      </button>
+    </div>
+  </header>
+
+  <section class="finance-period" aria-label="Período financeiro">
+    <div class="finance-period-presets">
+      <button type="button" [class.active]="period === 'month'" (click)="setPeriod('month')">Este mês</button>
+      <button type="button" [class.active]="period === 'quarter'" (click)="setPeriod('quarter')">3 meses</button>
+      <button type="button" [class.active]="period === 'year'" (click)="setPeriod('year')">Este ano</button>
+    </div>
+    <div class="finance-custom-period">
+      <label>De <input class="input" type="date" [(ngModel)]="from" (change)="applyCustomPeriod()" /></label>
+      <span aria-hidden="true">até</span>
+      <label>Até <input class="input" type="date" [(ngModel)]="to" (change)="applyCustomPeriod()" /></label>
+    </div>
+    <button class="btn btn-ghost btn-sm" type="button" (click)="exportCsv()" title="Exportar dados do período">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+      Exportar CSV
+    </button>
+  </section>
+
+  @if (error) {
+    <div class="finance-alert" role="alert">
+      <div><strong>Não foi possível abrir o financeiro.</strong><span>{{ error }}</span></div>
+      <button class="btn btn-outline btn-sm" type="button" (click)="loadAll()">Tentar novamente</button>
+    </div>
+  }
+
+  @if (summary) {
+    <section class="finance-kpis" aria-label="Resumo financeiro">
+      <article class="finance-kpi finance-kpi-primary">
+        <div class="finance-kpi-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <span>{{ isAdmin ? 'Recebido no período' : 'Minha produção recebida' }}</span>
+        <strong>{{ money(summary.kpis.revenue) }}</strong>
+        <small>{{ summary.counts.paid }} cobrança{{ summary.counts.paid === 1 ? '' : 's' }} quitada{{ summary.counts.paid === 1 ? '' : 's' }}</small>
+      </article>
+      @if (isAdmin) {
+        <article class="finance-kpi">
+          <div class="finance-kpi-icon expense"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/><path d="m19 15 3 3m0 0-3 3m3-3h-6"/></svg></div>
+          <span>Despesas pagas</span>
+          <strong>{{ money(summary.kpis.expenses) }}</strong>
+          <small>{{ money(summary.kpis.payable) }} ainda a pagar</small>
+        </article>
+        <article class="finance-kpi" [class.negative]="summary.kpis.balance < 0">
+          <div class="finance-kpi-icon balance"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-4 3 3 6-7"/></svg></div>
+          <span>Saldo do período</span>
+          <strong>{{ money(summary.kpis.balance) }}</strong>
+          <small>Recebimentos menos despesas</small>
+        </article>
+      }
+      <article class="finance-kpi">
+        <div class="finance-kpi-icon pending"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+        <span>A receber</span>
+        <strong>{{ money(summary.kpis.receivable) }}</strong>
+        <small>{{ summary.counts.pending + summary.counts.partial }} cobrança{{ summary.counts.pending + summary.counts.partial === 1 ? '' : 's' }} em aberto</small>
+      </article>
+      <article class="finance-kpi" [class.attention]="summary.kpis.overdue > 0">
+        <div class="finance-kpi-icon overdue"><svg viewBox="0 0 24 24"><path d="M10.3 3.6 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 3h.01"/></svg></div>
+        <span>Em atraso</span>
+        <strong>{{ money(summary.kpis.overdue) }}</strong>
+        <small>{{ summary.counts.overdue }} cobrança{{ summary.counts.overdue === 1 ? '' : 's' }} vencida{{ summary.counts.overdue === 1 ? '' : 's' }}</small>
+      </article>
+    </section>
+  } @else if (loading) {
+    <section class="finance-kpis" aria-label="Carregando resumo">
+      @for (item of [1,2,3,4,5]; track item) { <div class="finance-kpi finance-skeleton"></div> }
+    </section>
+  }
+
+  <nav class="finance-tabs" role="tablist" aria-label="Seções do financeiro">
+    <button role="tab" type="button" [attr.aria-selected]="activeTab === 'overview'" [class.active]="activeTab === 'overview'" (click)="selectTab('overview')">Visão geral</button>
+    <button role="tab" type="button" [attr.aria-selected]="activeTab === 'receivables'" [class.active]="activeTab === 'receivables'" (click)="selectTab('receivables')">
+      Cobranças <span>{{ invoices.length }}</span>
+    </button>
+    @if (isAdmin) {
+      <button role="tab" type="button" [attr.aria-selected]="activeTab === 'expenses'" [class.active]="activeTab === 'expenses'" (click)="selectTab('expenses')">Despesas <span>{{ expenses.length }}</span></button>
+    }
+    <button role="tab" type="button" [attr.aria-selected]="activeTab === 'services'" [class.active]="activeTab === 'services'" (click)="selectTab('services')">Serviços <span>{{ services.length }}</span></button>
+  </nav>
+
+  @if (activeTab === 'overview' && summary) {
+    <section class="finance-overview" role="tabpanel">
+      <article class="card finance-chart-card">
+        <header class="finance-card-head">
+          <div><h2>Fluxo de caixa</h2><p>Recebimentos e despesas dos últimos 6 meses</p></div>
+          <div class="finance-chart-legend"><span><i class="income"></i>Entradas</span>@if (isAdmin) { <span><i class="expense"></i>Saídas</span> }</div>
+        </header>
+        <div class="finance-bars" aria-label="Gráfico de fluxo de caixa">
+          @for (point of summary.cashFlow; track point.label) {
+            <div class="finance-bar-group">
+              <div class="finance-bar-values">
+                <div class="finance-bar income" [style.height]="chartHeight(point.income)" [title]="'Entradas: ' + money(point.income)"></div>
+                @if (isAdmin) { <div class="finance-bar expense" [style.height]="chartHeight(point.expense)" [title]="'Saídas: ' + money(point.expense)"></div> }
+              </div>
+              <span>{{ point.label }}</span>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="card finance-health-card">
+        <header class="finance-card-head"><div><h2>Saúde financeira</h2><p>Indicadores para decisões rápidas</p></div></header>
+        <div class="finance-health-list">
+          <div><span>Ticket médio recebido</span><strong>{{ money(summary.kpis.averageTicket) }}</strong></div>
+          <div><span>Valores a receber</span><strong>{{ money(summary.kpis.receivable) }}</strong></div>
+          @if (isAdmin) { <div><span>Contas a pagar</span><strong>{{ money(summary.kpis.payable) }}</strong></div> }
+          <div class="finance-health-progress">
+            <div><span>Cobranças em dia</span><strong>{{ summary.counts.paid }}</strong></div>
+            <div class="finance-progress"><span [style.width.%]="summary.counts.paid + summary.counts.overdue > 0 ? (summary.counts.paid / (summary.counts.paid + summary.counts.overdue)) * 100 : 0"></span></div>
+            <small>{{ summary.counts.overdue ? summary.counts.overdue + ' vencida(s) precisam de atenção' : 'Nenhuma cobrança vencida' }}</small>
+          </div>
+        </div>
+      </article>
+
+      <article class="card finance-list-card">
+        <header class="finance-card-head">
+          <div><h2>Próximos recebimentos</h2><p>Cobranças que vencem primeiro</p></div>
+          <button type="button" class="finance-link" (click)="selectTab('receivables')">Ver cobranças →</button>
+        </header>
+        @if (summary.upcomingReceivables.length) {
+          <ul class="finance-compact-list">
+            @for (invoice of summary.upcomingReceivables; track invoice.id) {
+              <li><div class="finance-date-badge"><strong>{{ invoice.dueDate | date:'dd' }}</strong><span>{{ invoice.dueDate | date:'MMM' }}</span></div><div><strong>{{ invoice.patient.name }}</strong><span>{{ invoice.description }}</span></div><b>{{ money(invoice.remainingAmount) }}</b></li>
+            }
+          </ul>
+        } @else {
+          <div class="finance-empty compact"><strong>Nenhum recebimento próximo</strong><span>As novas cobranças aparecerão aqui.</span></div>
+        }
+      </article>
+
+      <article class="card finance-list-card" [class.finance-attention-card]="summary.overdueReceivables.length">
+        <header class="finance-card-head"><div><h2>Cobranças em atraso</h2><p>Priorize estes contatos</p></div></header>
+        @if (summary.overdueReceivables.length) {
+          <ul class="finance-compact-list overdue">
+            @for (invoice of summary.overdueReceivables; track invoice.id) {
+              <li><div class="finance-date-badge"><strong>{{ invoice.dueDate | date:'dd' }}</strong><span>{{ invoice.dueDate | date:'MMM' }}</span></div><div><strong>{{ invoice.patient.name }}</strong><span>{{ invoice.patient.phone || 'Telefone não informado' }}</span></div><b>{{ money(invoice.remainingAmount) }}</b></li>
+            }
+          </ul>
+        } @else {
+          <div class="finance-empty compact success"><strong>Tudo em dia</strong><span>Não há cobranças vencidas.</span></div>
+        }
+      </article>
+
+      <article class="card finance-movements-card">
+        <header class="finance-card-head"><div><h2>Movimentações recentes</h2><p>Entradas e saídas do período</p></div></header>
+        @if (summary.recentMovements.length) {
+          <ul class="finance-movement-list">
+            @for (movement of summary.recentMovements; track movement.type + movement.id) {
+              <li><span class="finance-movement-icon" [class.expense]="movement.type === 'EXPENSE'">{{ movement.type === 'INCOME' ? '↗' : '↙' }}</span><div><strong>{{ movement.description }}</strong><span>{{ movement.detail }} · {{ methodText(movement.method) }}</span></div><b [class.expense]="movement.type === 'EXPENSE'">{{ movement.type === 'EXPENSE' ? '− ' : '+ ' }}{{ money(movement.amount) }}</b><time>{{ movement.date | date:'dd/MM' }}</time></li>
+            }
+          </ul>
+        } @else { <div class="finance-empty compact"><strong>Nenhuma movimentação no período</strong><span>Registre recebimentos e pagamentos para acompanhar o caixa.</span></div> }
+      </article>
+
+      <article class="card finance-services-ranking">
+        <header class="finance-card-head"><div><h2>Serviços em destaque</h2><p>Mais lançados no período</p></div></header>
+        @if (summary.topServices.length) {
+          <ol>
+            @for (service of summary.topServices; track service.name; let index = $index) {
+              <li><span>{{ index + 1 }}</span><div><strong>{{ service.name }}</strong><small>{{ service.quantity }} lançamento{{ service.quantity === 1 ? '' : 's' }}</small></div><b>{{ money(service.total) }}</b></li>
+            }
+          </ol>
+        } @else { <div class="finance-empty compact"><strong>Sem serviços lançados</strong><span>Use o catálogo ao criar uma cobrança.</span></div> }
+      </article>
+    </section>
+  }
+
+  @if (activeTab === 'receivables') {
+    <section class="finance-panel card" role="tabpanel">
+      <header class="finance-panel-head">
+        <div><h2>Cobranças e recebimentos</h2><p>Controle valores pagos, pendentes, parciais e vencidos.</p></div>
+        <button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">+ Nova cobrança</button>
+      </header>
+      <div class="finance-filterbar">
+        <div class="finance-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" type="search" [(ngModel)]="search" (ngModelChange)="searchChanged()" placeholder="Buscar paciente ou cobrança" aria-label="Buscar cobranças" /></div>
+        <select class="select" [(ngModel)]="statusFilter" (change)="loadInvoices()" aria-label="Filtrar cobranças por status">
+          <option value="ALL">Todos os status</option><option value="PENDING">Pendentes</option><option value="PARTIAL">Parciais</option><option value="OVERDUE">Em atraso</option><option value="PAID">Recebidas</option><option value="CANCELLED">Canceladas</option>
+        </select>
+      </div>
+      <div class="finance-table-wrap">
+        <table class="finance-table">
+          <thead><tr><th>Paciente</th><th>Cobrança</th><th>Vencimento</th><th>Status</th><th>Valor</th><th>Saldo</th><th><span class="sr-only">Ações</span></th></tr></thead>
+          <tbody>
+            @for (invoice of invoices; track invoice.id) {
+              <tr>
+                <td><div class="finance-person"><span>{{ invoice.patient.name[0] }}</span><div><strong>{{ invoice.patient.name }}</strong><small>{{ invoice.dentist?.name || 'Sem dentista vinculado' }}</small></div></div></td>
+                <td><strong>{{ invoice.description }}</strong><small>{{ invoice.items.length }} item{{ invoice.items.length === 1 ? '' : 's' }}</small></td>
+                <td><strong>{{ invoice.dueDate | date:'dd/MM/yyyy' }}</strong><small>{{ invoice.effectiveStatus === 'OVERDUE' ? 'Vencida' : 'Vencimento' }}</small></td>
+                <td><span class="finance-status" [class]="statusClass(invoice.effectiveStatus)">{{ statusText(invoice.effectiveStatus) }}</span></td>
+                <td><strong>{{ money(invoice.amount) }}</strong><small>@if (invoice.discount) { {{ money(invoice.discount) }} de desconto }</small></td>
+                <td><strong>{{ money(invoice.remainingAmount) }}</strong><small>{{ money(invoice.paidAmount) }} recebido</small></td>
+                <td><div class="finance-row-actions">@if (!['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="finance-action-primary" (click)="openPayment(invoice)">Receber</button> <button type="button" (click)="openInvoice(invoice)" title="Editar cobrança">Editar</button> <button type="button" (click)="cancelInvoice(invoice)" title="Cancelar cobrança">Cancelar</button> } @if (isAdmin && invoice.paidAmount === 0) { <button type="button" class="danger" (click)="deleteInvoice(invoice)" title="Excluir cobrança">Excluir</button> }</div></td>
+              </tr>
+            } @empty { <tr><td colspan="7"><div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>Crie uma cobrança ou ajuste os filtros.</span><button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">Criar cobrança</button></div></td></tr> }
+          </tbody>
+        </table>
+      </div>
+      <div class="finance-mobile-records">
+        @for (invoice of invoices; track invoice.id) {
+          <article><header><div class="finance-person"><span>{{ invoice.patient.name[0] }}</span><div><strong>{{ invoice.patient.name }}</strong><small>{{ invoice.description }}</small></div></div><span class="finance-status" [class]="statusClass(invoice.effectiveStatus)">{{ statusText(invoice.effectiveStatus) }}</span></header><div class="finance-record-values"><div><span>Total</span><strong>{{ money(invoice.amount) }}</strong></div><div><span>Saldo</span><strong>{{ money(invoice.remainingAmount) }}</strong></div><div><span>Vence em</span><strong>{{ invoice.dueDate | date:'dd/MM' }}</strong></div></div><footer>@if (!['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="btn btn-primary btn-sm" (click)="openPayment(invoice)">Registrar recebimento</button><button type="button" class="btn btn-outline btn-sm" (click)="openInvoice(invoice)">Editar</button> }</footer></article>
+        } @empty { <div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>Crie uma cobrança para começar.</span></div> }
+      </div>
+    </section>
+  }
+
+  @if (activeTab === 'expenses' && isAdmin) {
+    <section class="finance-panel card" role="tabpanel">
+      <header class="finance-panel-head"><div><h2>Contas a pagar</h2><p>Organize custos, fornecedores e vencimentos da clínica.</p></div><button class="btn btn-primary btn-sm" type="button" (click)="openExpense()">+ Nova despesa</button></header>
+      <div class="finance-filterbar"><div class="finance-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" type="search" [(ngModel)]="search" (ngModelChange)="searchChanged()" placeholder="Buscar despesa ou fornecedor" aria-label="Buscar despesas" /></div><select class="select" [(ngModel)]="statusFilter" (change)="loadExpenses()"><option value="ALL">Todos os status</option><option value="PENDING">Pendentes</option><option value="OVERDUE">Em atraso</option><option value="PAID">Pagas</option><option value="CANCELLED">Canceladas</option></select></div>
+      <div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Despesa</th><th>Categoria</th><th>Vencimento</th><th>Status</th><th>Valor</th><th><span class="sr-only">Ações</span></th></tr></thead><tbody>
+        @for (expense of expenses; track expense.id) {
+          <tr><td><strong>{{ expense.description }}</strong><small>{{ expense.supplier || 'Sem fornecedor' }} @if (expense.recurring) { · Recorrente }</small></td><td>{{ expense.category || 'Não categorizada' }}</td><td><strong>{{ expense.dueDate | date:'dd/MM/yyyy' }}</strong><small>@if (expense.paidAt) { Pago em {{ expense.paidAt | date:'dd/MM/yyyy' }} }</small></td><td><span class="finance-status" [class]="statusClass(expense.effectiveStatus)">{{ statusText(expense.effectiveStatus) }}</span></td><td><strong>{{ money(expense.amount) }}</strong></td><td><div class="finance-row-actions">@if (expense.status === 'PENDING') { <button type="button" class="finance-action-primary" (click)="openExpensePayment(expense)">Pagar</button><button type="button" (click)="openExpense(expense)">Editar</button><button type="button" (click)="cancelExpense(expense)">Cancelar</button> } @if (expense.status !== 'PAID') { <button type="button" class="danger" (click)="deleteExpense(expense)">Excluir</button> }</div></td></tr>
+        } @empty { <tr><td colspan="6"><div class="finance-empty"><strong>Nenhuma despesa encontrada</strong><span>Registre custos para acompanhar o resultado real da clínica.</span><button class="btn btn-primary btn-sm" type="button" (click)="openExpense()">Criar despesa</button></div></td></tr> }
+      </tbody></table></div>
+      <div class="finance-mobile-records">
+        @for (expense of expenses; track expense.id) { <article><header><div><strong>{{ expense.description }}</strong><small>{{ expense.supplier || expense.category || 'Despesa da clínica' }}</small></div><span class="finance-status" [class]="statusClass(expense.effectiveStatus)">{{ statusText(expense.effectiveStatus) }}</span></header><div class="finance-record-values"><div><span>Valor</span><strong>{{ money(expense.amount) }}</strong></div><div><span>Vencimento</span><strong>{{ expense.dueDate | date:'dd/MM' }}</strong></div></div><footer>@if (expense.status === 'PENDING') { <button class="btn btn-primary btn-sm" type="button" (click)="openExpensePayment(expense)">Registrar pagamento</button><button class="btn btn-outline btn-sm" type="button" (click)="openExpense(expense)">Editar</button> }</footer></article> }
+      </div>
+    </section>
+  }
+
+  @if (activeTab === 'services') {
+    <section class="finance-panel card" role="tabpanel">
+      <header class="finance-panel-head"><div><h2>Catálogo de serviços</h2><p>Valores padronizados deixam cobranças e orçamentos mais rápidos.</p></div>@if (isAdmin) { <button class="btn btn-primary btn-sm" type="button" (click)="openService()">+ Novo serviço</button> }</header>
+      @if (services.length) {
+        <div class="finance-service-grid">
+          @for (service of services; track service.id) {
+            <article [class.inactive]="!service.active"><header><span>{{ service.category || 'Serviço odontológico' }}</span>@if (!service.active) { <b>Arquivado</b> }</header><h3>{{ service.name }}</h3><p>{{ service.description || 'Sem descrição adicional.' }}</p><div><strong>{{ money(service.price) }}</strong>@if (service.durationMinutes) { <span>{{ service.durationMinutes }} min</span> }</div>@if (isAdmin) { <footer><button type="button" (click)="openService(service)">Editar</button><button type="button" class="danger" (click)="archiveService(service)">{{ service.active ? 'Arquivar' : 'Excluir' }}</button></footer> }</article>
+          }
+        </div>
+      } @else { <div class="finance-empty"><strong>Seu catálogo ainda está vazio</strong><span>Cadastre os procedimentos mais usados para agilizar novas cobranças.</span>@if (isAdmin) { <button class="btn btn-primary btn-sm" type="button" (click)="openService()">Adicionar primeiro serviço</button> }</div> }
+    </section>
+  }
+</div>
+
+@if (invoiceModal) {
+  <div class="finance-modal-backdrop" (click)="invoiceModal=false"></div>
+  <section class="finance-modal finance-modal-wide" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title">
+    <header><div><span>{{ editingInvoiceId ? 'Editar lançamento' : 'Nova cobrança' }}</span><h2 id="invoice-modal-title">{{ editingInvoiceId ? 'Atualize a cobrança' : 'Cobrar paciente' }}</h2></div><button type="button" (click)="invoiceModal=false" aria-label="Fechar">×</button></header>
+    <div class="finance-modal-body">
+      <div class="finance-form-grid">
+        <label>Paciente <select class="select" [(ngModel)]="invoiceForm.patientId" required><option value="">Selecione o paciente</option>@for (patient of patients; track patient.id) { <option [value]="patient.id">{{ patient.name }}</option> }</select></label>
+        @if (isAdmin) { <label>Dentista responsável <select class="select" [(ngModel)]="invoiceForm.dentistId"><option value="">Não vincular</option>@for (dentist of dentists; track dentist.id) { <option [value]="dentist.id">{{ dentist.name }}</option> }</select></label> }
+        <label>Emissão <input class="input" type="date" [(ngModel)]="invoiceForm.issuedAt" /></label>
+        <label>Vencimento <input class="input" type="date" [(ngModel)]="invoiceForm.dueDate" required /></label>
+      </div>
+      <div class="finance-items-head"><div><strong>Serviços cobrados</strong><span>Adicione um ou mais procedimentos.</span></div><button class="btn btn-outline btn-sm" type="button" (click)="addInvoiceItem()">+ Adicionar item</button></div>
+      <div class="finance-invoice-items">
+        @for (item of invoiceForm.items; track $index; let index = $index) {
+          <div class="finance-invoice-item">
+            <label>Serviço <select class="select" [(ngModel)]="item.serviceId" (change)="serviceSelected(item)"><option value="">Item personalizado</option>@for (service of services; track service.id) { @if (service.active) { <option [value]="service.id">{{ service.name }}</option> } }</select></label>
+            <label>Descrição <input class="input" [(ngModel)]="item.description" placeholder="Ex.: Clareamento" /></label>
+            <label>Qtd. <input class="input" type="number" min="1" [(ngModel)]="item.quantity" /></label>
+            <label>Valor unitário <input class="input" type="number" min="0" step="0.01" [(ngModel)]="item.unitPrice" /></label>
+            <strong>{{ money(item.quantity * item.unitPrice) }}</strong>
+            <button type="button" (click)="removeInvoiceItem(index)" [disabled]="invoiceForm.items.length === 1" aria-label="Remover item">×</button>
+          </div>
+        }
+      </div>
+      <div class="finance-invoice-footer-form">
+        <label>Descrição geral <input class="input" [(ngModel)]="invoiceForm.description" placeholder="Ex.: Plano de tratamento" /></label>
+        <label>Desconto <input class="input" type="number" min="0" step="0.01" [(ngModel)]="invoiceForm.discount" /></label>
+        <div class="finance-invoice-total"><span>Subtotal <b>{{ money(invoiceGross()) }}</b></span><strong>Total <b>{{ money(invoiceTotal()) }}</b></strong></div>
+      </div>
+      <label>Observações <textarea class="textarea" [(ngModel)]="invoiceForm.notes" placeholder="Informações internas sobre esta cobrança"></textarea></label>
+    </div>
+    <footer><button class="btn btn-ghost" type="button" (click)="invoiceModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="saveInvoice()" [disabled]="saving">{{ saving ? 'Salvando…' : editingInvoiceId ? 'Salvar alterações' : 'Criar cobrança' }}</button></footer>
+  </section>
+}
+
+@if (paymentModal && selectedInvoice) {
+  <div class="finance-modal-backdrop" (click)="paymentModal=false"></div>
+  <section class="finance-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+    <header><div><span>Recebimento</span><h2 id="payment-modal-title">Registrar pagamento</h2></div><button type="button" (click)="paymentModal=false" aria-label="Fechar">×</button></header>
+    <div class="finance-modal-body"><div class="finance-payment-summary"><div><span>Paciente</span><strong>{{ selectedInvoice.patient.name }}</strong></div><div><span>Saldo em aberto</span><strong>{{ money(selectedInvoice.remainingAmount) }}</strong></div></div><label>Valor recebido <div class="finance-money-input"><span>R$</span><input class="input" type="number" min="0.01" [max]="selectedInvoice.remainingAmount" step="0.01" [(ngModel)]="paymentForm.amount" /></div></label><div class="finance-form-grid"><label>Data do recebimento <input class="input" type="date" [(ngModel)]="paymentForm.paidAt" /></label><label>Forma de pagamento <select class="select" [(ngModel)]="paymentForm.method">@for (method of paymentMethods; track method[0]) { <option [value]="method[0]">{{ method[1] }}</option> }</select></label></div><label>Observações <textarea class="textarea" [(ngModel)]="paymentForm.notes" placeholder="Opcional"></textarea></label></div>
+    <footer><button class="btn btn-ghost" type="button" (click)="paymentModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="savePayment()" [disabled]="saving">{{ saving ? 'Registrando…' : 'Confirmar recebimento' }}</button></footer>
+  </section>
+}
+
+@if (expenseModal) {
+  <div class="finance-modal-backdrop" (click)="expenseModal=false"></div>
+  <section class="finance-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
+    <header><div><span>Conta a pagar</span><h2 id="expense-modal-title">{{ editingExpenseId ? 'Editar despesa' : 'Nova despesa' }}</h2></div><button type="button" (click)="expenseModal=false" aria-label="Fechar">×</button></header>
+    <div class="finance-modal-body"><label>Descrição <input class="input" [(ngModel)]="expenseForm.description" placeholder="Ex.: Materiais do consultório" /></label><div class="finance-form-grid"><label>Categoria <select class="select" [(ngModel)]="expenseForm.category"><option value="">Selecione</option>@for (category of expenseCategories; track category) { <option [value]="category">{{ category }}</option> }</select></label><label>Fornecedor <input class="input" [(ngModel)]="expenseForm.supplier" placeholder="Opcional" /></label><label>Valor <div class="finance-money-input"><span>R$</span><input class="input" type="number" min="0.01" step="0.01" [(ngModel)]="expenseForm.amount" /></div></label><label>Vencimento <input class="input" type="date" [(ngModel)]="expenseForm.dueDate" /></label><label>Data do lançamento <input class="input" type="date" [(ngModel)]="expenseForm.issuedAt" /></label><label class="finance-check"><input type="checkbox" [(ngModel)]="expenseForm.recurring" /><span><strong>Despesa recorrente</strong><small>Identifica custos que se repetem mensalmente.</small></span></label></div><label>Observações <textarea class="textarea" [(ngModel)]="expenseForm.notes" placeholder="Opcional"></textarea></label></div>
+    <footer><button class="btn btn-ghost" type="button" (click)="expenseModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="saveExpense()" [disabled]="saving">{{ saving ? 'Salvando…' : 'Salvar despesa' }}</button></footer>
+  </section>
+}
+
+@if (expensePaymentModal && selectedExpense) {
+  <div class="finance-modal-backdrop" (click)="expensePaymentModal=false"></div>
+  <section class="finance-modal finance-modal-small" role="dialog" aria-modal="true" aria-labelledby="expense-payment-title"><header><div><span>Pagamento</span><h2 id="expense-payment-title">Confirmar despesa paga</h2></div><button type="button" (click)="expensePaymentModal=false" aria-label="Fechar">×</button></header><div class="finance-modal-body"><div class="finance-payment-summary"><div><span>Despesa</span><strong>{{ selectedExpense.description }}</strong></div><div><span>Valor</span><strong>{{ money(selectedExpense.amount) }}</strong></div></div><label>Data do pagamento <input class="input" type="date" [(ngModel)]="expensePaymentForm.paidAt" /></label><label>Forma de pagamento <select class="select" [(ngModel)]="expensePaymentForm.method">@for (method of paymentMethods; track method[0]) { <option [value]="method[0]">{{ method[1] }}</option> }</select></label></div><footer><button class="btn btn-ghost" type="button" (click)="expensePaymentModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="saveExpensePayment()" [disabled]="saving">Confirmar pagamento</button></footer></section>
+}
+
+@if (serviceModal) {
+  <div class="finance-modal-backdrop" (click)="serviceModal=false"></div>
+  <section class="finance-modal" role="dialog" aria-modal="true" aria-labelledby="service-modal-title"><header><div><span>Catálogo</span><h2 id="service-modal-title">{{ editingServiceId ? 'Editar serviço' : 'Novo serviço' }}</h2></div><button type="button" (click)="serviceModal=false" aria-label="Fechar">×</button></header><div class="finance-modal-body"><label>Nome do serviço <input class="input" [(ngModel)]="serviceForm.name" placeholder="Ex.: Profilaxia" /></label><div class="finance-form-grid"><label>Categoria <select class="select" [(ngModel)]="serviceForm.category"><option value="">Selecione</option>@for (category of serviceCategories; track category) { <option [value]="category">{{ category }}</option> }</select></label><label>Valor padrão <div class="finance-money-input"><span>R$</span><input class="input" type="number" min="0" step="0.01" [(ngModel)]="serviceForm.price" /></div></label><label>Duração estimada <div class="finance-duration-input"><input class="input" type="number" min="1" [(ngModel)]="serviceForm.durationMinutes" /><span>min</span></div></label><label class="finance-check"><input type="checkbox" [(ngModel)]="serviceForm.active" /><span><strong>Serviço ativo</strong><small>Disponível em novas cobranças.</small></span></label></div><label>Descrição <textarea class="textarea" [(ngModel)]="serviceForm.description" placeholder="Detalhes opcionais do procedimento"></textarea></label></div><footer><button class="btn btn-ghost" type="button" (click)="serviceModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="saveService()" [disabled]="saving">{{ saving ? 'Salvando…' : 'Salvar serviço' }}</button></footer></section>
+}

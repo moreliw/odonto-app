@@ -8,6 +8,7 @@ import { AppointmentsComponent } from './pages/appointments/appointments.compone
 import { RecordsComponent } from './pages/records/records.component'
 import { TeamComponent } from './pages/team/team.component'
 import { BillingComponent } from './pages/billing/billing.component'
+import { FinanceComponent } from './pages/finance/finance.component'
 import { AuthService } from './services/auth.service'
 import { SignupComponent } from './pages/signup/signup.component'
 import { SignupSuccessComponent } from './pages/signup/signup-success.component'
@@ -56,6 +57,13 @@ const adminOnlyGuard = () => {
   return auth.isAdmin() ? true : router.parseUrl('/app')
 }
 
+/** Financeiro da clínica: administrador ou dentista responsável pela própria produção. */
+const financeGuard = () => {
+  const router = inject(Router)
+  const auth = inject(AuthService)
+  return auth.isAdmin() || auth.isDentist() ? true : router.parseUrl('/app')
+}
+
 export const routes: Routes = [
   { path: '', component: LandingComponent },
   { path: 'signup', component: SignupComponent, canActivate: [guestGuard] },
@@ -87,6 +95,7 @@ export const routes: Routes = [
       { path: 'patients', component: PatientsComponent },
       { path: 'appointments', component: AppointmentsComponent },
       { path: 'records', component: RecordsComponent },
+      { path: 'finance', component: FinanceComponent, canActivate: [financeGuard] },
       { path: 'team', component: TeamComponent, canActivate: [adminOnlyGuard] },
       { path: 'billing', component: BillingComponent, canActivate: [adminOnlyGuard] }
     ]
@@ -94,6 +103,7 @@ export const routes: Routes = [
   { path: 'patients', redirectTo: '/app/patients', pathMatch: 'full' },
   { path: 'appointments', redirectTo: '/app/appointments', pathMatch: 'full' },
   { path: 'records', redirectTo: '/app/records', pathMatch: 'full' },
+  { path: 'finance', redirectTo: '/app/finance', pathMatch: 'full' },
   { path: '**', redirectTo: '' }
 ]
 

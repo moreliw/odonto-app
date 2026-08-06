@@ -16,6 +16,7 @@ import { TenantResolverMiddleware } from './tenancy/tenant-resolver.middleware'
 import { DashboardModule } from './dashboard/dashboard.module'
 import { MasterAdminModule } from './master-admin/master-admin.module'
 import { BillingModule } from './billing/billing.module'
+import { FinancialModule } from './financial/financial.module'
 import { HealthController } from '../health.controller'
 
 @Module({
@@ -41,7 +42,8 @@ import { HealthController } from '../health.controller'
     PublicModule,
     DashboardModule,
     MasterAdminModule,
-    BillingModule
+    BillingModule,
+    FinancialModule
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }]
