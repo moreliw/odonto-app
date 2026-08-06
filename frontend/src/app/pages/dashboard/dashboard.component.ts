@@ -37,7 +37,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
     selector: 'app-dashboard',
     imports: [CommonModule, RouterLink, KpiCardComponent, LineChartComponent, DonutChartComponent],
     template: `
-    <div class="dashboard-page">
+    <div class="dashboard-page dashboard-home-page">
       <section class="dashboard-mobile-hero" aria-label="Resumo da clínica">
         <div>
           <span class="dashboard-mobile-eyebrow">Resumo de hoje</span>

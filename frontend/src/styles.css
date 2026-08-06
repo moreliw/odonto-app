@@ -1828,7 +1828,7 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 
   .dashboard-page { gap: 14px; }
   .dashboard-page > * { min-width: 0; }
-  .dashboard-page > .page-header { display: none; }
+  .dashboard-home-page > .page-header { display: none; }
   .dashboard-mobile-hero {
     position: relative;
     display: flex;
