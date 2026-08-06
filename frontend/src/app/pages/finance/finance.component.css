@@ -278,8 +278,9 @@
   .finance-kpi { min-height: 130px; padding: 14px; }
   .finance-kpi-primary { grid-column: span 2; }
   .finance-kpi > strong { font-size: 19px; }
-  .finance-tabs { margin-inline: -2px; }
-  .finance-tabs button { padding-inline: 11px; }
+  .finance-tabs { margin-inline: -2px; overflow: visible; }
+  .finance-tabs button { flex: 1; justify-content: center; gap: 4px; padding-inline: 4px; font-size: 11.5px; }
+  .finance-tabs button span { min-width: 17px; padding-inline: 4px; }
   .finance-overview { grid-template-columns: 1fr; }
   .finance-chart-card, .finance-movements-card { grid-column: auto; }
   .finance-chart-card { min-height: 290px; }
