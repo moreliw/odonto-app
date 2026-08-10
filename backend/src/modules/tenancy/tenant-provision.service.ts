@@ -125,4 +125,27 @@ export class TenantProvisionService {
       throw err
     }
   }
+
+  /** Apaga o banco de dados físico da clínica. Chamado após remover o Tenant do master — irreversível. */
+  async deprovision({ slug, dbName }: { slug: string; dbName: string }) {
+    if (process.env.DEV_SQLITE === 'true') {
+      const fs = await import('fs/promises')
+      await fs.unlink(`./prisma/dev-${slug}.db`).catch(() => undefined)
+      return
+    }
+    const masterUrl = process.env.MASTER_DATABASE_URL || ''
+    if (!masterUrl) throw new Error('Missing MASTER_DATABASE_URL')
+    const pg = new PgClient({ connectionString: masterUrl })
+    try {
+      await pg.connect()
+      try {
+        // WITH (FORCE) encerra conexões ativas antes de dropar (Postgres 13+).
+        await pg.query(`DROP DATABASE IF EXISTS ${quotePgIdent(dbName)} WITH (FORCE)`)
+      } catch {
+        await pg.query(`DROP DATABASE IF EXISTS ${quotePgIdent(dbName)}`)
+      }
+    } finally {
+      await pg.end().catch(() => undefined)
+    }
+  }
 }

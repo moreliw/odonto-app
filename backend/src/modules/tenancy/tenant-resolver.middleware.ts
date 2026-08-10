@@ -39,6 +39,9 @@ export class TenantResolverMiddleware implements NestMiddleware {
     if (!tenant) return res.status(404).send({ message: 'Tenant not found' })
     const policy = await this.tenants.getAccessPolicyBySubdomain(subdomain)
     if (!policy.allowed) {
+      if (policy.reason === 'TENANT_INACTIVE') {
+        return res.status(403).send({ message: 'Esta clínica foi desativada. Entre em contato com o suporte.' })
+      }
       if (url.startsWith('/api/billing') || url.startsWith('/api/auth/refresh')) {
         req.tenantContext = tenant
         return RequestContext.run(tenant, () => next())

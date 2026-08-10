@@ -430,6 +430,48 @@ export class MasterAdminService implements OnModuleInit {
     return { tenant: this.sanitizeTenant(tenant), subscription }
   }
 
+  async setClinicActive(tenantId: string, active: boolean) {
+    const tenant = await this.tenantOrThrow(tenantId)
+    const updated = await this.master.tenant.update({ where: { id: tenantId }, data: { active } })
+    await this.audit(active ? 'CLINIC_ACTIVATED' : 'CLINIC_DEACTIVATED', {
+      tenantId,
+      targetType: 'TENANT',
+      targetId: tenantId,
+      metadata: { name: tenant.name }
+    })
+    return { tenant: this.sanitizeTenant(updated) }
+  }
+
+  /**
+   * Apaga a clínica e todos os seus dados de forma permanente: registros do master
+   * (assinatura, identidades de login) e o banco de dados físico do tenant. Eventos de
+   * pagamento e intenções de assinatura são preservados para histórico financeiro, apenas
+   * desvinculados do tenantId. Exige que o nome da clínica seja digitado exatamente igual.
+   */
+  async deleteClinic(tenantId: string, confirmName: string) {
+    const tenant = await this.tenantOrThrow(tenantId)
+    if (!confirmName || confirmName.trim() !== tenant.name.trim()) {
+      throw new BadRequestException('Digite o nome exato da clínica para confirmar a exclusão.')
+    }
+    await this.master.$transaction([
+      this.master.subscription.deleteMany({ where: { tenantId } }),
+      this.master.loginIdentity.deleteMany({ where: { tenantId } }),
+      this.master.paymentEvent.updateMany({ where: { tenantId }, data: { tenantId: null } }),
+      this.master.signupIntent.updateMany({ where: { tenantId }, data: { tenantId: null } }),
+      this.master.tenant.delete({ where: { id: tenantId } })
+    ])
+    const databaseDropped = await this.provision
+      .deprovision({ slug: tenant.slug, dbName: tenant.dbName })
+      .then(() => true)
+      .catch(() => false)
+    await this.audit('CLINIC_DELETED', {
+      targetType: 'TENANT',
+      targetId: tenantId,
+      metadata: { name: tenant.name, subdomain: tenant.subdomain, dbName: tenant.dbName, databaseDropped }
+    })
+    return { ok: true, databaseDropped }
+  }
+
   async resetTenantAdminPassword(tenantId: string, newPassword: string, adminEmail?: string) {
     const tenant = await this.master.tenant.findUnique({ where: { id: tenantId } })
     if (!tenant) throw new NotFoundException('Clínica não encontrada')

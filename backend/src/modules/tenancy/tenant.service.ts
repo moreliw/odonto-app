@@ -47,6 +47,7 @@ export class TenantService {
       include: { subscription: true, accessGrant: true }
     })
     if (!tenant) return { allowed: false, reason: 'TENANT_NOT_FOUND' as const }
+    if (!tenant.active) return { allowed: false, reason: 'TENANT_INACTIVE' as const }
     const grant = this.activeGrant(tenant.accessGrant)
     if (grant) {
       return {

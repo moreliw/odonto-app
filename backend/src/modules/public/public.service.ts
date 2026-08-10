@@ -132,7 +132,7 @@ export class PublicService {
     }
 
     const useSqlite = process.env.DEV_SQLITE === 'true'
-    let tenantCandidates: Array<{ id: string; slug: string; subdomain: string; dbName: string; dbHost: string; dbPort: number; dbUser: string; dbPassword: string }> = []
+    let tenantCandidates: Array<{ id: string; slug: string; subdomain: string; dbName: string; dbHost: string; dbPort: number; dbUser: string; dbPassword: string; active: boolean }> = []
 
     if (isEmailIdentifier(normalized)) {
       const rows = await this.queryMaster(db =>
@@ -185,6 +185,7 @@ export class PublicService {
 
     if (!tenantCandidates.length) throw new UnauthorizedException(CLINIC_LOGIN_FAIL)
     const tenant = tenantCandidates[0]
+    if (!tenant.active) throw new UnauthorizedException('Esta clínica foi desativada. Entre em contato com o suporte.')
     await this.assertTenantAccess(tenant.id)
     const connectionString = tenantConnectionString(tenant, useSqlite)
 

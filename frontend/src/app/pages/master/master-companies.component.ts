@@ -8,6 +8,7 @@ import { Router } from '@angular/router'
 
 type ClinicRow = {
   id: string; name: string; subdomain: string; slug: string; internalNotes?: string | null
+  active?: boolean
   primaryColor?: string | null; logoUrl?: string | null
   subscription?: { plan: string; status: string; priceCents: number; currency: string; renewsAt?: string | null; canceledAt?: string | null } | null
   accessGrant?: { id: string; plan: string; dentistLimit?: number | null; reason?: string | null; expiresAt?: string | null; active: boolean; stopBilling: boolean; revokedAt?: string | null } | null
@@ -93,7 +94,7 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
                   <td>
                     <div style="display:flex;align-items:center;gap:10px;">
                       <div class="avatar" style="background:var(--primary-100);color:var(--primary-600);font-size:13px;">{{ c.name[0].toUpperCase() }}</div>
-                      <strong>{{ c.name }}</strong>
+                      <strong [style.opacity]="c.active === false ? 0.6 : 1">{{ c.name }}</strong>
                     </div>
                   </td>
                   <td class="muted text-sm">{{ c.subdomain }}</td>
@@ -104,7 +105,9 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
                     </div>
                   </td>
                   <td>
-                    @if (isGrantActive(c.accessGrant)) {
+                    @if (c.active === false) {
+                      <span class="status-chip late">INATIVA</span>
+                    } @else if (isGrantActive(c.accessGrant)) {
                       <span class="status-chip">BENEFÍCIO ATIVO</span>
                     } @else {
                       <span class="status-chip" [class]="STATUS_CLASS[c.subscription?.status || ''] || ''">{{ c.subscription?.status || '—' }}</span>
@@ -128,7 +131,10 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
         <div class="master-modal master-modal-lg" (click)="$event.stopPropagation()">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;">
             <div>
-              <h3>{{ editing.name }}</h3>
+              <h3>
+                {{ editing.name }}
+                @if (editing.active === false) { <span class="badge badge-danger" style="margin-left:8px;vertical-align:middle;">Inativa</span> }
+              </h3>
               <p class="muted text-sm">ID: {{ editing.id }} · slug: {{ editing.slug }}</p>
             </div>
             <button class="btn btn-icon btn-sm" (click)="editing=null" aria-label="Fechar">
@@ -141,6 +147,16 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
               {{ supportLoading ? 'Preparando acesso...' : 'Acessar clínica para suporte' }}
             </button>
             <a class="btn btn-outline btn-sm" [href]="clinicUrl(editing)" target="_blank" rel="noopener">Abrir login da clínica</a>
+            <button
+              type="button"
+              class="btn btn-sm"
+              [class.btn-danger-outline]="editing.active !== false"
+              [class.btn-outline]="editing.active === false"
+              (click)="toggleActive()"
+              [disabled]="activeSaving"
+            >
+              {{ activeSaving ? 'Processando...' : editing.active === false ? 'Reativar clínica' : 'Inativar clínica' }}
+            </button>
           </div>
 
           <form class="form" (ngSubmit)="saveEdit()">
@@ -389,6 +405,28 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
               Redefinir senha
             </button>
           </form>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:24px 0" />
+
+          <section style="border:1px solid #fecaca;border-radius:12px;padding:16px 18px;background:var(--danger-bg);">
+            <h4 style="font-size:14px;font-weight:700;margin-bottom:4px;color:var(--danger-text);">Excluir clínica permanentemente</h4>
+            <p class="text-sm" style="color:var(--danger-text);margin-bottom:14px;">
+              Remove a clínica, sua assinatura e o banco de dados inteiro — pacientes, consultas, prontuários e financeiro. Não pode ser desfeito.
+            </p>
+            <div class="form-group">
+              <label style="color:var(--danger-text);">Digite <strong>{{ editing.name }}</strong> para confirmar</label>
+              <input class="input" [(ngModel)]="deleteConfirmText" name="delete_confirm" [ngModelOptions]="{standalone: true}" [placeholder]="editing.name" />
+            </div>
+            <button
+              type="button"
+              class="btn btn-danger"
+              [disabled]="deleteSaving || deleteConfirmText.trim() !== editing.name.trim()"
+              (click)="deleteClinicFinal()"
+            >
+              @if (deleteSaving) { <span class="spinner"></span> }
+              {{ deleteSaving ? 'Excluindo...' : 'Excluir clínica permanentemente' }}
+            </button>
+          </section>
         </div>
       </div>
     }
@@ -428,6 +466,9 @@ export class MasterCompaniesComponent implements OnInit {
   grantError = false
   revokeConfirm = false
   grantForm = this.emptyGrantForm()
+  activeSaving = false
+  deleteConfirmText = ''
+  deleteSaving = false
 
   constructor(
     private readonly http: HttpClient,
@@ -453,8 +494,8 @@ export class MasterCompaniesComponent implements OnInit {
       const statusMatch =
         this.statusFilter === 'ALL' ||
         (this.statusFilter === 'BENEFIT' && grantActive) ||
-        (this.statusFilter === 'ACTIVE' && (grantActive || status === 'ACTIVE' || status === 'TRIAL')) ||
-        (this.statusFilter === 'BLOCKED' && !grantActive && status !== 'ACTIVE' && status !== 'TRIAL')
+        (this.statusFilter === 'ACTIVE' && clinic.active !== false && (grantActive || status === 'ACTIVE' || status === 'TRIAL')) ||
+        (this.statusFilter === 'BLOCKED' && (clinic.active === false || (!grantActive && status !== 'ACTIVE' && status !== 'TRIAL')))
       const termMatch = !term || [clinic.name, clinic.subdomain, clinic.loginIdentities?.[0]?.email || ''].some(value => value.toLowerCase().includes(term))
       return statusMatch && termMatch
     })
@@ -472,6 +513,8 @@ export class MasterCompaniesComponent implements OnInit {
     this.grantError = false
     this.revokeConfirm = false
     this.grantForm = this.emptyGrantForm()
+    this.deleteConfirmText = ''
+    this.deleteSaving = false
     const sub = c.subscription
     this.editForm = {
       name: c.name,
@@ -583,6 +626,44 @@ export class MasterCompaniesComponent implements OnInit {
         this.grantSaving = false
         this.revokeConfirm = false
         this.toast.error(error.error?.message || 'Não foi possível revogar o benefício.')
+      }
+    })
+  }
+
+  toggleActive() {
+    if (!this.editing || this.activeSaving) return
+    const next = this.editing.active === false
+    this.activeSaving = true
+    this.http.patch<{ tenant: ClinicRow }>(`/api/master/clinics/${this.editing.id}/active`, { active: next }).subscribe({
+      next: result => {
+        this.activeSaving = false
+        if (this.editing) this.editing.active = result.tenant.active
+        this.toast.success(next ? 'Clínica reativada' : 'Clínica inativada')
+        this.load()
+      },
+      error: (error: any) => {
+        this.activeSaving = false
+        this.toast.error(error.error?.message || 'Não foi possível atualizar o status da clínica.')
+      }
+    })
+  }
+
+  deleteClinicFinal() {
+    if (!this.editing || this.deleteSaving) return
+    if (this.deleteConfirmText.trim() !== this.editing.name.trim()) return
+    this.deleteSaving = true
+    const id = this.editing.id
+    this.http.delete(`/api/master/clinics/${id}`, { body: { confirmName: this.deleteConfirmText.trim() } }).subscribe({
+      next: () => {
+        this.deleteSaving = false
+        this.toast.success('Clínica excluída permanentemente')
+        this.editing = null
+        this.deleteConfirmText = ''
+        this.load()
+      },
+      error: (error: any) => {
+        this.deleteSaving = false
+        this.toast.error(error.error?.message || 'Não foi possível excluir a clínica.')
       }
     })
   }

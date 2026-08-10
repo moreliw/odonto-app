@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { MasterAdminService } from './master-admin.service'
 import { IsBoolean, IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Matches, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -78,6 +78,17 @@ class UpdateClinicDto {
   @IsOptional()
   @IsString()
   canceledAt?: string | null
+}
+
+class SetClinicActiveDto {
+  @IsBoolean()
+  active: boolean
+}
+
+class DeleteClinicDto {
+  @IsString()
+  @MinLength(1)
+  confirmName: string
 }
 
 class ResetTenantAdminPasswordDto {
@@ -217,6 +228,18 @@ export class MasterAdminController {
       ...rest,
       ...(typeof priceCents === 'number' ? { priceCents } : {})
     })
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Patch('clinics/:id/active')
+  setClinicActive(@Param('id') id: string, @Body() dto: SetClinicActiveDto) {
+    return this.service.setClinicActive(id, dto.active)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Delete('clinics/:id')
+  deleteClinic(@Param('id') id: string, @Body() dto: DeleteClinicDto) {
+    return this.service.deleteClinic(id, dto.confirmName)
   }
 
   @UseGuards(MasterAdminGuard)
