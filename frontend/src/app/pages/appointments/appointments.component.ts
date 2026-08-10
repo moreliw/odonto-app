@@ -261,6 +261,9 @@ function colorIndexFor(id: string | null | undefined) {
                 [(ngModel)]="form.patientId"
                 name="patientId"
                 required
+                [allowCreate]="true"
+                createLabel="Cadastrar novo paciente"
+                (createRequested)="openQuickCreatePatient($event)"
               ></app-searchable-select>
             </div>
             @if (!isDentist) {
@@ -314,6 +317,44 @@ function colorIndexFor(id: string | null | undefined) {
       </div>
     }
 
+    <!-- Quick create patient (sem sair do agendamento) -->
+    @if (quickPatientModal) {
+      <div class="modal-backdrop" (click)="closeQuickPatientOnBackdrop($event)">
+        <div class="modal" style="max-width:420px;" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <div>
+              <h3>Cadastrar paciente</h3>
+              <p>Cadastro rápido — complete os demais dados depois em Pacientes</p>
+            </div>
+            <button class="btn btn-icon" (click)="quickPatientModal=false" aria-label="Fechar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <form class="form" (ngSubmit)="saveQuickPatient()">
+            <div class="form-group">
+              <label>Nome completo *</label>
+              <input class="input" [(ngModel)]="quickPatientForm.name" name="qp_name" placeholder="Nome do paciente" required />
+            </div>
+            <div class="form-group">
+              <label>Telefone</label>
+              <input class="input" [(ngModel)]="quickPatientForm.phone" name="qp_phone" placeholder="(11) 99999-9999" />
+            </div>
+            <div class="form-group">
+              <label>E-mail</label>
+              <input class="input" [(ngModel)]="quickPatientForm.email" name="qp_email" type="email" placeholder="email@exemplo.com" />
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-ghost" type="button" (click)="quickPatientModal=false">Cancelar</button>
+              <button class="btn btn-primary" [disabled]="savingQuickPatient" type="submit">
+                @if (savingQuickPatient) { <span class="spinner"></span> }
+                Cadastrar e selecionar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
     <!-- Delete Confirm -->
     @if (deleteTarget) {
       <div class="modal-backdrop" (click)="deleteTarget=null">
@@ -349,6 +390,9 @@ export class AppointmentsComponent implements OnInit {
   editingId: string | null = null
   deleteTarget: Appointment | null = null
   form: Partial<Appointment> & { notes?: string } = {}
+  quickPatientModal = false
+  savingQuickPatient = false
+  quickPatientForm: { name: string; phone: string; email: string } = { name: '', phone: '', email: '' }
 
   weekStart = startOfWeek(new Date())
   readonly hours: number[] = []
@@ -442,6 +486,38 @@ export class AppointmentsComponent implements OnInit {
 
   loadDentists() {
     this.http.get<Dentist[]>('/api/users?role=DENTIST').subscribe({ next: res => this.dentists = res })
+  }
+
+  openQuickCreatePatient(searchText: string) {
+    this.quickPatientForm = { name: searchText, phone: '', email: '' }
+    this.quickPatientModal = true
+  }
+
+  saveQuickPatient() {
+    if (!this.quickPatientForm.name.trim() || this.savingQuickPatient) return
+    this.savingQuickPatient = true
+    const body = {
+      name: this.quickPatientForm.name.trim(),
+      phone: this.quickPatientForm.phone.trim() || undefined,
+      email: this.quickPatientForm.email.trim() || undefined
+    }
+    this.http.post<Patient>('/api/patients', body).subscribe({
+      next: patient => {
+        this.savingQuickPatient = false
+        this.quickPatientModal = false
+        this.patients = [...this.patients, patient]
+        this.form.patientId = patient.id
+        this.toast.success('Paciente cadastrado e selecionado')
+      },
+      error: (err: any) => {
+        this.savingQuickPatient = false
+        this.toast.error('Erro ao cadastrar paciente', err.error?.message)
+      }
+    })
+  }
+
+  closeQuickPatientOnBackdrop(ev: MouseEvent) {
+    if ((ev.target as HTMLElement).classList.contains('modal-backdrop')) this.quickPatientModal = false
   }
 
   load() {

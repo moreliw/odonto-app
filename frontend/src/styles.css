@@ -363,6 +363,14 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .ssel-option small { color: var(--muted); font-weight: 400; font-size: 12px; }
 .ssel-option.active small { color: var(--primary); }
 .ssel-empty { padding: 16px 12px; text-align: center; color: var(--muted); font-size: 13px; }
+.ssel-create {
+  flex-direction: row !important; align-items: center; gap: 8px;
+  margin-top: 4px; padding-top: 9px !important; border-top: 1px solid var(--border);
+  color: var(--primary); font-weight: 600;
+}
+.ssel-create svg { flex-shrink: 0; }
+.ssel-create span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ssel-create:hover, .ssel-create.focused { background: var(--primary-50); }
 
 /* ─── Buttons ─────────────────────────────────────────────── */
 .btn {

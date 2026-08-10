@@ -73,8 +73,19 @@ function normalize(value: string) {
                 @if (item.sublabel) { <small>{{ item.sublabel }}</small> }
               </button>
             }
-            @if (filteredItems.length === 0) {
+            @if (filteredItems.length === 0 && !allowCreate) {
               <div class="ssel-empty">{{ emptyLabel }}</div>
+            }
+            @if (allowCreate) {
+              <button
+                type="button"
+                class="ssel-option ssel-create"
+                [class.focused]="navIndex === createIndex"
+                (click)="requestCreate()"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>{{ query.trim() ? createLabel + ' "' + query.trim() + '"' : createLabel }}</span>
+              </button>
             }
           </div>
         </div>
@@ -90,7 +101,12 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   @Input() clearLabel: string | null = null
   @Input() emptyLabel = 'Nenhum resultado encontrado'
   @Input() ariaLabel = ''
+  /** Mostra uma linha de ação ao final da lista para criar um item novo (ex.: cadastrar paciente sem sair do formulário). */
+  @Input() allowCreate = false
+  @Input() createLabel = '+ Cadastrar novo'
   @Output() valueChange = new EventEmitter<string>()
+  /** Emitido com o texto digitado na busca quando o usuário clica na opção de criar. */
+  @Output() createRequested = new EventEmitter<string>()
 
   @ViewChild('searchInput') searchInputRef?: ElementRef<HTMLInputElement>
 
@@ -159,14 +175,25 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     this.close()
   }
 
+  requestCreate() {
+    this.createRequested.emit(this.query.trim())
+    this.close()
+  }
+
+  /** Posição da linha "criar novo" na lista de navegação por teclado. */
+  get createIndex() {
+    return this.filteredItems.length + (this.clearLabel !== null ? 1 : 0)
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
     if (this.open && !this.host.nativeElement.contains(event.target as Node)) this.close()
   }
 
-  private get navOptions(): { id: string }[] {
+  private get navOptions(): { id: string; isCreate?: boolean }[] {
     const clear = this.clearLabel !== null ? [{ id: '' }] : []
-    return [...clear, ...this.filteredItems]
+    const create = this.allowCreate ? [{ id: '__create__', isCreate: true }] : []
+    return [...clear, ...this.filteredItems, ...create]
   }
 
   onKeydown(event: KeyboardEvent) {
@@ -180,7 +207,8 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     } else if (event.key === 'Enter') {
       event.preventDefault()
       const picked = options[this.navIndex]
-      if (picked) this.selectValue(picked.id)
+      if (picked?.isCreate) this.requestCreate()
+      else if (picked) this.selectValue(picked.id)
     } else if (event.key === 'Escape') {
       event.preventDefault()
       this.close()
