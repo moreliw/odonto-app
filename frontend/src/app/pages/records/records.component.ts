@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
+import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
 
 type Patient = { id: string; name: string; email?: string }
 type PatientRecord = { id: string; patientId: string; content: any; createdAt: string }
 
 @Component({
     selector: 'app-records',
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, SearchableSelectComponent],
     template: `
     <div>
       <div class="page-header">
@@ -24,16 +25,16 @@ type PatientRecord = { id: string; patientId: string; content: any; createdAt: s
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <div class="form-group" style="flex:1;min-width:220px;margin:0;">
             <label>Selecionar paciente</label>
-            <div class="input-wrapper" style="margin-top:6px;">
-              <span class="input-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              </span>
-              <select class="select" style="padding-left:36px;" [(ngModel)]="selectedPatientId" name="patient" (ngModelChange)="onPatientChange($event)">
-                <option value="">Escolha um paciente para ver o prontuário</option>
-                @for (p of patients; track p.id) {
-                  <option [value]="p.id">{{ p.name }}{{ p.email ? ' · ' + p.email : '' }}</option>
-                }
-              </select>
+            <div style="margin-top:6px;">
+              <app-searchable-select
+                [items]="patientItems"
+                placeholder="Escolha um paciente para ver o prontuário"
+                searchPlaceholder="Buscar paciente..."
+                ariaLabel="Selecionar paciente"
+                [(ngModel)]="selectedPatientId"
+                name="patient"
+                (ngModelChange)="onPatientChange($event)"
+              ></app-searchable-select>
             </div>
           </div>
           @if (selectedPatient) {
@@ -165,6 +166,10 @@ export class RecordsComponent implements OnInit {
 
   ngOnInit() {
     this.http.get<Patient[]>('/api/patients').subscribe({ next: (res: Patient[]) => this.patients = res })
+  }
+
+  get patientItems() {
+    return this.patients.map(p => ({ id: p.id, label: p.name, sublabel: p.email }))
   }
 
   onPatientChange(id: string) {

@@ -98,7 +98,7 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
                       <span class="status-chip" [class]="STATUS_CLASS[row.status] || ''">{{ row.status }}</span>
                     }
                   </td>
-                  <td class="text-sm">{{ row.accessGrant ? 'R$ 0,00' : ('R$ ' + ((row.priceCents / 100) | number:'1.2-2') + ' ' + row.currency) }}</td>
+                  <td class="text-sm">{{ row.accessGrant ? 'R$ 0,00' : ('R$ ' + ((row.priceCents / 100) | number:'1.2-2') + ' ' + row.currency + (row.billingInterval === 'YEAR' ? '/ano' : '/mês')) }}</td>
                   <td>
                     <span class="badge" [class.badge-success]="row.countsForMrr" [class.badge-neutral]="!row.countsForMrr">
                       {{ row.countsForMrr ? 'Sim' : 'Não' }}
@@ -135,7 +135,7 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
                     <td><strong>{{ s.tenant?.name }}</strong></td>
                     <td>{{ s.plan }}</td>
                     <td><span class="status-chip" [class]="STATUS_CLASS[s.status] || ''">{{ s.status }}</span></td>
-                    <td>R$ {{ (s.priceCents / 100) | number:'1.2-2' }} {{ s.currency }}</td>
+                    <td>R$ {{ (s.priceCents / 100) | number:'1.2-2' }} {{ s.currency }}{{ s.billingInterval === 'YEAR' ? '/ano' : '/mês' }}</td>
                     <td class="muted text-sm">{{ s.startedAt | date:'dd/MM/yyyy' }}</td>
                   </tr>
                 }

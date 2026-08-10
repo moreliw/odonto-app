@@ -15,6 +15,7 @@ import {
 } from '../../services/financial.service'
 import { PrivacyService } from '../../services/privacy.service'
 import { ToastService } from '../../services/toast.service'
+import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
 
 type FinanceTab = 'overview' | 'receivables' | 'expenses' | 'services'
 type PatientOption = { id: string; name: string; phone?: string | null }
@@ -41,7 +42,7 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
 
 @Component({
   selector: 'app-finance',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SearchableSelectComponent],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.css'
 })
@@ -70,6 +71,14 @@ export class FinanceComponent implements OnInit, OnDestroy {
   services: ClinicService[] = []
   patients: PatientOption[] = []
   dentists: DentistOption[] = []
+
+  get patientItems() {
+    return this.patients.map(p => ({ id: p.id, label: p.name, sublabel: p.phone || undefined }))
+  }
+
+  get dentistItems() {
+    return this.dentists.map(d => ({ id: d.id, label: d.name }))
+  }
 
   invoiceModal = false
   invoiceDetailsModal = false
@@ -196,6 +205,11 @@ export class FinanceComponent implements OnInit, OnDestroy {
 
   money(value: number | null | undefined) {
     if (this.hideValues) return 'R$ ••••••'
+    return this.moneyPlain(value)
+  }
+
+  /** Sempre visível, mesmo com "Esconder valores" ativo — usar apenas dentro de formulários (o usuário está digitando o próprio valor). */
+  moneyPlain(value: number | null | undefined) {
     return (Number(value || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   }
 

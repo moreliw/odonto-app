@@ -36,6 +36,7 @@ model Subscription {
   plan         String
   status       String              @default("ACTIVE")
   priceCents   Int
+  billingInterval String           @default("MONTH")
   currency     String              @default("BRL")
   startedAt    DateTime            @default(now())
   renewsAt     DateTime?

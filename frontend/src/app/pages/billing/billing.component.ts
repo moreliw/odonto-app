@@ -10,6 +10,7 @@ type Subscription = {
   plan: PlanCode
   planLabel: string
   priceCents: number
+  billingInterval: 'MONTH' | 'YEAR'
   status: 'PENDING' | 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
   provider: 'STRIPE' | null
   renewsAt: string | null
@@ -88,7 +89,7 @@ const STATUS_CLASS: Record<string, string> = {
                 <strong>{{ subscription.accessGrant?.expiresAt ? (subscription.accessGrant?.expiresAt | date:'dd/MM/yyyy') : 'Vitalício' }}</strong>
               </div>
             } @else if (subscription.priceCents > 0) {
-              <div><span class="muted text-sm">Valor</span><strong>R$ {{ (subscription.priceCents / 100).toFixed(2) }}/mês</strong></div>
+              <div><span class="muted text-sm">Valor</span><strong>R$ {{ (subscription.priceCents / 100).toFixed(2) }}{{ subscription.billingInterval === 'YEAR' ? '/ano' : '/mês' }}</strong></div>
             }
             @if (subscription.currentPeriodEnd) {
               <div>

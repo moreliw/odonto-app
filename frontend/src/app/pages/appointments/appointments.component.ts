@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
 import { AuthService } from '../../services/auth.service'
+import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
 
 type Patient = { id: string; name: string }
 type Dentist = { id: string; name: string }
@@ -55,7 +56,7 @@ function colorIndexFor(id: string | null | undefined) {
 
 @Component({
     selector: 'app-appointments',
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, SearchableSelectComponent],
     template: `
     <div class="agenda-page">
       <div class="page-header">
@@ -91,12 +92,17 @@ function colorIndexFor(id: string | null | undefined) {
         }
 
         @if (!isDentist && dentists.length > 0) {
-          <select class="select agenda-dentist-filter" [(ngModel)]="dentistFilter" (ngModelChange)="load()">
-            <option value="">Todos os dentistas</option>
-            @for (d of dentists; track d.id) {
-              <option [value]="d.id">{{ d.name }}</option>
-            }
-          </select>
+          <div class="agenda-dentist-filter">
+            <app-searchable-select
+              [items]="dentistItems"
+              clearLabel="Todos os dentistas"
+              placeholder="Todos os dentistas"
+              searchPlaceholder="Buscar dentista..."
+              ariaLabel="Filtrar por dentista"
+              [(ngModel)]="dentistFilter"
+              (ngModelChange)="load()"
+            ></app-searchable-select>
+          </div>
         }
 
         <span class="spacer flex flex-1"></span>
@@ -247,22 +253,31 @@ function colorIndexFor(id: string | null | undefined) {
           <form class="form" (ngSubmit)="save()">
             <div class="form-group">
               <label>Paciente *</label>
-              <select class="select" [(ngModel)]="form.patientId" name="patientId" required>
-                <option value="">Selecione o paciente</option>
-                @for (p of patients; track p.id) {
-                  <option [value]="p.id">{{ p.name }}</option>
-                }
-              </select>
+              <app-searchable-select
+                [items]="patientItems"
+                placeholder="Selecione o paciente"
+                searchPlaceholder="Buscar paciente..."
+                ariaLabel="Paciente"
+                [(ngModel)]="form.patientId"
+                name="patientId"
+                required
+              ></app-searchable-select>
             </div>
-            @if (!isDentist && dentists.length > 0) {
+            @if (!isDentist) {
               <div class="form-group">
-                <label>Dentista responsável</label>
-                <select class="select" [(ngModel)]="form.dentistId" name="dentistId">
-                  <option value="">Sem dentista definido</option>
-                  @for (d of dentists; track d.id) {
-                    <option [value]="d.id">{{ d.name }}</option>
-                  }
-                </select>
+                <label>Dentista responsável <span class="muted" style="font-weight:400;">(opcional)</span></label>
+                <app-searchable-select
+                  [items]="dentistItems"
+                  clearLabel="Sem dentista definido"
+                  placeholder="Sem dentista definido"
+                  searchPlaceholder="Buscar dentista..."
+                  ariaLabel="Dentista responsável"
+                  [(ngModel)]="form.dentistId"
+                  name="dentistId"
+                ></app-searchable-select>
+                @if (dentists.length === 0) {
+                  <small class="muted">Cadastre um dentista em Equipe para poder vincular os atendimentos.</small>
+                }
               </div>
             }
             <div class="grid cols-2">
@@ -364,6 +379,14 @@ export class AppointmentsComponent implements OnInit {
 
   get weekDays() {
     return Array.from({ length: 7 }, (_, i) => addDays(this.weekStart, i))
+  }
+
+  get patientItems() {
+    return this.patients.map(p => ({ id: p.id, label: p.name }))
+  }
+
+  get dentistItems() {
+    return this.dentists.map(d => ({ id: d.id, label: d.name }))
   }
 
   get rangeLabel() {

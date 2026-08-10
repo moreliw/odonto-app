@@ -309,6 +309,7 @@ export class MasterAdminService implements OnModuleInit {
         provider: s.provider,
         providerSubscriptionId: s.providerSubscriptionId,
         priceCents: s.priceCents,
+        billingInterval: s.billingInterval,
         currency: s.currency,
         startedAt: s.startedAt,
         activatedAt: s.activatedAt,
@@ -742,7 +743,11 @@ export class MasterAdminService implements OnModuleInit {
     const activeStatuses: SubscriptionStatus[] = ['ACTIVE', 'TRIAL']
     const active = subscriptions.filter(item => activeStatuses.includes(item.status) || Boolean(this.activeGrant(item.tenant.accessGrant)))
     const complimentary = subscriptions.filter(item => Boolean(this.activeGrant(item.tenant.accessGrant)))
-    const mrrCents = active.reduce((acc, item) => acc + (this.activeGrant(item.tenant.accessGrant) ? 0 : item.priceCents), 0)
+    // priceCents guarda o valor cobrado por ciclo — no anual isso é o total do ano,
+    // então precisa dividir por 12 para não inflar a receita recorrente mensal.
+    const monthlyEquivalentCents = (item: (typeof subscriptions)[number]) =>
+      item.billingInterval === 'YEAR' ? Math.round(item.priceCents / 12) : item.priceCents
+    const mrrCents = active.reduce((acc, item) => acc + (this.activeGrant(item.tenant.accessGrant) ? 0 : monthlyEquivalentCents(item)), 0)
     const arrCents = mrrCents * 12
     const byPlan = {
       FREE: subscriptions.filter(item => item.plan === 'FREE').length,
@@ -772,6 +777,7 @@ export class MasterAdminService implements OnModuleInit {
         plan: s.plan,
         status: s.status,
         priceCents: s.priceCents,
+        billingInterval: s.billingInterval,
         currency: s.currency,
         startedAt: s.startedAt,
         activatedAt: s.activatedAt,

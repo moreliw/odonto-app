@@ -422,14 +422,19 @@ import {
                 [class.is-active]="annual()"
                 [attr.aria-pressed]="annual()"
                 (click)="setAnnual(true)"
-              >Anual</button>
-              <span class="lp-cycle-tag">10% de desconto</span>
+              >Anual <span class="lp-cycle-tag">-10%</span></button>
             </div>
 
             @if (annual() && !annualEnabled) {
               <p class="lp-cycle-warning" role="status">
                 A cobrança anual ainda não está disponível — os valores abaixo são uma prévia.
                 Ao contratar agora, a assinatura é mensal.
+              </p>
+            }
+            @if (annual() && annualEnabled) {
+              <p class="lp-cycle-legal" role="note">
+                Cobrança anual à vista, com 10% de desconto sobre o valor mensal. Ao cancelar, o acesso continua até o fim do
+                período já pago — não há reembolso proporcional do período restante.
               </p>
             }
 
@@ -465,6 +470,7 @@ import {
                     [class.lp-btn-primary]="plan.highlight"
                     [class.lp-btn-outline]="!plan.highlight"
                     routerLink="/signup"
+                    [queryParams]="{ plan: plan.code, cycle: annual() && annualEnabled ? 'annual' : 'monthly' }"
                   >Começar agora</a>
 
                   <div class="lp-plan-groups">
@@ -847,7 +853,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.previousTitle = this.title.getTitle()
     this.previousDescription = this.meta.getTag('name="description"')?.content || ''
 
-    const pageTitle = 'OdontoApp | Sistema de gestão para clínicas odontológicas'
+    const pageTitle = 'OdontoApp | Software Odontológico'
     const description =
       'Organize agenda, pacientes, tratamentos e financeiro da sua clínica odontológica em uma plataforma simples, segura e acessível de qualquer lugar.'
     const origin = this.document.location?.origin || ''

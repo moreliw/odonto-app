@@ -42,12 +42,14 @@ export interface PricingPlan {
 export const ANNUAL_DISCOUNT = 0.1
 
 /**
- * A cobrança anual ainda não existe no backend (o checkout do Stripe é criado
- * sempre com `recurring: { interval: 'month' }`). Enquanto `ANNUAL_BILLING_ENABLED`
- * for false, o toggle anual mostra o preço com o selo "Em breve" e o checkout
- * continua mensal — evita anunciar uma cobrança que o sistema não sabe executar.
+ * A cobrança anual é criada no backend com `recurring: { interval: 'year' }`
+ * (ver backend/src/modules/billing/billing.service.ts). Em produção, os Price IDs
+ * anuais precisam estar configurados nas variáveis STRIPE_PRICE_*_YEARLY — sem
+ * isso o checkout anual falha em vez de cobrar o valor errado. Se for preciso
+ * desativar a venda anual temporariamente, volte esta flag para `false`: o
+ * toggle passa a mostrar o selo "Em breve" e o checkout cai para mensal.
  */
-export const ANNUAL_BILLING_ENABLED = false
+export const ANNUAL_BILLING_ENABLED = true
 
 export const PRICING_PLANS: PricingPlan[] = [
   {

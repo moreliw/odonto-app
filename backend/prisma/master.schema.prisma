@@ -28,6 +28,11 @@ enum PaymentProvider {
   STRIPE
 }
 
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
 enum SignupIntentStatus {
   PENDING
   PROCESSING
@@ -111,7 +116,9 @@ model Subscription {
   provider     PaymentProvider?
   providerCustomerId String?
   providerSubscriptionId String?   @unique
+  /// Valor cobrado por ciclo (mensal ou anual, conforme billingInterval) — não é sempre um valor mensal.
   priceCents   Int
+  billingInterval BillingInterval  @default(MONTH)
   currency     String              @default("BRL")
   startedAt    DateTime            @default(now())
   activatedAt  DateTime?

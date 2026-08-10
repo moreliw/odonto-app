@@ -6,7 +6,7 @@ import {
   NotFoundException,
   ServiceUnavailableException
 } from '@nestjs/common'
-import { Prisma, Plan, SignupIntent, SubscriptionStatus } from '@prisma/client-master'
+import { Prisma, Plan, SignupIntent, SubscriptionStatus, BillingInterval } from '@prisma/client-master'
 import Stripe = require('stripe')
 import * as argon2 from 'argon2'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
@@ -22,15 +22,25 @@ type CheckoutRequest = {
   adminEmail: string
   adminPassword: string
   plan: Plan
+  billingInterval?: BillingInterval
 }
 
 type PlanPublicInfo = {
   code: Plan
   name: string
   priceCents: number
+  /** Total cobrado uma vez por ano no ciclo anual (10% de desconto sobre 12x o mensal). 0 para o plano FREE. */
+  annualPriceCents: number
   currency: string
   description: string
   features: string[]
+}
+
+/** Mesmo desconto e arredondamento usados na landing (frontend/src/app/config/landing.config.ts `annualPrice()`) — precisa continuar espelhando esse cálculo. */
+const ANNUAL_DISCOUNT = 0.1
+function annualTotalCents(monthlyCents: number) {
+  const discountedMonthly = Math.floor((monthlyCents * (1 - ANNUAL_DISCOUNT)) / 10) * 10
+  return discountedMonthly * 12
 }
 
 type StripeEvent = any
@@ -51,6 +61,7 @@ const PLAN_CATALOG: Partial<Record<Plan, PlanPublicInfo>> = {
     code: 'FREE',
     name: 'Teste Gratuito',
     priceCents: 0,
+    annualPriceCents: 0,
     currency: 'BRL',
     description: 'Uso interno para testar o fluxo completo de assinatura, sem cobrança.',
     features: ['Todos os módulos liberados', 'Sem cartão de crédito', 'Ativação imediata']
@@ -59,6 +70,7 @@ const PLAN_CATALOG: Partial<Record<Plan, PlanPublicInfo>> = {
     code: 'BASIC',
     name: 'Essencial',
     priceCents: 12900,
+    annualPriceCents: annualTotalCents(12900),
     currency: 'BRL',
     description: 'Para profissionais autônomos e consultórios menores.',
     features: ['Agenda e pacientes', 'Prontuário digital', 'Financeiro básico', 'Suporte por e-mail']
@@ -67,6 +79,7 @@ const PLAN_CATALOG: Partial<Record<Plan, PlanPublicInfo>> = {
     code: 'PRO',
     name: 'Profissional',
     priceCents: 27900,
+    annualPriceCents: annualTotalCents(27900),
     currency: 'BRL',
     description: 'Para consultórios e clínicas que trabalham com equipe.',
     features: ['Tudo do Essencial', 'Até 3 dentistas', 'Perfis de acesso', 'Suporte prioritário']
@@ -75,6 +88,7 @@ const PLAN_CATALOG: Partial<Record<Plan, PlanPublicInfo>> = {
     code: 'CLINIC',
     name: 'Clínica',
     priceCents: 44900,
+    annualPriceCents: annualTotalCents(44900),
     currency: 'BRL',
     description: 'Para clínicas com vários profissionais e volume alto de atendimento.',
     features: ['Tudo do Profissional', 'Dentistas ilimitados', 'Armazenamento ampliado', 'Atendimento prioritário']
@@ -112,7 +126,7 @@ function readableSubscriptionStatus(status: SubscriptionStatus) {
 export class BillingService {
   private readonly log = new Logger(BillingService.name)
   private stripeClient: Stripe.Stripe | null | undefined
-  private readonly priceIdCache = new Map<Plan, Promise<string>>()
+  private readonly priceIdCache = new Map<string, Promise<string>>()
 
   constructor(
     private readonly master: MasterPrismaService,
@@ -196,23 +210,29 @@ export class BillingService {
     if (!price) return null
     const priceId = typeof price === 'string' ? price : price.id
     for (const code of ['BASIC', 'PRO', 'CLINIC'] as Plan[]) {
-      if (this.configuredPriceId(code) === priceId) return code
+      if (this.configuredPriceId(code, 'MONTH') === priceId) return code
+      if (this.configuredPriceId(code, 'YEAR') === priceId) return code
     }
 
     const metadataPlan = typeof price === 'string' ? null : price.metadata?.plan
     if (metadataPlan && PLAN_CATALOG[metadataPlan as Plan]) return metadataPlan as Plan
 
     if (typeof price !== 'string') {
-      const byAmount = Object.values(PLAN_CATALOG).find(
-        plan =>
-          plan.code !== 'FREE' &&
-          price.unit_amount === plan.priceCents &&
-          price.currency === plan.currency.toLowerCase() &&
-          price.recurring?.interval === 'month'
-      )
+      const interval = price.recurring?.interval
+      const byAmount = Object.values(PLAN_CATALOG).find(plan => {
+        if (plan.code === 'FREE' || price.currency !== plan.currency.toLowerCase()) return false
+        if (interval === 'month') return price.unit_amount === plan.priceCents
+        if (interval === 'year') return price.unit_amount === plan.annualPriceCents
+        return false
+      })
       return byAmount?.code || null
     }
     return null
+  }
+
+  private billingIntervalFromStripe(subscription: StripeSubscription | null | undefined): BillingInterval {
+    const interval = subscription?.items?.data?.[0]?.price?.recurring?.interval
+    return interval === 'year' ? 'YEAR' : 'MONTH'
   }
 
   private async retrieveStripeSubscription(id: string | null | undefined) {
@@ -290,6 +310,8 @@ export class BillingService {
     const requestedSubdomain = await this.resolveSubdomain(clinicName, input.requestedSubdomain)
     const clinicSlug = slugify(clinicName)
     const adminPasswordHash = await argon2.hash(adminPassword)
+    const billingInterval: BillingInterval = input.billingInterval === 'YEAR' ? 'YEAR' : 'MONTH'
+    const priceCentsForRecord = billingInterval === 'YEAR' ? plan.annualPriceCents : plan.priceCents
 
     const intent = await this.master.signupIntent.create({
       data: {
@@ -300,12 +322,13 @@ export class BillingService {
         adminEmail,
         adminPasswordHash,
         plan: plan.code,
-        priceCents: plan.priceCents,
+        priceCents: priceCentsForRecord,
         currency: plan.currency,
         status: 'PENDING',
         metadata: {
           source: 'landing',
-          ipHint: 'web'
+          ipHint: 'web',
+          billingInterval
         }
       }
     })
@@ -322,7 +345,7 @@ export class BillingService {
     const trialDays = this.trialDays()
 
     try {
-      const priceId = await this.resolvePriceId(stripe, plan)
+      const priceId = await this.resolvePriceId(stripe, plan, billingInterval)
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         client_reference_id: intent.id,
@@ -333,7 +356,8 @@ export class BillingService {
         metadata: {
           intentId: intent.id,
           clinicSlug: clinicSlug.slice(0, 40),
-          plan: plan.code
+          plan: plan.code,
+          billingInterval
         },
         subscription_data: {
           ...(trialDays > 0
@@ -345,7 +369,8 @@ export class BillingService {
           metadata: {
             intentId: intent.id,
             clinicSlug: clinicSlug.slice(0, 40),
-            plan: plan.code
+            plan: plan.code,
+            billingInterval
           }
         },
         line_items: [{ price: priceId, quantity: 1 }]
@@ -580,67 +605,71 @@ export class BillingService {
   }
 
   /**
-   * Price ID configurado no Stripe para cada plano. Nunca reaproveitar o Price
-   * de outro plano — isso cobraria do cliente um valor diferente do anunciado.
+   * Price ID configurado no Stripe para cada plano e ciclo de cobrança. Nunca
+   * reaproveitar o Price de outro plano/ciclo — isso cobraria do cliente um
+   * valor diferente do anunciado.
    */
-  private configuredPriceId(plan: Plan): string | undefined {
-    const byPlan: Partial<Record<Plan, string | undefined>> = {
-      BASIC: process.env.STRIPE_PRICE_BASIC_MONTHLY?.trim(),
-      PRO: process.env.STRIPE_PRICE_PRO_MONTHLY?.trim(),
-      CLINIC: process.env.STRIPE_PRICE_CLINIC_MONTHLY?.trim()
-    }
-    return byPlan[plan] || undefined
+  private configuredPriceId(plan: Plan, interval: BillingInterval): string | undefined {
+    const envVar =
+      interval === 'YEAR'
+        ? ({ BASIC: 'STRIPE_PRICE_BASIC_YEARLY', PRO: 'STRIPE_PRICE_PRO_YEARLY', CLINIC: 'STRIPE_PRICE_CLINIC_YEARLY' } as const)
+        : ({ BASIC: 'STRIPE_PRICE_BASIC_MONTHLY', PRO: 'STRIPE_PRICE_PRO_MONTHLY', CLINIC: 'STRIPE_PRICE_CLINIC_MONTHLY' } as const)
+    const key = envVar[plan as 'BASIC' | 'PRO' | 'CLINIC']
+    return key ? process.env[key]?.trim() || undefined : undefined
   }
 
-  private assertPriceMatchesPlan(price: any, plan: PlanPublicInfo) {
+  private assertPriceMatchesPlan(price: any, plan: PlanPublicInfo, interval: BillingInterval) {
     const currency = plan.currency.toLowerCase()
+    const expectedAmount = interval === 'YEAR' ? plan.annualPriceCents : plan.priceCents
+    const expectedInterval = interval === 'YEAR' ? 'year' : 'month'
     const valid =
       price.active &&
-      price.unit_amount === plan.priceCents &&
+      price.unit_amount === expectedAmount &&
       price.currency === currency &&
-      price.recurring?.interval === 'month'
+      price.recurring?.interval === expectedInterval
     if (!valid) {
       this.log.error(
-        `Stripe Price ${price.id} diverge do plano ${plan.code}: esperado ${currency} ${plan.priceCents}/month.`
+        `Stripe Price ${price.id} diverge do plano ${plan.code}/${interval}: esperado ${currency} ${expectedAmount}/${expectedInterval}.`
       )
       throw new ServiceUnavailableException('O preço deste plano está temporariamente indisponível para cobrança.')
     }
   }
 
   /**
-   * Em live mode, todo plano precisa apontar para um Price explícito e validado.
+   * Em live mode, todo plano/ciclo precisa apontar para um Price explícito e validado.
    * Em sandbox, lookup_key evita criar preços duplicados a cada reinício.
    */
-  private resolvePriceId(stripe: Stripe.Stripe, plan: PlanPublicInfo): Promise<string> {
-    const cached = this.priceIdCache.get(plan.code)
+  private resolvePriceId(stripe: Stripe.Stripe, plan: PlanPublicInfo, interval: BillingInterval = 'MONTH'): Promise<string> {
+    const cacheKey = `${plan.code}:${interval}`
+    const cached = this.priceIdCache.get(cacheKey)
     if (cached) return cached
 
     const promise = (async () => {
-      const configured = this.configuredPriceId(plan.code)
+      const configured = this.configuredPriceId(plan.code, interval)
       if (configured) {
         const price = await stripe.prices.retrieve(configured)
-        this.assertPriceMatchesPlan(price, plan)
+        this.assertPriceMatchesPlan(price, plan, interval)
         return price.id
       }
 
       if (this.stripeKeyIsLive()) {
-        this.log.error(`STRIPE_PRICE_${plan.code}_MONTHLY não configurado em live mode.`)
+        this.log.error(`STRIPE_PRICE_${plan.code}_${interval === 'YEAR' ? 'YEARLY' : 'MONTHLY'} não configurado em live mode.`)
         throw new ServiceUnavailableException('O preço deste plano ainda não está configurado para cobrança.')
       }
 
-      const lookupKey = `odontoapp_${plan.code.toLowerCase()}_monthly`
+      const lookupKey = `odontoapp_${plan.code.toLowerCase()}_${interval === 'YEAR' ? 'yearly' : 'monthly'}`
       const existing = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 })
       if (existing.data[0]) {
-        this.assertPriceMatchesPlan(existing.data[0], plan)
+        this.assertPriceMatchesPlan(existing.data[0], plan, interval)
         return existing.data[0].id
       }
 
       const price = await stripe.prices.create({
-        unit_amount: plan.priceCents,
+        unit_amount: interval === 'YEAR' ? plan.annualPriceCents : plan.priceCents,
         currency: plan.currency.toLowerCase(),
-        recurring: { interval: 'month' },
+        recurring: { interval: interval === 'YEAR' ? 'year' : 'month' },
         lookup_key: lookupKey,
-        metadata: { plan: plan.code },
+        metadata: { plan: plan.code, billingInterval: interval },
         product_data: {
           name: `OdontoApp ${plan.name}`,
           metadata: { product: 'odontoapp', plan: plan.code }
@@ -649,8 +678,8 @@ export class BillingService {
       return price.id
     })()
 
-    this.priceIdCache.set(plan.code, promise)
-    promise.catch(() => this.priceIdCache.delete(plan.code))
+    this.priceIdCache.set(cacheKey, promise)
+    promise.catch(() => this.priceIdCache.delete(cacheKey))
     return promise
   }
 
@@ -667,6 +696,7 @@ export class BillingService {
       plan,
       planLabel: PLAN_LABEL[plan],
       priceCents: accessGrant ? 0 : subscription?.priceCents ?? catalog?.priceCents ?? 0,
+      billingInterval: subscription?.billingInterval ?? 'MONTH',
       status: accessGrant ? 'ACTIVE' : subscription?.status ?? 'PENDING',
       provider: subscription?.provider ?? null,
       renewsAt: subscription?.renewsAt ?? null,
@@ -726,6 +756,7 @@ export class BillingService {
           plan: 'FREE',
           status: 'ACTIVE',
           priceCents: 0,
+          billingInterval: 'MONTH',
           provider: null,
           providerCustomerId: null,
           providerSubscriptionId: null,
@@ -753,7 +784,9 @@ export class BillingService {
         const stripeSub = await stripe.subscriptions.retrieve(subscription.providerSubscriptionId)
         const itemId = stripeSub.items.data[0]?.id
         if (!itemId) throw new Error('Assinatura sem item de cobrança no Stripe.')
-        const priceId = await this.resolvePriceId(stripe, target)
+        // Preserva o ciclo de cobrança já contratado (mensal ou anual) ao trocar de plano.
+        const currentInterval = this.billingIntervalFromStripe(stripeSub)
+        const priceId = await this.resolvePriceId(stripe, target, currentInterval)
 
         // O Stripe não aceita cancel_at_period_end junto de
         // payment_behavior=pending_if_incomplete. Se o cliente havia cancelado
@@ -792,10 +825,12 @@ export class BillingService {
     }
 
     // Sem assinatura Stripe ativa (ex.: estava no plano gratuito): precisa de um novo checkout.
+    // Sem cadência anterior para preservar, o novo checkout começa mensal — quem quiser
+    // anual troca depois pelo portal de pagamento ou contata o suporte.
     const successUrl = `${this.getAppBaseUrl()}/app/billing?upgraded=1`
     const cancelUrl = `${this.getAppBaseUrl()}/app/billing?canceled=1`
     try {
-      const priceId = await this.resolvePriceId(stripe, target)
+      const priceId = await this.resolvePriceId(stripe, target, 'MONTH')
       const session = await stripe.checkout.sessions.create(
         {
           mode: 'subscription',
@@ -804,8 +839,8 @@ export class BillingService {
           customer: subscription?.providerCustomerId || undefined,
           customer_email: subscription?.providerCustomerId ? undefined : adminEmail,
           payment_method_collection: 'always',
-          metadata: { kind: 'plan_change', tenantId, plan: targetPlanCode },
-          subscription_data: { metadata: { kind: 'plan_change', tenantId, plan: targetPlanCode } },
+          metadata: { kind: 'plan_change', tenantId, plan: targetPlanCode, billingInterval: 'MONTH' },
+          subscription_data: { metadata: { kind: 'plan_change', tenantId, plan: targetPlanCode, billingInterval: 'MONTH' } },
           line_items: [{ price: priceId, quantity: 1 }]
         },
         { timeout: 15000, maxNetworkRetries: 0 }
@@ -1045,6 +1080,11 @@ export class BillingService {
     const currentPeriodEnd = this.stripeSubscriptionPeriodEnd(stripeSubscription)
     const lastPaymentAt = session.payment_status === 'paid' ? now : null
     const cancelAtPeriodEnd = Boolean(stripeSubscription?.cancel_at_period_end)
+    const billingInterval: BillingInterval = stripeSubscription
+      ? this.billingIntervalFromStripe(stripeSubscription)
+      : session.metadata?.billingInterval === 'YEAR'
+        ? 'YEAR'
+        : 'MONTH'
 
     const subscription = await this.master.subscription.upsert({
       where: { tenantId: tenant.id },
@@ -1052,6 +1092,7 @@ export class BillingService {
         plan: intent.plan,
         status,
         priceCents: intent.priceCents,
+        billingInterval,
         currency: intent.currency,
         provider: 'STRIPE',
         providerCustomerId,
@@ -1068,6 +1109,7 @@ export class BillingService {
         plan: intent.plan,
         status,
         priceCents: intent.priceCents,
+        billingInterval,
         currency: intent.currency,
         provider: 'STRIPE',
         providerCustomerId,
@@ -1125,12 +1167,17 @@ export class BillingService {
     const lastPaymentAt = session.payment_status === 'paid' ? now : null
     const cancelAtPeriodEnd = Boolean(stripeSubscription?.cancel_at_period_end)
 
+    // O checkout de troca de plano sem assinatura Stripe ativa sempre parte do mensal
+    // (ver changeTenantPlan) — o preço já reflete isso, não precisa reler do Stripe.
+    const billingInterval: BillingInterval = 'MONTH'
+
     await this.master.subscription.upsert({
       where: { tenantId },
       update: {
         plan,
         status,
         priceCents: catalog.priceCents,
+        billingInterval,
         currency: catalog.currency,
         provider: 'STRIPE',
         providerCustomerId: providerCustomerId || undefined,
@@ -1147,6 +1194,7 @@ export class BillingService {
         plan,
         status,
         priceCents: catalog.priceCents,
+        billingInterval,
         currency: catalog.currency,
         provider: 'STRIPE',
         providerCustomerId,
@@ -1247,13 +1295,19 @@ export class BillingService {
     const canceledAt = asIsoOrNull(stripeSubscription.canceled_at)
     const mappedPlan = this.planFromStripeSubscription(stripeSubscription)
     const mappedCatalog = mappedPlan ? PLAN_CATALOG[mappedPlan] : null
+    const billingInterval = this.billingIntervalFromStripe(stripeSubscription)
 
     await this.master.subscription.update({
       where: { id: subscription.id },
       data: {
         ...(mappedPlan && mappedCatalog
-          ? { plan: mappedPlan, priceCents: mappedCatalog.priceCents, currency: mappedCatalog.currency }
+          ? {
+              plan: mappedPlan,
+              priceCents: billingInterval === 'YEAR' ? mappedCatalog.annualPriceCents : mappedCatalog.priceCents,
+              currency: mappedCatalog.currency
+            }
           : {}),
+        billingInterval,
         status,
         currentPeriodEnd: currentPeriodEnd || this.stripeSubscriptionPeriodEnd(stripeSubscription) || subscription.currentPeriodEnd,
         renewsAt: currentPeriodEnd || this.stripeSubscriptionPeriodEnd(stripeSubscription) || subscription.renewsAt,

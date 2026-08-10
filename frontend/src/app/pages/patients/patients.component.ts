@@ -47,10 +47,10 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
             <thead>
               <tr>
                 <th>Paciente</th>
-                <th>Contato</th>
-                <th>Documento</th>
-                <th>Nascimento</th>
-                <th>Cadastro</th>
+                <th class="text-center">Contato</th>
+                <th class="text-center">Documento</th>
+                <th class="text-center">Nascimento</th>
+                <th class="text-center">Cadastro</th>
                 <th style="width:80px;"></th>
               </tr>
             </thead>
@@ -81,10 +81,10 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                         </div>
                       </div>
                     </td>
-                    <td class="muted">{{ p.phone || '—' }}</td>
-                    <td class="muted text-sm">{{ p.document || '—' }}</td>
-                    <td class="muted text-sm">{{ p.birthDate ? (p.birthDate | date:'dd/MM/yyyy') : '—' }}</td>
-                    <td class="muted text-xs">{{ p.createdAt | date:'dd/MM/yyyy' }}</td>
+                    <td class="muted text-center">{{ p.phone || '—' }}</td>
+                    <td class="muted text-sm text-center">{{ p.document || '—' }}</td>
+                    <td class="muted text-sm text-center">{{ p.birthDate ? (p.birthDate | date:'dd/MM/yyyy') : '—' }}</td>
+                    <td class="muted text-xs text-center">{{ p.createdAt | date:'dd/MM/yyyy' }}</td>
                     <td>
                       <div class="table-actions">
                         <button class="btn btn-sm btn-ghost" (click)="openEdit(p)" title="Editar">

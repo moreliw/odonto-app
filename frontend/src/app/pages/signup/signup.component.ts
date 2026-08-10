@@ -8,6 +8,7 @@ type Plan = {
   code: 'FREE' | 'BASIC' | 'PRO' | 'CLINIC'
   name: string
   priceCents: number
+  annualPriceCents: number
   currency: string
   description: string
   features: string[]
@@ -150,6 +151,14 @@ type Plan = {
 
               <fieldset class="signup-plan-field signup-field--full">
                 <legend>Escolha seu plano</legend>
+
+                @if (!isFreePlan) {
+                  <div class="signup-cycle" role="group" aria-label="Ciclo de cobrança">
+                    <button type="button" class="signup-cycle-btn" [class.active]="billingInterval === 'MONTH'" [attr.aria-pressed]="billingInterval === 'MONTH'" (click)="billingInterval = 'MONTH'">Mensal</button>
+                    <button type="button" class="signup-cycle-btn" [class.active]="billingInterval === 'YEAR'" [attr.aria-pressed]="billingInterval === 'YEAR'" (click)="billingInterval = 'YEAR'">Anual <span class="signup-cycle-tag">-10%</span></button>
+                  </div>
+                }
+
                 <div class="signup-plans" [class.signup-plans--four]="plans.length >= 4" role="radiogroup" aria-label="Plano da clínica">
                   @for (p of plans; track p.code) {
                     <button type="button" class="signup-plan-option" [class.active]="plan === p.code" role="radio" [attr.aria-checked]="plan === p.code" (click)="plan = p.code">
@@ -161,12 +170,20 @@ type Plan = {
                       </span>
                       <span class="price">
                         @if (p.priceCents === 0) { Gratuito }
+                        @else if (billingInterval === 'YEAR') { R$ {{ formatPrice(displayPriceCents(p)) }}<small>/ano</small> }
                         @else { R$ {{ formatPrice(p.priceCents) }}<small>/mês</small> }
                       </span>
                       <span class="signup-plan-description">{{ p.description }}</span>
                     </button>
                   }
                 </div>
+
+                @if (!isFreePlan && billingInterval === 'YEAR') {
+                  <p class="signup-cycle-legal">
+                    Cobrança anual à vista, com 10% de desconto sobre o valor mensal. Ao cancelar, o acesso continua até o fim
+                    do período já pago — sem reembolso proporcional.
+                  </p>
+                }
               </fieldset>
 
               <button class="login-submit signup-submit signup-field--full" [disabled]="saving" type="submit">
@@ -212,6 +229,7 @@ export class SignupComponent implements OnInit {
       code: 'BASIC',
       name: 'Essencial',
       priceCents: 12900,
+      annualPriceCents: 139320,
       currency: 'BRL',
       description: 'Para profissionais autônomos e consultórios menores.',
       features: []
@@ -220,6 +238,7 @@ export class SignupComponent implements OnInit {
       code: 'PRO',
       name: 'Profissional',
       priceCents: 27900,
+      annualPriceCents: 301320,
       currency: 'BRL',
       description: 'Para consultórios e clínicas que trabalham com equipe.',
       features: []
@@ -228,11 +247,13 @@ export class SignupComponent implements OnInit {
       code: 'CLINIC',
       name: 'Clínica',
       priceCents: 44900,
+      annualPriceCents: 484920,
       currency: 'BRL',
       description: 'Para clínicas com vários profissionais e volume alto de atendimento.',
       features: []
     }
   ]
+  billingInterval: 'MONTH' | 'YEAR' = 'MONTH'
   saving = false
   success = false
   message = ''
@@ -248,6 +269,11 @@ export class SignupComponent implements OnInit {
     })
   }
 
+  /** Preço exibido no card do plano, considerando o ciclo escolhido. */
+  displayPriceCents(p: Plan) {
+    return this.billingInterval === 'YEAR' ? p.annualPriceCents : p.priceCents
+  }
+
   constructor(private readonly http: HttpClient, private readonly route: ActivatedRoute) {}
 
   ngOnInit() {
@@ -256,6 +282,11 @@ export class SignupComponent implements OnInit {
         this.success = false
         this.message = 'Pagamento não concluído. Você pode tentar novamente.'
       }
+      const planParam = params.get('plan')
+      if (planParam && ['FREE', 'BASIC', 'PRO', 'CLINIC'].includes(planParam)) {
+        this.plan = planParam as Plan['code']
+      }
+      if (params.get('cycle') === 'annual') this.billingInterval = 'YEAR'
     })
     this.http.get<Plan[]>('/api/public/plans').subscribe({
       next: plans => {
@@ -283,7 +314,8 @@ export class SignupComponent implements OnInit {
         adminName: this.adminName.trim(),
         adminEmail: this.adminEmail.trim(),
         adminPassword: this.adminPassword,
-        plan: this.plan
+        plan: this.plan,
+        billingInterval: this.isFreePlan ? 'MONTH' : this.billingInterval
       })
       .subscribe({
         next: res => {

@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req } from '@nes
 import { IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator'
 import { RawBodyRequest } from '@nestjs/common'
 import { Request } from 'express'
-import { Plan } from '@prisma/client-master'
+import { Plan, BillingInterval } from '@prisma/client-master'
 import { BillingService } from './billing.service'
 import { Throttle } from '@nestjs/throttler'
 
@@ -35,6 +35,10 @@ class CreateCheckoutSessionDto {
 
   @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
   plan: Plan
+
+  @IsOptional()
+  @IsEnum(['MONTH', 'YEAR'] as any)
+  billingInterval?: BillingInterval
 }
 
 @Controller('public')
@@ -55,7 +59,8 @@ export class BillingController {
       requestedSubdomain: dto.subdomain,
       adminEmail: dto.adminEmail,
       adminPassword: dto.adminPassword,
-      plan: dto.plan
+      plan: dto.plan,
+      billingInterval: dto.billingInterval
     })
   }
 

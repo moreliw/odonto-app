@@ -263,8 +263,8 @@
     <header><div><span>{{ editingInvoiceId ? 'Editar lançamento' : 'Nova cobrança' }}</span><h2 id="invoice-modal-title">{{ editingInvoiceId ? 'Atualize a cobrança' : 'Cobrar paciente' }}</h2></div><button type="button" (click)="invoiceModal=false" aria-label="Fechar">×</button></header>
     <div class="finance-modal-body">
       <div class="finance-form-grid">
-        <label>Paciente <select class="select" [(ngModel)]="invoiceForm.patientId" required><option value="">Selecione o paciente</option>@for (patient of patients; track patient.id) { <option [value]="patient.id">{{ patient.name }}</option> }</select></label>
-        @if (isAdmin) { <label>Dentista responsável <select class="select" [(ngModel)]="invoiceForm.dentistId"><option value="">Não vincular</option>@for (dentist of dentists; track dentist.id) { <option [value]="dentist.id">{{ dentist.name }}</option> }</select></label> }
+        <label>Paciente <app-searchable-select [items]="patientItems" placeholder="Selecione o paciente" searchPlaceholder="Buscar paciente..." ariaLabel="Paciente" [(ngModel)]="invoiceForm.patientId" name="invoicePatientId" required></app-searchable-select></label>
+        @if (isAdmin) { <label>Dentista responsável <app-searchable-select [items]="dentistItems" clearLabel="Não vincular" placeholder="Não vincular" searchPlaceholder="Buscar dentista..." ariaLabel="Dentista responsável" [(ngModel)]="invoiceForm.dentistId" name="invoiceDentistId"></app-searchable-select></label> }
         <label>Emissão <input class="input" type="date" [(ngModel)]="invoiceForm.issuedAt" /></label>
         <label>Vencimento <input class="input" type="date" [(ngModel)]="invoiceForm.dueDate" required /></label>
       </div>
@@ -276,7 +276,7 @@
             <label>Descrição <input class="input" [(ngModel)]="item.description" placeholder="Ex.: Clareamento" /></label>
             <label>Qtd. <input class="input" type="number" min="1" [(ngModel)]="item.quantity" /></label>
             <label>Valor unitário <input class="input" type="number" min="0" step="0.01" [(ngModel)]="item.unitPrice" /></label>
-            <strong>{{ money(item.quantity * item.unitPrice) }}</strong>
+            <strong>{{ moneyPlain(item.quantity * item.unitPrice) }}</strong>
             <button type="button" (click)="removeInvoiceItem(index)" [disabled]="invoiceForm.items.length === 1" aria-label="Remover item">×</button>
           </div>
         }
@@ -284,7 +284,7 @@
       <div class="finance-invoice-footer-form">
         <label>Descrição geral <input class="input" [(ngModel)]="invoiceForm.description" placeholder="Ex.: Plano de tratamento" /></label>
         <label>Desconto <input class="input" type="number" min="0" step="0.01" [(ngModel)]="invoiceForm.discount" /></label>
-        <div class="finance-invoice-total"><span>Subtotal <b>{{ money(invoiceGross()) }}</b></span><strong>Total <b>{{ money(invoiceTotal()) }}</b></strong></div>
+        <div class="finance-invoice-total"><span>Subtotal <b>{{ moneyPlain(invoiceGross()) }}</b></span><strong>Total <b>{{ moneyPlain(invoiceTotal()) }}</b></strong></div>
       </div>
       <label>Observações <textarea class="textarea" [(ngModel)]="invoiceForm.notes" placeholder="Informações internas sobre esta cobrança"></textarea></label>
     </div>
@@ -317,7 +317,7 @@
   <div class="finance-modal-backdrop" (click)="paymentModal=false"></div>
   <section class="finance-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
     <header><div><span>Recebimento</span><h2 id="payment-modal-title">Registrar pagamento</h2></div><button type="button" (click)="paymentModal=false" aria-label="Fechar">×</button></header>
-    <div class="finance-modal-body"><div class="finance-payment-summary"><div><span>Paciente</span><strong>{{ selectedInvoice.patient.name }}</strong></div><div><span>Saldo em aberto</span><strong>{{ money(selectedInvoice.remainingAmount) }}</strong></div></div><label>Valor recebido <div class="finance-money-input"><span>R$</span><input class="input" type="number" min="0.01" [max]="selectedInvoice.remainingAmount" step="0.01" [(ngModel)]="paymentForm.amount" /></div></label><div class="finance-form-grid"><label>Data do recebimento <input class="input" type="date" [(ngModel)]="paymentForm.paidAt" /></label><label>Forma de pagamento <select class="select" [(ngModel)]="paymentForm.method">@for (method of paymentMethods; track method[0]) { <option [value]="method[0]">{{ method[1] }}</option> }</select></label></div><label>Observações <textarea class="textarea" [(ngModel)]="paymentForm.notes" placeholder="Opcional"></textarea></label></div>
+    <div class="finance-modal-body"><div class="finance-payment-summary"><div><span>Paciente</span><strong>{{ selectedInvoice.patient.name }}</strong></div><div><span>Saldo em aberto</span><strong>{{ moneyPlain(selectedInvoice.remainingAmount) }}</strong></div></div><label>Valor recebido <div class="finance-money-input"><span>R$</span><input class="input" type="number" min="0.01" [max]="selectedInvoice.remainingAmount" step="0.01" [(ngModel)]="paymentForm.amount" /></div></label><div class="finance-form-grid"><label>Data do recebimento <input class="input" type="date" [(ngModel)]="paymentForm.paidAt" /></label><label>Forma de pagamento <select class="select" [(ngModel)]="paymentForm.method">@for (method of paymentMethods; track method[0]) { <option [value]="method[0]">{{ method[1] }}</option> }</select></label></div><label>Observações <textarea class="textarea" [(ngModel)]="paymentForm.notes" placeholder="Opcional"></textarea></label></div>
     <footer><button class="btn btn-ghost" type="button" (click)="paymentModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="savePayment()" [disabled]="saving">{{ saving ? 'Registrando…' : 'Confirmar recebimento' }}</button></footer>
   </section>
 }
@@ -333,7 +333,7 @@
 
 @if (expensePaymentModal && selectedExpense) {
   <div class="finance-modal-backdrop" (click)="expensePaymentModal=false"></div>
-  <section class="finance-modal finance-modal-small" role="dialog" aria-modal="true" aria-labelledby="expense-payment-title"><header><div><span>Pagamento</span><h2 id="expense-payment-title">Confirmar despesa paga</h2></div><button type="button" (click)="expensePaymentModal=false" aria-label="Fechar">×</button></header><div class="finance-modal-body"><div class="finance-payment-summary"><div><span>Despesa</span><strong>{{ selectedExpense.description }}</strong></div><div><span>Valor</span><strong>{{ money(selectedExpense.amount) }}</strong></div></div><label>Data do pagamento <input class="input" type="date" [(ngModel)]="expensePaymentForm.paidAt" /></label><label>Forma de pagamento <select class="select" [(ngModel)]="expensePaymentForm.method">@for (method of paymentMethods; track method[0]) { <option [value]="method[0]">{{ method[1] }}</option> }</select></label></div><footer><button class="btn btn-ghost" type="button" (click)="expensePaymentModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="saveExpensePayment()" [disabled]="saving">Confirmar pagamento</button></footer></section>
+  <section class="finance-modal finance-modal-small" role="dialog" aria-modal="true" aria-labelledby="expense-payment-title"><header><div><span>Pagamento</span><h2 id="expense-payment-title">Confirmar despesa paga</h2></div><button type="button" (click)="expensePaymentModal=false" aria-label="Fechar">×</button></header><div class="finance-modal-body"><div class="finance-payment-summary"><div><span>Despesa</span><strong>{{ selectedExpense.description }}</strong></div><div><span>Valor</span><strong>{{ moneyPlain(selectedExpense.amount) }}</strong></div></div><label>Data do pagamento <input class="input" type="date" [(ngModel)]="expensePaymentForm.paidAt" /></label><label>Forma de pagamento <select class="select" [(ngModel)]="expensePaymentForm.method">@for (method of paymentMethods; track method[0]) { <option [value]="method[0]">{{ method[1] }}</option> }</select></label></div><footer><button class="btn btn-ghost" type="button" (click)="expensePaymentModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="saveExpensePayment()" [disabled]="saving">Confirmar pagamento</button></footer></section>
 }
 
 @if (serviceModal) {
