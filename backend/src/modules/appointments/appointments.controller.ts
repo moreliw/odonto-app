@@ -103,4 +103,16 @@ export class AppointmentsController {
     const user = (req as any).user
     return this.appointments.remove(user, id)
   }
+
+  @Post(':id/send-confirmation')
+  sendConfirmation(@Req() req: Request, @Param('id') id: string) {
+    const user = (req as any).user
+    return this.appointments.sendConfirmation(user, id)
+  }
+
+  @Post('send-confirmations')
+  sendConfirmationsBulk(@Req() req: Request, @Query('from') from?: string, @Query('to') to?: string) {
+    const user = (req as any).user
+    return this.appointments.sendConfirmationsBulk(user, { from, to })
+  }
 }

@@ -14,6 +14,7 @@ import { AuthService } from './services/auth.service'
 import { SignupComponent } from './pages/signup/signup.component'
 import { SignupSuccessComponent } from './pages/signup/signup-success.component'
 import { LandingComponent } from './pages/landing/landing.component'
+import { ConfirmAppointmentComponent } from './pages/confirm-appointment/confirm-appointment.component'
 import { MasterLoginComponent } from './pages/master-login/master-login.component'
 import { MasterShellComponent } from './pages/master/master-shell.component'
 import { MasterOverviewComponent } from './pages/master/master-overview.component'
@@ -72,6 +73,7 @@ export const routes: Routes = [
   { path: 'signup', component: SignupComponent, canActivate: [guestGuard] },
   { path: 'signup/success', component: SignupSuccessComponent },
   { path: 'login', component: LoginComponent, canActivate: [guestGuard] },
+  { path: 'confirmar/:subdomain/:token', component: ConfirmAppointmentComponent },
   {
     path: 'admin/login',
     component: MasterLoginComponent,

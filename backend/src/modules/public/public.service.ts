@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { TenantService } from '../tenancy/tenant.service'
@@ -48,6 +48,60 @@ export class PublicService {
   /** Identidade visual pública da clínica (nome, cor, logo) para aplicar no app após o login. */
   async getBranding(subdomain: string) {
     return this.tenants.getBranding(subdomain.trim())
+  }
+
+  private serializeConfirmation(appt: any, tenant: { name?: string | null; primaryColor?: string | null; logoUrl?: string | null }) {
+    return {
+      patientName: appt.patient.name,
+      dentistName: appt.dentist?.name || appt.dentistName || null,
+      clinicName: tenant.name || null,
+      primaryColor: tenant.primaryColor || null,
+      logoUrl: tenant.logoUrl || null,
+      startTime: appt.startTime,
+      endTime: appt.endTime,
+      appointmentStatus: appt.status,
+      confirmationStatus: appt.confirmationStatus
+    }
+  }
+
+  /** Dados públicos (sem autenticação) para a tela de confirmação de consulta acessada pelo paciente. */
+  async getAppointmentConfirmation(subdomain: string, token: string) {
+    const tenant = await this.tenants.findBySubdomain(subdomain.trim())
+    if (!tenant) throw new NotFoundException('Clínica não encontrada.')
+    const prisma = new TenantPrisma({ datasources: { db: { url: tenant.connectionString } } })
+    try {
+      const appt = await prisma.appointment.findUnique({
+        where: { confirmationToken: token },
+        include: { patient: { select: { name: true } }, dentist: { select: { name: true } } }
+      })
+      if (!appt) throw new NotFoundException('Link de confirmação inválido ou expirado.')
+      return this.serializeConfirmation(appt, tenant)
+    } finally {
+      await prisma.$disconnect().catch(() => undefined)
+    }
+  }
+
+  /** Resposta do paciente (confirmar/recusar) pelo link público, sem login. */
+  async respondAppointmentConfirmation(subdomain: string, token: string, action: 'CONFIRM' | 'DECLINE') {
+    const tenant = await this.tenants.findBySubdomain(subdomain.trim())
+    if (!tenant) throw new NotFoundException('Clínica não encontrada.')
+    const prisma = new TenantPrisma({ datasources: { db: { url: tenant.connectionString } } })
+    try {
+      const existing = await prisma.appointment.findUnique({ where: { confirmationToken: token } })
+      if (!existing) throw new NotFoundException('Link de confirmação inválido ou expirado.')
+      if (existing.status === 'CANCELLED') throw new BadRequestException('Esta consulta foi cancelada.')
+      const updated = await prisma.appointment.update({
+        where: { id: existing.id },
+        data: {
+          confirmationStatus: action === 'CONFIRM' ? 'CONFIRMED' : 'DECLINED',
+          confirmationRespondedAt: new Date()
+        },
+        include: { patient: { select: { name: true } }, dentist: { select: { name: true } } }
+      })
+      return this.serializeConfirmation(updated, tenant)
+    } finally {
+      await prisma.$disconnect().catch(() => undefined)
+    }
   }
 
   private isMasterAuthError(error: unknown) {

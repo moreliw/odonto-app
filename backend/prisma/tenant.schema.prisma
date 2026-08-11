@@ -21,6 +21,12 @@ enum AppointmentStatus {
   CANCELLED
 }
 
+enum ConfirmationStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
 enum InvoiceStatus {
   PENDING
   PARTIAL
@@ -95,6 +101,11 @@ model Appointment {
   endTime   DateTime
   status    AppointmentStatus @default(SCHEDULED)
   notes     String?
+  /// Resposta do paciente ao pedido de confirmação (link público, sem login).
+  confirmationStatus     ConfirmationStatus @default(PENDING)
+  confirmationToken      String?            @unique
+  confirmationSentAt     DateTime?
+  confirmationRespondedAt DateTime?
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 

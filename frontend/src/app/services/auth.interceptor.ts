@@ -99,17 +99,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         }
         return throwError(() => err);
       }
-      if (
-        err instanceof HttpErrorResponse &&
-        (err.status === 403 || err.status === 419)
-      ) {
-        if (typeof localStorage !== "undefined") {
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          localStorage.removeItem("user");
-        }
-        router.navigateByUrl("/login");
-      }
+      // 403 é "sem permissão para isto" (papel do usuário, não sessão inválida) — a sessão já foi
+      // validada pelo token. Não faz logout nem redireciona: cada tela mostra seu próprio erro
+      // (toast). Derrubar a sessão inteira aqui já quebrou telas legítimas para papéis não-admin
+      // (ex.: equipe de apoio na Agenda) sempre que uma chamada secundária batia em algo admin-only.
       return throwError(() => err);
     }),
   );

@@ -45,9 +45,17 @@ export class UsersController {
     }
   }
 
+  /** Consultar a equipe (ex.: escolher o dentista de um agendamento) é diferente de gerenciá-la — equipe de apoio também precisa disso no dia a dia. */
+  private assertStaffAccess(req: Request) {
+    const role = (req as any).user?.role
+    if (role !== 'ADMIN' && role !== 'USER') {
+      throw new ForbiddenException('Você não tem acesso à listagem da equipe.')
+    }
+  }
+
   @Get()
   list(@Req() req: Request, @Query('role') role?: RoleLocal) {
-    this.assertAdmin(req)
+    this.assertStaffAccess(req)
     return this.users.list(role)
   }
 

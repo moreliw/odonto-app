@@ -6,7 +6,7 @@ import { ToastService } from '../../services/toast.service'
 import { AuthService } from '../../services/auth.service'
 import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
 
-type Patient = { id: string; name: string }
+type Patient = { id: string; name: string; email?: string | null }
 type Dentist = { id: string; name: string }
 type Appointment = {
   id: string
@@ -20,11 +20,28 @@ type Appointment = {
   endTime: string
   status: string
   notes?: string
+  confirmationStatus?: 'PENDING' | 'CONFIRMED' | 'DECLINED'
+  confirmationSentAt?: string | null
+  confirmationToken?: string | null
 }
 type CalendarBlock = Appointment & { top: number; height: number; left: number; width: number; colorIdx: number }
 
 const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendado', COMPLETED: 'Concluído', CANCELLED: 'Cancelado' }
 const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '', CANCELLED: 'neutral' }
+
+/** "Não enviado" até o e-mail sair; depois disso reflete a resposta do paciente (ou "Aguardando" enquanto não responde). */
+function confirmationLabel(a: Pick<Appointment, 'confirmationSentAt' | 'confirmationStatus'>) {
+  if (!a.confirmationSentAt) return 'Não enviado'
+  if (a.confirmationStatus === 'CONFIRMED') return 'Confirmada'
+  if (a.confirmationStatus === 'DECLINED') return 'Recusada'
+  return 'Aguardando resposta'
+}
+function confirmationClass(a: Pick<Appointment, 'confirmationSentAt' | 'confirmationStatus'>) {
+  if (!a.confirmationSentAt) return 'neutral'
+  if (a.confirmationStatus === 'CONFIRMED') return ''
+  if (a.confirmationStatus === 'DECLINED') return 'late'
+  return 'pending'
+}
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const GRID_START_HOUR = 7
 const GRID_END_HOUR = 20
@@ -67,6 +84,12 @@ function colorIndexFor(id: string | null | undefined) {
           <p>{{ isDentist ? 'Seus atendimentos agendados' : 'Consultas e procedimentos agendados' }}</p>
         </div>
         <div class="page-header-actions">
+          <button class="btn btn-outline" [disabled]="sendingBulkConfirmations" (click)="sendBulkConfirmations()" title="Envia e-mail de confirmação para as consultas agendadas da semana que ainda não receberam pedido">
+            @if (sendingBulkConfirmations) { <span class="spinner spinner-dark"></span> } @else {
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+            }
+            Enviar confirmações da semana
+          </button>
           <button class="btn btn-primary" (click)="openCreate()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nova consulta
@@ -148,8 +171,13 @@ function colorIndexFor(id: string | null | undefined) {
                         [style.width.%]="block.width"
                         [style.border-left-color]="!isDentist && (block.dentist || block.dentistName) ? dentistColor(block.colorIdx) : null"
                         (click)="onBlockClick($event, block)"
-                        [title]="(block.patient?.name || 'Paciente') + ' · ' + (block.startTime | date:'HH:mm') + '–' + (block.endTime | date:'HH:mm') + ((block.dentist?.name || block.dentistName) ? ' · ' + (block.dentist?.name || block.dentistName) : '')"
+                        [title]="(block.patient?.name || 'Paciente') + ' · ' + (block.startTime | date:'HH:mm') + '–' + (block.endTime | date:'HH:mm') + ((block.dentist?.name || block.dentistName) ? ' · ' + (block.dentist?.name || block.dentistName) : '') + ' · ' + confirmationLabel(block)"
                       >
+                        @if (block.confirmationStatus === 'CONFIRMED') {
+                          <span class="agenda-block-confirm confirmed" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        } @else if (block.confirmationStatus === 'DECLINED') {
+                          <span class="agenda-block-confirm declined" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m18 6-12 12M6 6l12 12"/></svg></span>
+                        }
                         <strong>{{ block.patient?.name || 'Paciente' }}</strong>
                         <span>{{ block.startTime | date:'HH:mm' }}–{{ block.endTime | date:'HH:mm' }}</span>
                         @if (!isDentist && (block.dentist || block.dentistName)) { <em>{{ block.dentist?.name || block.dentistName }}</em> }
@@ -185,15 +213,16 @@ function colorIndexFor(id: string | null | undefined) {
                   <th>Data e hora</th>
                   <th>Duração</th>
                   <th>Status</th>
+                  <th>Confirmação</th>
                   <th>Obs.</th>
-                  <th style="width:80px;"></th>
+                  <th style="width:110px;"></th>
                 </tr>
               </thead>
               <tbody>
                 @if (loading) {
-                  <tr><td [attr.colspan]="isDentist ? 6 : 7" class="table-empty"><span class="spinner spinner-dark"></span></td></tr>
+                  <tr><td [attr.colspan]="isDentist ? 7 : 8" class="table-empty"><span class="spinner spinner-dark"></span></td></tr>
                 } @else if (statusFiltered.length === 0) {
-                  <tr><td [attr.colspan]="isDentist ? 6 : 7">
+                  <tr><td [attr.colspan]="isDentist ? 7 : 8">
                     <div class="empty-state">
                       <div class="empty-state-icon">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -218,9 +247,22 @@ function colorIndexFor(id: string | null | undefined) {
                       </td>
                       <td class="muted text-sm">{{ duration(a.startTime, a.endTime) }}</td>
                       <td><span class="status-chip" [class]="STATUS_CLASS[a.status]">{{ STATUS_LABELS[a.status] || a.status }}</span></td>
+                      <td>
+                        <span class="status-chip" [class]="confirmationClass(a)">{{ confirmationLabel(a) }}</span>
+                      </td>
                       <td class="muted text-sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.notes || '—' }}</td>
                       <td>
                         <div class="table-actions">
+                          @if (a.status === 'SCHEDULED') {
+                            <button class="btn btn-sm btn-ghost" [disabled]="sendingConfirmationId === a.id" (click)="sendConfirmation(a)" [title]="a.confirmationSentAt ? 'Reenviar confirmação' : 'Enviar confirmação'">
+                              @if (sendingConfirmationId === a.id) { <span class="spinner spinner-dark"></span> } @else {
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+                              }
+                            </button>
+                            <button class="btn btn-sm btn-ghost" (click)="copyConfirmationLink(a)" title="Copiar link de confirmação">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            </button>
+                          }
                           <button class="btn btn-sm btn-ghost" (click)="openEdit(a)" title="Editar">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </button>
@@ -405,6 +447,8 @@ export class AppointmentsComponent implements OnInit {
   quickPatientModal = false
   savingQuickPatient = false
   quickPatientForm: { name: string; phone: string; email: string } = { name: '', phone: '', email: '' }
+  sendingConfirmationId: string | null = null
+  sendingBulkConfirmations = false
 
   weekStart = startOfWeek(new Date())
   readonly hours: number[] = []
@@ -413,6 +457,8 @@ export class AppointmentsComponent implements OnInit {
   readonly DAY_LABELS = DAY_LABELS
   readonly STATUS_LABELS = STATUS_LABELS
   readonly STATUS_CLASS = STATUS_CLASS
+  readonly confirmationLabel = confirmationLabel
+  readonly confirmationClass = confirmationClass
   readonly statusOpts = [
     { value: 'ALL', label: 'Todos' },
     { value: 'SCHEDULED', label: 'Agendados' },
@@ -530,6 +576,62 @@ export class AppointmentsComponent implements OnInit {
 
   closeQuickPatientOnBackdrop(ev: MouseEvent) {
     if ((ev.target as HTMLElement).classList.contains('modal-backdrop')) this.quickPatientModal = false
+  }
+
+  confirmationLink(a: Appointment) {
+    if (!a.confirmationToken) return ''
+    const tenant = (typeof localStorage !== 'undefined' && localStorage.getItem('tenant')) || ''
+    return `${location.origin}/confirmar/${tenant}/${a.confirmationToken}`
+  }
+
+  copyConfirmationLink(a: Appointment) {
+    const link = this.confirmationLink(a)
+    if (!link) return
+    navigator.clipboard.writeText(link).then(
+      () => this.toast.success('Link de confirmação copiado'),
+      () => this.toast.error('Não foi possível copiar o link')
+    )
+  }
+
+  sendConfirmation(a: Appointment) {
+    if (this.sendingConfirmationId) return
+    this.sendingConfirmationId = a.id
+    this.http.post<{ ok: boolean; emailed: boolean; link: string }>(`/api/appointments/${a.id}/send-confirmation`, {}).subscribe({
+      next: res => {
+        this.sendingConfirmationId = null
+        if (res.emailed) this.toast.success('E-mail de confirmação enviado')
+        else this.toast.warning('Paciente sem e-mail cadastrado', 'Use "Copiar link" para enviar por WhatsApp ou SMS.')
+        this.load()
+      },
+      error: (err: any) => {
+        this.sendingConfirmationId = null
+        this.toast.error('Erro ao enviar confirmação', err.error?.message)
+      }
+    })
+  }
+
+  sendBulkConfirmations() {
+    if (this.sendingBulkConfirmations) return
+    this.sendingBulkConfirmations = true
+    const from = encodeURIComponent(this.weekStart.toISOString())
+    const to = encodeURIComponent(addDays(this.weekStart, 7).toISOString())
+    this.http.post<{ ok: boolean; sent: number; skippedNoEmail: number; total: number }>(`/api/appointments/send-confirmations?from=${from}&to=${to}`, {}).subscribe({
+      next: res => {
+        this.sendingBulkConfirmations = false
+        if (res.total === 0) this.toast.info('Nenhuma consulta pendente de confirmação nesta semana')
+        else {
+          this.toast.success(
+            `${res.sent} confirmação${res.sent === 1 ? '' : 'ões'} enviada${res.sent === 1 ? '' : 's'}`,
+            res.skippedNoEmail ? `${res.skippedNoEmail} paciente${res.skippedNoEmail === 1 ? '' : 's'} sem e-mail cadastrado` : undefined
+          )
+        }
+        this.load()
+      },
+      error: (err: any) => {
+        this.sendingBulkConfirmations = false
+        this.toast.error('Erro ao enviar confirmações', err.error?.message)
+      }
+    })
   }
 
   load() {
