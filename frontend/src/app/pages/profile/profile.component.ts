@@ -8,6 +8,7 @@ import { BrandingService } from '../../services/branding.service'
 
 type Role = 'ADMIN' | 'USER' | 'DENTIST'
 type Me = { id: string; username: string | null; email: string; name: string; role: Role; active: boolean; createdAt: string }
+type WhatsappSettings = { number: string | null; providerConfigured: boolean; templateConfigured: boolean; ready: boolean }
 
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Administrador', DENTIST: 'Dentista', USER: 'Equipe de apoio' }
 
@@ -141,6 +142,56 @@ const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Administrador', DENTIST: 'Den
               </div>
             </form>
           </div>
+
+          @if (me.role === 'ADMIN') {
+            <div class="card" style="grid-column:1/-1;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;">
+                <div>
+                  <h2 style="margin-bottom:4px;">WhatsApp da clínica</h2>
+                  <p class="muted text-sm">Este número será o remetente das confirmações enviadas pela agenda.</p>
+                </div>
+                @if (whatsappSettings) {
+                  <span class="status-chip" [class.pending]="!whatsappSettings.ready">
+                    {{ whatsappSettings.ready ? 'Pronto para enviar' : 'Configuração pendente' }}
+                  </span>
+                }
+              </div>
+
+              @if (whatsappLoading) {
+                <span class="spinner spinner-dark"></span>
+              } @else {
+                <form class="form" (ngSubmit)="saveWhatsapp()">
+                  <div class="form-group" style="max-width:420px;">
+                    <label for="clinic-whatsapp">Número com DDD</label>
+                    <input
+                      id="clinic-whatsapp"
+                      class="input"
+                      type="tel"
+                      autocomplete="tel"
+                      [(ngModel)]="whatsappForm.number"
+                      name="whatsappNumber"
+                      maxlength="32"
+                      placeholder="+55 27 99999-9999"
+                    />
+                    <small class="muted">O número precisa estar aprovado como remetente WhatsApp na conta Twilio da plataforma. Deixe em branco para desativar.</small>
+                  </div>
+
+                  @if (whatsappSettings && !whatsappSettings.providerConfigured) {
+                    <div style="margin:0;padding:10px 12px;border-radius:10px;background:var(--warning-bg);color:var(--warning-text);font-size:13px;">A conta Twilio da plataforma ainda não foi habilitada. O número ficará salvo, mas os envios permanecerão desativados.</div>
+                  } @else if (whatsappSettings && !whatsappSettings.templateConfigured) {
+                    <div style="margin:0;padding:10px 12px;border-radius:10px;background:var(--warning-bg);color:var(--warning-text);font-size:13px;">O template aprovado ainda não foi configurado. Mensagens livres só funcionam dentro da janela permitida pelo WhatsApp.</div>
+                  }
+
+                  <div>
+                    <button class="btn btn-primary" type="submit" [disabled]="savingWhatsapp">
+                      @if (savingWhatsapp) { <span class="spinner"></span> }
+                      {{ savingWhatsapp ? 'Salvando...' : 'Salvar WhatsApp' }}
+                    </button>
+                  </div>
+                </form>
+              }
+            </div>
+          }
         </div>
       }
     </div>
@@ -151,6 +202,8 @@ export class ProfileComponent implements OnInit {
   loading = false
   savingInfo = false
   savingPwd = false
+  savingWhatsapp = false
+  whatsappLoading = false
   showPwd = false
   clinicName: string | null = null
   logoUrl: string | null = null
@@ -158,6 +211,8 @@ export class ProfileComponent implements OnInit {
 
   infoForm = { name: '', email: '' }
   pwdForm = { newPassword: '', confirm: '' }
+  whatsappForm = { number: '' }
+  whatsappSettings: WhatsappSettings | null = null
 
   constructor(
     private readonly http: HttpClient,
@@ -185,10 +240,43 @@ export class ProfileComponent implements OnInit {
         this.me = res
         this.infoForm = { name: res.name, email: res.email }
         this.loading = false
+        if (res.role === 'ADMIN') this.loadWhatsapp()
       },
       error: () => {
         this.loading = false
         this.toast.error('Não foi possível carregar seu perfil')
+      }
+    })
+  }
+
+  loadWhatsapp() {
+    this.whatsappLoading = true
+    this.http.get<WhatsappSettings>('/api/whatsapp-settings').subscribe({
+      next: settings => {
+        this.whatsappSettings = settings
+        this.whatsappForm.number = settings.number || ''
+        this.whatsappLoading = false
+      },
+      error: () => {
+        this.whatsappLoading = false
+        this.toast.error('Não foi possível carregar a configuração do WhatsApp')
+      }
+    })
+  }
+
+  saveWhatsapp() {
+    if (this.savingWhatsapp) return
+    this.savingWhatsapp = true
+    this.http.patch<WhatsappSettings>('/api/whatsapp-settings', { number: this.whatsappForm.number }).subscribe({
+      next: settings => {
+        this.whatsappSettings = settings
+        this.whatsappForm.number = settings.number || ''
+        this.savingWhatsapp = false
+        this.toast.success(settings.number ? 'WhatsApp da clínica atualizado' : 'Envio por WhatsApp desativado')
+      },
+      error: (err: any) => {
+        this.savingWhatsapp = false
+        this.toast.error('Erro ao salvar WhatsApp', err.error?.message)
       }
     })
   }

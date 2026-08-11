@@ -64,6 +64,22 @@ jobs:
             -e "ssh -p ${SSH_PORT}" \
             ./ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
 
+      - name: Synchronize Twilio runtime secrets
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_WHATSAPP_CONTENT_SID: ${{ secrets.TWILIO_WHATSAPP_CONTENT_SID }}
+        run: |
+          test -n "${TWILIO_ACCOUNT_SID}"
+          test -n "${TWILIO_AUTH_TOKEN}"
+          test -n "${TWILIO_WHATSAPP_CONTENT_SID}"
+          {
+            printf 'TWILIO_ACCOUNT_SID=%s\n' "$(printf '%s' "${TWILIO_ACCOUNT_SID}" | base64 -w0)"
+            printf 'TWILIO_AUTH_TOKEN=%s\n' "$(printf '%s' "${TWILIO_AUTH_TOKEN}" | base64 -w0)"
+            printf 'TWILIO_WHATSAPP_CONTENT_SID=%s\n' "$(printf '%s' "${TWILIO_WHATSAPP_CONTENT_SID}" | base64 -w0)"
+          } | ssh -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" \
+            "cd '${DEPLOY_PATH}' && bash scripts/update-managed-env.sh"
+
       - name: Deploy and verify health
         run: |
           ssh -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" \

@@ -9,7 +9,7 @@ SaaS de gestão odontológica com frontend Angular, API NestJS, PostgreSQL multi
 | Produção | `main` | `https://odontoapp.morelidev.com` | `/opt/odonto-app` | `docker-compose.yml` | `master` |
 | Desenvolvimento | `develop` | `https://odontoapp-dev.morelidev.com` | `/opt/odonto-app-dev` | `docker-compose.dev.yml` | `master_dev` |
 
-Os ambientes têm containers, volumes, credenciais, bancos master, bancos de clínicas, Redis, MinIO e segredos JWT independentes. O deploy nunca envia nem substitui o `.env`: cada diretório mantém seu arquivo de ambiente exclusivamente no servidor.
+Os ambientes têm containers, volumes, credenciais, bancos master, bancos de clínicas, Redis, MinIO e segredos JWT independentes. O deploy preserva o `.env` de cada servidor. Somente as três chaves da Twilio, explicitamente permitidas em `scripts/update-managed-env.sh`, são sincronizadas a partir dos secrets do GitHub; todas as demais configurações continuam pertencendo exclusivamente ao servidor.
 
 ## Deploy contínuo
 
@@ -46,3 +46,19 @@ npm run build
 ## Assinaturas
 
 Produção exige chaves live e Price IDs mensais fixos para Essencial, Profissional e Clínica. Desenvolvimento aceita apenas chaves de teste. O plano gratuito interno é controlado por `ALLOW_FREE_SIGNUP` e deve permanecer desativado em produção.
+
+## Confirmações por WhatsApp
+
+A plataforma envia confirmações pelo Twilio usando uma conta central e um remetente aprovado por clínica. Configure no `.env` do ambiente:
+
+```env
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_WHATSAPP_CONTENT_SID=
+```
+
+As mesmas três chaves devem existir como GitHub Actions secrets. O workflow escolhe os secrets do environment `production` ou `development` quando houver valores específicos por ambiente e os sincroniza de forma restrita antes de cada deploy.
+
+O template deve usar `{{1}}` para o nome do paciente, `{{2}}` para a data/hora e `{{3}}` para o link público de confirmação. Depois, o administrador de cada clínica cadastra o próprio remetente em **Meu perfil > WhatsApp da clínica**. O número é salvo em E.164 e precisa estar habilitado como WhatsApp Sender na mesma conta Twilio.
+
+Sem `TWILIO_WHATSAPP_CONTENT_SID`, o backend tenta uma mensagem livre, adequada apenas ao sandbox ou a uma conversa dentro da janela permitida pelo WhatsApp. O paciente confirma ou recusa pelo link recebido, e a resposta aparece na agenda.

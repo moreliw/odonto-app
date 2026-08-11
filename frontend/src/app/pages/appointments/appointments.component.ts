@@ -6,7 +6,7 @@ import { ToastService } from '../../services/toast.service'
 import { AuthService } from '../../services/auth.service'
 import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
 
-type Patient = { id: string; name: string; email?: string | null }
+type Patient = { id: string; name: string; email?: string | null; phone?: string | null }
 type Dentist = { id: string; name: string }
 type Appointment = {
   id: string
@@ -85,7 +85,7 @@ function colorIndexFor(id: string | null | undefined) {
           <p>{{ isDentist ? 'Seus atendimentos agendados' : 'Consultas e procedimentos agendados' }}</p>
         </div>
         <div class="page-header-actions">
-          <button class="btn btn-outline" [disabled]="sendingBulkConfirmations" (click)="sendBulkConfirmations()" title="Envia e-mail de confirmação para as consultas agendadas da semana que ainda não receberam pedido">
+          <button class="btn btn-outline" [disabled]="sendingBulkConfirmations" (click)="sendBulkConfirmations()" title="Envia a confirmação por e-mail e WhatsApp para as consultas pendentes da semana">
             @if (sendingBulkConfirmations) { <span class="spinner spinner-dark"></span> } @else {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
             }
@@ -140,16 +140,16 @@ function colorIndexFor(id: string | null | undefined) {
           @if (loading) {
             <div class="table-empty"><span class="spinner spinner-dark"></span></div>
           } @else {
-            <div class="agenda-week-head">
-              <div class="agenda-hour-gutter"></div>
-              @for (day of weekDays; track day.getTime()) {
-                <div class="agenda-day-head" [class.is-today]="isToday(day)">
-                  <span class="agenda-day-name">{{ DAY_LABELS[day.getDay()] }}</span>
-                  <span class="agenda-day-num">{{ day.getDate() }}</span>
-                </div>
-              }
-            </div>
             <div class="agenda-week-scroll">
+              <div class="agenda-week-head">
+                <div class="agenda-hour-gutter"></div>
+                @for (day of weekDays; track day.getTime()) {
+                  <div class="agenda-day-head" [class.is-today]="isToday(day)">
+                    <span class="agenda-day-name">{{ DAY_LABELS[day.getDay()] }}</span>
+                    <span class="agenda-day-num">{{ day.getDate() }}</span>
+                  </div>
+                }
+              </div>
               <div class="agenda-week-grid" [style.height.px]="gridHeight">
                 <div class="agenda-hour-gutter">
                   @for (h of hours; track h) {
@@ -274,7 +274,7 @@ function colorIndexFor(id: string | null | undefined) {
                           <button class="btn btn-sm btn-ghost" (click)="openEdit(a)" title="Editar">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </button>
-                          <button class="btn btn-sm btn-ghost" style="color:var(--danger);" (click)="confirmDelete(a)" title="Cancelar">
+                          <button class="btn btn-sm btn-ghost" style="color:var(--danger);" (click)="confirmDelete(a)" title="Excluir consulta">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                           </button>
                         </div>
@@ -357,12 +357,20 @@ function colorIndexFor(id: string | null | undefined) {
               <label>Observações</label>
               <textarea class="textarea" [(ngModel)]="form.notes" name="notes" placeholder="Notas sobre a consulta..." rows="3"></textarea>
             </div>
-            <div class="modal-footer">
-              <button class="btn btn-ghost" type="button" (click)="showModal=false">Cancelar</button>
-              <button class="btn btn-primary" [disabled]="saving" type="submit">
+            <div class="modal-footer" [class.modal-footer-split]="editingId">
+              @if (editingId) {
+                <button class="btn btn-danger-outline" type="button" [disabled]="saving || deleting" (click)="requestDeleteFromEdit()">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  Excluir consulta
+                </button>
+              }
+              <div class="modal-footer-main">
+                <button class="btn btn-ghost" type="button" (click)="showModal=false">Cancelar</button>
+                <button class="btn btn-primary" [disabled]="saving" type="submit">
                 @if (saving) { <span class="spinner"></span> }
                 {{ editingId ? 'Salvar alterações' : 'Agendar consulta' }}
-              </button>
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -471,19 +479,31 @@ function colorIndexFor(id: string | null | undefined) {
 
     <!-- Delete Confirm -->
     @if (deleteTarget) {
-      <div class="modal-backdrop" (click)="deleteTarget=null">
-        <div class="modal" style="max-width:400px;" (click)="$event.stopPropagation()">
-          <div style="text-align:center;padding:8px 0 16px;">
-            <div style="width:48px;height:48px;background:var(--danger-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--danger);">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <div class="modal-backdrop" (click)="cancelDelete()">
+        <div class="modal appointment-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-appointment-title" aria-describedby="delete-appointment-description" (click)="$event.stopPropagation()">
+          <div class="appointment-delete-heading">
+            <div class="appointment-delete-icon" aria-hidden="true">
+              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
             </div>
-            <h3 style="font-size:17px;font-weight:700;margin-bottom:8px;">Cancelar consulta?</h3>
-            <p style="color:var(--muted);font-size:14px;">O agendamento de <strong style="color:var(--text);">{{ deleteTarget.patient?.name }}</strong> será removido.</p>
+            <div>
+              <h3 id="delete-appointment-title">Excluir consulta?</h3>
+              <p id="delete-appointment-description">Esta ação é permanente e não poderá ser desfeita.</p>
+            </div>
           </div>
-          <div style="display:flex;gap:10px;margin-top:16px;">
-            <button class="btn btn-ghost" style="flex:1;" (click)="deleteTarget=null">Voltar</button>
-            <button class="btn btn-danger" style="flex:1;" [disabled]="saving" (click)="doDelete()">
-              @if (saving) { <span class="spinner"></span> } Confirmar
+
+          <div class="appointment-delete-summary">
+            <strong>{{ deleteTarget.patient?.name || 'Paciente' }}</strong>
+            <span>{{ deleteTarget.startTime | date:'dd/MM/yyyy' }} às {{ deleteTarget.startTime | date:'HH:mm' }}</span>
+            @if (deleteTarget.dentist?.name || deleteTarget.dentistName) {
+              <span>Com {{ deleteTarget.dentist?.name || deleteTarget.dentistName }}</span>
+            }
+          </div>
+
+          <div class="appointment-delete-actions">
+            <button class="btn btn-outline" [disabled]="deleting" (click)="cancelDelete()">Manter consulta</button>
+            <button class="btn btn-danger" [disabled]="deleting" (click)="doDelete()">
+              @if (deleting) { <span class="spinner"></span> }
+              {{ deleting ? 'Excluindo...' : 'Excluir consulta' }}
             </button>
           </div>
         </div>
@@ -500,9 +520,12 @@ export class AppointmentsComponent implements OnInit {
   view: 'week' | 'list' = 'week'
   loading = false
   saving = false
+  deleting = false
   showModal = false
   editingId: string | null = null
+  editingAppointment: Appointment | null = null
   deleteTarget: Appointment | null = null
+  deleteReturnToEdit = false
   form: Partial<Appointment> & { notes?: string } = {}
   quickPatientModal = false
   savingQuickPatient = false
@@ -702,11 +725,29 @@ export class AppointmentsComponent implements OnInit {
   sendConfirmation(a: Appointment) {
     if (this.sendingConfirmationId) return
     this.sendingConfirmationId = a.id
-    this.http.post<{ ok: boolean; emailed: boolean; link: string }>(`/api/appointments/${a.id}/send-confirmation`, {}).subscribe({
+    this.http.post<{
+      ok: boolean
+      emailed: boolean
+      whatsapped: boolean
+      whatsappReason: 'NO_PHONE' | 'SENT' | 'NOT_CONFIGURED' | 'INVALID_PHONE' | 'PROVIDER_ERROR'
+      link: string
+    }>(`/api/appointments/${a.id}/send-confirmation`, {}).subscribe({
       next: res => {
         this.sendingConfirmationId = null
-        if (res.emailed) this.toast.success('E-mail de confirmação enviado')
-        else this.toast.warning('Paciente sem e-mail cadastrado', 'Use "Copiar link" para enviar por WhatsApp ou SMS.')
+        if (res.emailed && res.whatsapped) this.toast.success('Confirmação enviada por e-mail e WhatsApp')
+        else if (res.whatsapped) this.toast.success('Confirmação enviada por WhatsApp')
+        else if (res.emailed) this.toast.success('E-mail de confirmação enviado')
+        else if (res.whatsappReason === 'NOT_CONFIGURED' && a.patient?.phone) {
+          this.toast.warning('WhatsApp da clínica não configurado', 'Configure o número em Meu perfil ou copie o link para enviar manualmente.')
+        } else if (res.whatsappReason === 'INVALID_PHONE') {
+          this.toast.warning('Telefone do paciente inválido', 'Corrija o telefone no cadastro do paciente ou copie o link.')
+        } else if (res.whatsappReason === 'PROVIDER_ERROR') {
+          this.toast.warning('O WhatsApp não aceitou o envio', 'Verifique o remetente/template ou copie o link para enviar manualmente.')
+        } else if (!a.patient?.email && !a.patient?.phone) {
+          this.toast.warning('Paciente sem e-mail ou telefone cadastrado', 'Use "Copiar link" para enviar manualmente.')
+        } else {
+          this.toast.warning('Não foi possível entregar a confirmação', 'Use "Copiar link" para enviar manualmente.')
+        }
         this.load()
       },
       error: (err: any) => {
@@ -721,15 +762,20 @@ export class AppointmentsComponent implements OnInit {
     this.sendingBulkConfirmations = true
     const from = encodeURIComponent(this.weekStart.toISOString())
     const to = encodeURIComponent(addDays(this.weekStart, 7).toISOString())
-    this.http.post<{ ok: boolean; sent: number; skippedNoEmail: number; total: number }>(`/api/appointments/send-confirmations?from=${from}&to=${to}`, {}).subscribe({
+    this.http.post<{ ok: boolean; sent: number; failed: number; skippedNoContact: number; total: number }>(`/api/appointments/send-confirmations?from=${from}&to=${to}`, {}).subscribe({
       next: res => {
         this.sendingBulkConfirmations = false
         if (res.total === 0) this.toast.info('Nenhuma consulta pendente de confirmação nesta semana')
         else {
-          this.toast.success(
-            `${res.sent} confirmação${res.sent === 1 ? '' : 'ões'} enviada${res.sent === 1 ? '' : 's'}`,
-            res.skippedNoEmail ? `${res.skippedNoEmail} paciente${res.skippedNoEmail === 1 ? '' : 's'} sem e-mail cadastrado` : undefined
-          )
+          const details = [
+            res.failed ? `${res.failed} envio${res.failed === 1 ? '' : 's'} com falha` : '',
+            res.skippedNoContact ? `${res.skippedNoContact} paciente${res.skippedNoContact === 1 ? '' : 's'} sem contato` : ''
+          ].filter(Boolean).join(' · ') || undefined
+          if (res.sent > 0) {
+            this.toast.success(`${res.sent} confirmação${res.sent === 1 ? '' : 'ões'} enviada${res.sent === 1 ? '' : 's'}`, details)
+          } else {
+            this.toast.warning('Nenhuma confirmação foi enviada', details || 'Revise a configuração do WhatsApp e os contatos dos pacientes.')
+          }
         }
         this.load()
       },
@@ -816,6 +862,7 @@ export class AppointmentsComponent implements OnInit {
 
   openCreate(start?: Date, end?: Date) {
     this.editingId = null
+    this.editingAppointment = null
     this.form = {
       status: 'SCHEDULED',
       startTime: start ? toLocalInput(start) : undefined,
@@ -826,6 +873,7 @@ export class AppointmentsComponent implements OnInit {
 
   openEdit(a: Appointment) {
     this.editingId = a.id
+    this.editingAppointment = a
     this.form = {
       patientId: a.patientId,
       dentistId: a.dentistId || '',
@@ -868,14 +916,38 @@ export class AppointmentsComponent implements OnInit {
     })
   }
 
-  confirmDelete(a: Appointment) { this.deleteTarget = a }
+  confirmDelete(a: Appointment, returnToEdit = false) {
+    this.deleteTarget = a
+    this.deleteReturnToEdit = returnToEdit
+  }
+
+  requestDeleteFromEdit() {
+    if (!this.editingAppointment) return
+    this.showModal = false
+    this.confirmDelete(this.editingAppointment, true)
+  }
+
+  cancelDelete() {
+    const returnToEdit = this.deleteReturnToEdit
+    this.deleteTarget = null
+    this.deleteReturnToEdit = false
+    if (returnToEdit && this.editingAppointment) this.showModal = true
+  }
 
   doDelete() {
     if (!this.deleteTarget) return
-    this.saving = true
+    this.deleting = true
     this.http.delete(`/api/appointments/${this.deleteTarget.id}`).subscribe({
-      next: () => { this.saving = false; this.deleteTarget = null; this.toast.success('Consulta removida'); this.load() },
-      error: (err: any) => { this.saving = false; this.toast.error('Erro ao remover', err.error?.message) }
+      next: () => {
+        this.deleting = false
+        this.deleteTarget = null
+        this.deleteReturnToEdit = false
+        this.editingId = null
+        this.editingAppointment = null
+        this.toast.success('Consulta excluída com sucesso')
+        this.load()
+      },
+      error: (err: any) => { this.deleting = false; this.toast.error('Erro ao excluir consulta', err.error?.message) }
     })
   }
 

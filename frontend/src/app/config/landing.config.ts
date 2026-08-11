@@ -436,7 +436,7 @@ export const FEATURE_BLOCKS: FeatureBlock[] = [
 export const AUTOMATION_ITEMS: PlanFeature[] = [
   { label: 'Lembrete de consulta por e-mail', status: 'soon' },
   { label: 'Confirmação automática de agendamento', status: 'soon' },
-  { label: 'Integração com WhatsApp', status: 'soon' },
+  { label: 'Integração com WhatsApp', status: 'ready' },
   { label: 'Mensagem de aniversário', status: 'soon' },
   { label: 'Aviso de retorno programado', status: 'soon' },
   { label: 'Pesquisa de satisfação pós-atendimento', status: 'soon' }

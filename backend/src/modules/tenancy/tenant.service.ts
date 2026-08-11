@@ -22,13 +22,18 @@ export class TenantService {
     const grant = this.activeGrant(t.accessGrant)
     const plan = grant?.plan ?? t.subscription?.plan ?? null
     const dentistLimit = grant ? grant.dentistLimit : undefined
-    const branding = { name: t.name, primaryColor: t.primaryColor, logoUrl: t.logoUrl }
+    const tenantSettings = {
+      name: t.name,
+      primaryColor: t.primaryColor,
+      logoUrl: t.logoUrl,
+      whatsappNumber: t.whatsappNumber
+    }
     if (process.env.DEV_SQLITE === 'true') {
       const url = `file:./prisma/dev-${t.slug}.db`
-      return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit, ...branding }
+      return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit, ...tenantSettings }
     }
     const url = `postgresql://${encodeURIComponent(t.dbUser)}:${encodeURIComponent(t.dbPassword)}@${t.dbHost}:${t.dbPort}/${t.dbName}?schema=public`
-    return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit, ...branding }
+    return { id: t.id, subdomain: t.subdomain, slug: t.slug, dbName: t.dbName, connectionString: url, plan, dentistLimit, ...tenantSettings }
   }
 
   /** Dados públicos de identidade visual da clínica (sem exigir autenticação). */

@@ -519,6 +519,9 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .dashboard-upcoming-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ─── Agenda / Calendário semanal ────────────────────────────── */
+.agenda-page { width: 100%; min-width: 0; }
+.agenda-page .page-header-actions { max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+.agenda-page .page-header-actions .btn { white-space: nowrap; }
 .agenda-toolbar {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin-bottom: 14px;
@@ -535,12 +538,22 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .agenda-view-btn.active { background: var(--surface); color: var(--primary); box-shadow: var(--shadow); }
 .agenda-nav { display: flex; align-items: center; gap: 6px; }
 .agenda-range-label { font-size: 14px; color: var(--text); margin-left: 4px; white-space: nowrap; }
-.agenda-dentist-filter { max-width: 220px; }
+.agenda-dentist-filter {
+  flex: 0 1 330px;
+  width: 330px;
+  min-width: 280px;
+  max-width: 100%;
+}
+.agenda-dentist-filter .ssel-trigger { min-height: 40px; padding-inline: 14px; }
+.agenda-dentist-filter .ssel-panel { min-width: min(330px, calc(100vw - 32px)); }
+.agenda-dentist-filter .ssel-search input { min-width: 0; }
+.agenda-dentist-filter .ssel-option > span { white-space: normal; overflow-wrap: anywhere; }
 
 .agenda-calendar { padding: 0; overflow: hidden; }
 .agenda-week-head {
   display: grid; grid-template-columns: 56px repeat(7, minmax(120px, 1fr));
-  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2; background: var(--surface);
+  min-width: 896px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 2; background: var(--surface);
 }
 .agenda-day-head {
   padding: 10px 6px; text-align: center; border-left: 1px solid var(--border);
@@ -554,8 +567,11 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   margin: 0 auto;
 }
 
-.agenda-week-scroll { max-height: 640px; overflow-y: auto; overflow-x: auto; }
-.agenda-week-grid { display: grid; grid-template-columns: 56px repeat(7, minmax(120px, 1fr)); min-width: 760px; position: relative; }
+.agenda-week-scroll {
+  max-width: 100%; max-height: min(640px, calc(100dvh - 250px));
+  overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+}
+.agenda-week-grid { display: grid; grid-template-columns: 56px repeat(7, minmax(120px, 1fr)); min-width: 896px; position: relative; }
 .agenda-hour-gutter { display: flex; flex-direction: column; }
 .agenda-hour-label {
   font-size: 11px; color: var(--muted-light); text-align: right; padding-right: 8px;
@@ -593,9 +609,28 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .agenda-block-confirm.confirmed { background: var(--success); }
 .agenda-block-confirm.declined { background: var(--danger); }
 
+@media (max-width: 1180px) {
+  .agenda-page .page-header { align-items: stretch; }
+  .agenda-page .page-header-actions { width: 100%; justify-content: flex-start; }
+}
+
 @media (max-width: 780px) {
-  .agenda-toolbar { gap: 8px; }
-  .agenda-range-label { width: 100%; order: 3; }
+  .agenda-toolbar { align-items: stretch; gap: 8px; }
+  .agenda-toolbar > .spacer { display: none; }
+  .agenda-nav { width: 100%; }
+  .agenda-range-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .agenda-dentist-filter { order: 4; flex-basis: 100%; width: 100%; min-width: 0; }
+  .agenda-toolbar > .text-sm { margin-left: auto; align-self: center; }
+}
+
+@media (max-width: 560px) {
+  .agenda-page .page-header-actions { display: grid; grid-template-columns: 1fr; }
+  .agenda-page .page-header-actions .btn { width: 100%; min-height: 44px; }
+  .agenda-view-toggle { width: 100%; }
+  .agenda-view-btn { flex: 1; min-height: 40px; }
+  .agenda-nav { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr); }
+  .agenda-range-label { margin-left: 2px; font-size: 12px; text-align: right; }
+  .agenda-week-scroll { max-height: calc(100dvh - 300px); }
 }
 
 /* ─── Modal ───────────────────────────────────────────────── */
@@ -628,6 +663,33 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .modal-footer {
   display: flex; gap: 10px; margin-top: 22px;
   padding-top: 20px; border-top: 1px solid var(--border);
+}
+.modal-footer-split { justify-content: space-between; flex-wrap: wrap; }
+.modal-footer-main { display: flex; gap: 10px; margin-left: auto; }
+.appointment-delete-modal { max-width: 440px; }
+.appointment-delete-heading { display: flex; align-items: flex-start; gap: 14px; }
+.appointment-delete-icon {
+  width: 48px; height: 48px; flex-shrink: 0; display: grid; place-items: center;
+  border-radius: 14px; background: var(--danger-bg); color: var(--danger);
+}
+.appointment-delete-heading h3 { margin: 2px 0 5px; font-size: 18px; font-weight: 700; color: var(--text); }
+.appointment-delete-heading p { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.appointment-delete-summary {
+  display: grid; gap: 4px; margin-top: 20px; padding: 14px 16px;
+  border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2);
+}
+.appointment-delete-summary strong { color: var(--text); font-size: 14px; }
+.appointment-delete-summary span { color: var(--muted); font-size: 13px; }
+.appointment-delete-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+.appointment-delete-actions .btn { width: 100%; min-width: 0; }
+@media (max-width: 560px) {
+  .modal-footer-split { align-items: stretch; }
+  .modal-footer-split > .btn { width: 100%; }
+  .modal-footer-main { display: grid; grid-template-columns: 1fr 1fr; width: 100%; margin-left: 0; }
+  .modal-footer-main .btn { min-width: 0; padding-inline: 10px; }
+  .appointment-delete-heading { gap: 12px; }
+  .appointment-delete-icon { width: 44px; height: 44px; border-radius: 12px; }
+  .appointment-delete-actions { grid-template-columns: 1fr; }
 }
 @keyframes modal-in {
   from { opacity: 0; transform: translateY(-10px) scale(0.98); }

@@ -57,6 +57,8 @@ model Tenant {
   primaryColor String?
   /// URL pública do logo da clínica, exibido na sidebar e topbar do app da clínica.
   logoUrl      String?
+  /// Remetente aprovado no WhatsApp/Twilio, normalizado em E.164 (ex.: +5527999999999).
+  whatsappNumber String?
   /// Bloqueio administrativo independente da assinatura: false suspende todo o acesso da clínica.
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())

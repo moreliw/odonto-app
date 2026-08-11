@@ -11,7 +11,8 @@ export class MailerService {
   })
 
   async send(to: string, subject: string, html: string) {
-    if (!process.env.SMTP_HOST) return
+    if (!process.env.SMTP_HOST) return false
     await this.transporter.sendMail({ from: process.env.SMTP_FROM || 'no-reply@meudominio.com', to, subject, html })
+    return true
   }
 }

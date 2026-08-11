@@ -1,9 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { AppointmentStatus } from '@prisma/client-tenant'
 import { randomUUID } from 'crypto'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 import { RequestContext } from '../tenancy/request-context'
 import { MailerService } from '../mailer/mailer.service'
+import { WhatsappService } from '../whatsapp/whatsapp.service'
 
 type Requester = { userId: string; role: string }
 
@@ -16,7 +17,13 @@ function formatDateTime(d: Date) {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prismaTenant: TenantPrismaService, private readonly mailer: MailerService) {}
+  private readonly log = new Logger(AppointmentsService.name)
+
+  constructor(
+    private readonly prismaTenant: TenantPrismaService,
+    private readonly mailer: MailerService,
+    private readonly whatsapp: WhatsappService
+  ) {}
 
   /** Dentista só vê a própria agenda, mesmo que tente passar outro dentistId na query. */
   private scopedDentistId(requester: Requester, requestedDentistId?: string) {
@@ -141,34 +148,58 @@ export class AppointmentsService {
     const token = appointment.confirmationToken || randomUUID()
     const link = `${this.publicAppUrl()}/confirmar/${ctx.subdomain}/${token}`
 
-    const updated = await prisma.appointment.update({
+    const prepared = await prisma.appointment.update({
       where: { id },
-      data: {
-        confirmationToken: token,
-        confirmationSentAt: new Date(),
-        // Reabre para nova resposta se o paciente havia recusado antes.
-        confirmationStatus: appointment.confirmationStatus === 'DECLINED' ? 'PENDING' : appointment.confirmationStatus
-      },
+      data: { confirmationToken: token },
       include: INCLUDE
     })
 
+    const dentistName = appointment.dentist?.name || appointment.dentistName || null
+    const clinicName = ctx.name || 'sua clínica'
+    const when = formatDateTime(appointment.startTime)
+
     let emailed = false
     if (appointment.patient.email) {
-      await this.mailer.send(
-        appointment.patient.email,
-        `Confirme sua consulta — ${ctx.name || 'Clínica'}`,
-        this.confirmationEmailHtml({
-          patientName: appointment.patient.name,
-          dentistName: appointment.dentist?.name || appointment.dentistName || null,
-          clinicName: ctx.name || 'sua clínica',
-          when: formatDateTime(appointment.startTime),
-          link
-        })
-      )
-      emailed = true
+      try {
+        emailed = await this.mailer.send(
+          appointment.patient.email,
+          `Confirme sua consulta — ${ctx.name || 'Clínica'}`,
+          this.confirmationEmailHtml({ patientName: appointment.patient.name, dentistName, clinicName, when, link })
+        )
+      } catch (error) {
+        this.log.warn(`Confirmation email failed for appointment ${id}: ${error instanceof Error ? error.message : String(error)}`)
+      }
     }
 
-    return { ok: true, emailed, link, appointment: updated }
+    let whatsapped = false
+    let whatsappReason: 'NO_PHONE' | 'SENT' | 'NOT_CONFIGURED' | 'INVALID_PHONE' | 'PROVIDER_ERROR' = 'NO_PHONE'
+    if (appointment.patient.phone) {
+      const freeformText =
+        `Olá, ${appointment.patient.name}! Você tem uma consulta agendada em ${clinicName}` +
+        `${dentistName ? ` com ${dentistName}` : ''} em ${when}. Confirme sua presença: ${link}`
+      const whatsappResult = await this.whatsapp.sendConfirmationMessage(
+        appointment.patient.phone,
+        [appointment.patient.name, when, link],
+        freeformText
+      )
+      whatsapped = whatsappResult.sent
+      whatsappReason = whatsappResult.reason
+    }
+
+    const delivered = emailed || whatsapped
+    const updated = delivered
+      ? await prisma.appointment.update({
+          where: { id },
+          data: {
+            confirmationSentAt: new Date(),
+            // Reabre para nova resposta apenas depois que o novo pedido foi realmente entregue.
+            confirmationStatus: appointment.confirmationStatus === 'DECLINED' ? 'PENDING' : appointment.confirmationStatus
+          },
+          include: INCLUDE
+        })
+      : prepared
+
+    return { ok: true, emailed, whatsapped, whatsappReason, link, appointment: updated }
   }
 
   /** Dispara confirmações para todas as consultas agendadas no período que ainda não receberam pedido de confirmação. */
@@ -186,15 +217,17 @@ export class AppointmentsService {
     const appointments = await prisma.appointment.findMany({ where, include: INCLUDE })
 
     let sent = 0
-    let skippedNoEmail = 0
+    let skippedNoContact = 0
+    let failed = 0
     for (const appt of appointments) {
-      if (!appt.patient.email) {
-        skippedNoEmail++
+      if (!appt.patient.email && !appt.patient.phone) {
+        skippedNoContact++
         continue
       }
-      await this.sendConfirmation(requester, appt.id)
-      sent++
+      const result = await this.sendConfirmation(requester, appt.id)
+      if (result.emailed || result.whatsapped) sent++
+      else failed++
     }
-    return { ok: true, sent, skippedNoEmail, total: appointments.length }
+    return { ok: true, sent, failed, skippedNoContact, total: appointments.length }
   }
 }
