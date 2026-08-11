@@ -52,3 +52,5 @@ Produção exige chaves live e Price IDs mensais fixos para Essencial, Profissio
 Na agenda, a ação **Abrir mensagem no WhatsApp** prepara gratuitamente uma conversa com o paciente pelo link oficial `wa.me`. O WhatsApp Desktop ou Web abre com uma mensagem pronta contendo clínica, profissional, data, hora e o link público de confirmação.
 
 O envio é manual: a pessoa usuária revisa a mensagem e clica em **Enviar** no próprio WhatsApp. Não há provedor pago, credenciais externas, remetente central nem disparo em massa. O paciente confirma ou informa que não poderá comparecer pelo link recebido, e a resposta aparece na agenda.
+
+O link da mensagem passa por uma página pública de compartilhamento que fornece ao WhatsApp uma prévia específica da clínica: nome, descrição de confirmação e logo cadastrada. Quando não há logo, o backend gera um monograma com as iniciais e a cor da clínica. Ao abrir o link, o paciente é encaminhado automaticamente à tela de confirmação.

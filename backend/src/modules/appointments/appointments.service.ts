@@ -133,14 +133,15 @@ export class AppointmentsService {
     if (!ctx?.subdomain) throw new BadRequestException('Não foi possível identificar a clínica para gerar o link.')
 
     const token = appointment.confirmationToken || randomUUID()
-    const link = `${this.publicAppUrl()}/confirmar/${ctx.subdomain}/${token}`
+    const confirmationLink = `${this.publicAppUrl()}/confirmar/${ctx.subdomain}/${token}`
+    const shareLink = `${this.publicAppUrl()}/c/${ctx.subdomain}/${token}`
     const dentistName = appointment.dentist?.name || appointment.dentistName || null
     const clinicName = ctx.name || 'sua clínica'
     const when = formatDateTime(appointment.startTime)
     const message =
       `Olá, ${appointment.patient.name}! Sua consulta na ${clinicName}` +
       `${dentistName ? ` com ${dentistName}` : ''} está marcada para ${when}.\n\n` +
-      `Confirme sua presença ou avise se não puder comparecer pelo link:\n${link}`
+      `Confirme sua presença ou avise se não puder comparecer pelo link:\n${shareLink}`
 
     const updated = await prisma.appointment.update({
       where: { id },
@@ -153,6 +154,6 @@ export class AppointmentsService {
       include: INCLUDE
     })
 
-    return { ok: true, whatsappUrl: buildWhatsappUrl(phone, message), message, link, appointment: updated }
+    return { ok: true, whatsappUrl: buildWhatsappUrl(phone, message), message, link: shareLink, confirmationLink, appointment: updated }
   }
 }

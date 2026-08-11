@@ -711,7 +711,7 @@ export class AppointmentsComponent implements OnInit {
   confirmationLink(a: Appointment) {
     if (!a.confirmationToken) return ''
     const tenant = (typeof localStorage !== 'undefined' && localStorage.getItem('tenant')) || ''
-    return `${location.origin}/confirmar/${tenant}/${a.confirmationToken}`
+    return `${location.origin}/c/${tenant}/${a.confirmationToken}`
   }
 
   copyConfirmationLink(a: Appointment) {
