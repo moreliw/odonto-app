@@ -53,6 +53,10 @@ mapfile -t tenant_databases < <(
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "select \"dbName\" from \"Tenant\" order by \"dbName\";"'
 )
 
+# --accept-data-loss: o deploy roda sem interação, e "prisma db push" recusa qualquer mudança que
+# não consiga provar como 100% segura (ex.: nova constraint UNIQUE), mesmo quando é aditiva e sem
+# risco real (coluna nova, nullable, linhas existentes ficam NULL — Postgres não considera NULLs
+# duplicados). Sem a flag, esse tipo de migração trava o deploy indefinidamente em produção.
 for database_name in "${tenant_databases[@]}"; do
   database_name="${database_name//$'\r'/}"
   [[ -z "${database_name}" ]] && continue
@@ -60,7 +64,7 @@ for database_name in "${tenant_databases[@]}"; do
   "${compose[@]}" run --rm -e TENANT_DB_NAME="${database_name}" "${BACKEND_SERVICE}" sh -lc '
     TENANT_DATABASE_URL="$(node -e '\''const u = new URL(process.env.MASTER_DATABASE_URL); u.pathname = "/" + process.env.TENANT_DB_NAME; process.stdout.write(u.toString())'\'')"
     export TENANT_DATABASE_URL
-    npx prisma db push --schema=prisma/tenant.schema.prisma --skip-generate
+    npx prisma db push --schema=prisma/tenant.schema.prisma --skip-generate --accept-data-loss
   '
 done
 
