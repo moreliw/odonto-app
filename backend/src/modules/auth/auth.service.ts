@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client-tenant'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 import * as argon2 from 'argon2'
+import { randomUUID } from 'crypto'
 
 function isEmailIdentifier(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -180,7 +181,8 @@ export class AuthService {
     }
     const accessToken = await this.jwt.signAsync(payload, { expiresIn: '15m' })
     const refreshSecret = process.env.JWT_REFRESH_SECRET || 'refresh'
-    const refreshToken = await this.jwt.signAsync(payload, { secret: refreshSecret, expiresIn: '30d' })
+    // O jti torna cada sessão independente mesmo quando dois dispositivos entram no mesmo segundo.
+    const refreshToken = await this.jwt.signAsync({ ...payload, jti: randomUUID() }, { secret: refreshSecret, expiresIn: '30d' })
     await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) } })
     return { accessToken, refreshToken, user: { id: user.id, username: user.username, email: user.email, name: user.name, role: user.role } }
   }

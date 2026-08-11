@@ -7,11 +7,13 @@ import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
 import { BillingModule } from '../billing/billing.module'
 import { AuthModule } from '../auth/auth.module'
+import { FilesModule } from '../files/files.module'
 
 @Module({
   imports: [
     BillingModule,
     AuthModule,
+    FilesModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'secret'
     })

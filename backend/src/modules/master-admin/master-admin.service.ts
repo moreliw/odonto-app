@@ -8,6 +8,8 @@ import { AccessGrant, Plan, Prisma as MasterPrisma, SubscriptionStatus, Tenant }
 import { BillingService } from '../billing/billing.service'
 import { AuthService } from '../auth/auth.service'
 import { DENTIST_LIMIT_BY_PLAN } from '../billing/plan-limits'
+import { S3Service } from '../files/s3.service'
+import { randomUUID } from 'crypto'
 
 type SanitizedTenant = Omit<Tenant, 'dbPassword'> & { dbPassword?: never }
 type MasterUserRole = 'ADMIN' | 'USER' | 'DENTIST'
@@ -19,6 +21,8 @@ const MASTER_USER_SELECT = {
   name: true,
   role: true,
   active: true,
+  createdByName: true,
+  updatedByName: true,
   createdAt: true,
   updatedAt: true,
   _count: { select: { appointments: true, invoices: true } }
@@ -35,7 +39,8 @@ export class MasterAdminService implements OnModuleInit {
     private readonly master: MasterPrismaService,
     private readonly provision: TenantProvisionService,
     private readonly billing: BillingService,
-    private readonly auth: AuthService
+    private readonly auth: AuthService,
+    private readonly s3: S3Service
   ) {}
 
   onModuleInit() {
@@ -51,6 +56,58 @@ export class MasterAdminService implements OnModuleInit {
 
   private actorEmail() {
     return process.env.MASTER_SUPERADMIN_EMAIL?.trim() || 'master@odontoapp.local'
+  }
+
+  private publicAppUrl() {
+    const configured = process.env.PUBLIC_APP_URL?.trim()
+    if (configured) return configured.replace(/\/+$/, '')
+    const domain = process.env.PUBLIC_DOMAIN?.trim()
+    return domain ? `https://${domain}`.replace(/\/+$/, '') : 'http://localhost:4200'
+  }
+
+  private logoType(buffer: Buffer) {
+    const png = buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    if (png) return { extension: 'png', contentType: 'image/png' }
+    const jpeg = buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+    if (jpeg) return { extension: 'jpg', contentType: 'image/jpeg' }
+    const webp = buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    if (webp) return { extension: 'webp', contentType: 'image/webp' }
+    throw new BadRequestException('Use uma imagem PNG, JPG, JPEG ou WEBP válida.')
+  }
+
+  async uploadClinicLogo(id: string, file?: Express.Multer.File) {
+    if (!file?.buffer?.length) throw new BadRequestException('Selecione uma imagem para enviar.')
+    if (file.size > 2 * 1024 * 1024) throw new BadRequestException('A imagem deve ter no máximo 2 MB.')
+    const type = this.logoType(file.buffer)
+    const existing = await this.master.tenant.findUnique({ where: { id } })
+    if (!existing) throw new NotFoundException('Clínica não encontrada')
+    const key = `branding/${existing.slug}/logo-${randomUUID()}.${type.extension}`
+    await this.s3.putObject(key, file.buffer, type.contentType)
+    const logoUrl = `${this.publicAppUrl()}/api/public/branding/logo/${id}?v=${Date.now()}`
+    try {
+      const tenant = await this.master.tenant.update({
+        where: { id },
+        data: { logoKey: key, logoContentType: type.contentType, logoUrl }
+      })
+      if (existing.logoKey && existing.logoKey !== key) await this.s3.removeObject(existing.logoKey).catch(() => undefined)
+      await this.audit('CLINIC_LOGO_UPDATED', { tenantId: id, targetType: 'TENANT', targetId: id })
+      return { tenant: this.sanitizeTenant(tenant), logoUrl }
+    } catch (error) {
+      await this.s3.removeObject(key).catch(() => undefined)
+      throw error
+    }
+  }
+
+  async removeClinicLogo(id: string) {
+    const existing = await this.master.tenant.findUnique({ where: { id } })
+    if (!existing) throw new NotFoundException('Clínica não encontrada')
+    const tenant = await this.master.tenant.update({
+      where: { id },
+      data: { logoKey: null, logoContentType: null, logoUrl: null }
+    })
+    if (existing.logoKey) await this.s3.removeObject(existing.logoKey).catch(() => undefined)
+    await this.audit('CLINIC_LOGO_REMOVED', { tenantId: id, targetType: 'TENANT', targetId: id })
+    return { tenant: this.sanitizeTenant(tenant) }
   }
 
   private activeGrant(grant: AccessGrant | null | undefined) {
@@ -548,7 +605,9 @@ export class MasterAdminService implements OnModuleInit {
             name: data.name.trim(),
             passwordHash,
             role: data.role as TenantRole,
-            active: data.active !== false
+            active: data.active !== false,
+            createdByName: this.actorEmail(),
+            updatedByName: this.actorEmail()
           },
           select: MASTER_USER_SELECT
         })
@@ -607,6 +666,8 @@ export class MasterAdminService implements OnModuleInit {
       patch.email = email
     }
     if (data.password) patch.passwordHash = await argon2.hash(data.password)
+    const hasBusinessChanges = Object.keys(patch).length > 0
+    if (hasBusinessChanges) patch.updatedByName = this.actorEmail()
     if (Object.keys(patch).length === 0) throw new BadRequestException('Nenhuma alteração informada.')
 
     try {

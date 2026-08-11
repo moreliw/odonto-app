@@ -11,11 +11,12 @@ export class PatientsService {
   get(id: string) {
     return this.prismaTenant.getClient().patient.findUnique({ where: { id } })
   }
-  create(data: any) {
-    return this.prismaTenant.getClient().patient.create({ data })
+  create(data: any, actor?: string) {
+    const auditName = actor?.trim() || 'Sistema'
+    return this.prismaTenant.getClient().patient.create({ data: { ...data, createdByName: auditName, updatedByName: auditName } })
   }
-  update(id: string, data: any) {
-    return this.prismaTenant.getClient().patient.update({ where: { id }, data })
+  update(id: string, data: any, actor?: string) {
+    return this.prismaTenant.getClient().patient.update({ where: { id }, data: { ...data, updatedByName: actor?.trim() || 'Sistema' } })
   }
   remove(id: string) {
     return this.prismaTenant.getClient().patient.delete({ where: { id } })

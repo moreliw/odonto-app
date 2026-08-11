@@ -15,6 +15,8 @@ export type ClinicService = {
   active: boolean
   createdAt: string
   updatedAt: string
+  createdByName?: string | null
+  updatedByName?: string | null
 }
 
 export type InvoicePayment = {
@@ -57,6 +59,8 @@ export type ClinicInvoice = {
   payments: InvoicePayment[]
   createdAt: string
   updatedAt: string
+  createdByName?: string | null
+  updatedByName?: string | null
 }
 
 export type Expense = {
@@ -75,6 +79,8 @@ export type Expense = {
   notes?: string | null
   createdAt: string
   updatedAt: string
+  createdByName?: string | null
+  updatedByName?: string | null
 }
 
 export type FinancialSummary = {

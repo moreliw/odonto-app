@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
 type ClinicOption = { id: string; name: string }
 type AuditRow = {
@@ -20,6 +22,8 @@ const ACTION_LABELS: Record<string, string> = {
   MASTER_LOGIN: 'Login master',
   CLINIC_CREATED: 'Clínica criada',
   CLINIC_UPDATED: 'Clínica atualizada',
+  CLINIC_LOGO_UPDATED: 'Logo da clínica atualizada',
+  CLINIC_LOGO_REMOVED: 'Logo da clínica removida',
   TENANT_ADMIN_PASSWORD_RESET: 'Senha do administrador redefinida',
   TENANT_USER_CREATED: 'Usuário criado',
   TENANT_USER_UPDATED: 'Usuário atualizado',
@@ -30,7 +34,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 @Component({
   selector: 'app-master-audit',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PaginationComponent],
   template: `
     <div class="dashboard-page">
       <div class="page-header">
@@ -59,7 +63,7 @@ const ACTION_LABELS: Record<string, string> = {
             <tbody>
               @if (loading) { <tr><td colspan="6" class="table-empty"><span class="spinner spinner-dark"></span></td></tr> }
               @else if (rows.length === 0) { <tr><td colspan="6" class="table-empty">Nenhuma ação registrada para os filtros selecionados.</td></tr> }
-              @for (row of rows; track row.id) {
+              @for (row of pagedRows; track row.id) {
                 <tr>
                   <td class="muted text-sm">{{ row.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
                   <td><strong>{{ label(row.action) }}</strong><small class="master-code-label">{{ row.action }}</small></td>
@@ -72,6 +76,7 @@ const ACTION_LABELS: Record<string, string> = {
             </tbody>
           </table>
         </div>
+        <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="rows.length" (pageChange)="page=$event"></app-pagination>
       </div>
     </div>
   `
@@ -82,6 +87,8 @@ export class MasterAuditComponent implements OnInit {
   tenantId = ''
   action = ''
   loading = false
+  page = 1
+  readonly pageSize = 20
 
   constructor(private readonly http: HttpClient) {}
   ngOnInit() {
@@ -89,6 +96,7 @@ export class MasterAuditComponent implements OnInit {
     this.load()
   }
   load() {
+    this.page = 1
     this.loading = true
     const params = new URLSearchParams({ take: '200' })
     if (this.tenantId) params.set('tenantId', this.tenantId)
@@ -98,6 +106,7 @@ export class MasterAuditComponent implements OnInit {
       error: () => { this.loading = false; this.rows = [] }
     })
   }
+  get pagedRows() { return paginate(this.rows, this.page, this.pageSize) }
   label(action: string) { return ACTION_LABELS[action] || action }
   shortId(id: string) { return id.length > 12 ? `${id.slice(0, 8)}…` : id }
   metadata(value: Record<string, unknown> | null | undefined) {

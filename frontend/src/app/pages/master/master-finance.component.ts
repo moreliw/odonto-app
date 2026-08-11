@@ -1,12 +1,14 @@
 import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
 const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAST_DUE: 'late', CANCELED: 'neutral' }
 
 @Component({
     selector: 'app-master-finance',
-    imports: [CommonModule],
+    imports: [CommonModule, PaginationComponent],
     template: `
     <div class="dashboard-page">
       <div class="page-header">
@@ -81,7 +83,7 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
               @if (clinics.length === 0) {
                 <tr><td colspan="8" class="table-empty">Nenhuma assinatura encontrada</td></tr>
               }
-              @for (row of clinics; track row.id) {
+              @for (row of pagedClinics; track row.id) {
                 <tr>
                   <td><strong>{{ row.name }}</strong></td>
                   <td class="muted text-sm">{{ row.subdomain }}</td>
@@ -117,6 +119,7 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
             </tbody>
           </table>
         </div>
+        <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="clinics.length" (pageChange)="page=$event"></app-pagination>
       </div>
 
       @if (summary?.recentSubscriptions?.length) {
@@ -150,14 +153,18 @@ const STATUS_CLASS: Record<string, string> = { ACTIVE: '', TRIAL: 'pending', PAS
 export class MasterFinanceComponent implements OnInit {
   summary: any = null
   clinics: any[] = []
+  page = 1
+  readonly pageSize = 15
   readonly STATUS_CLASS = STATUS_CLASS
 
   constructor(private readonly http: HttpClient) {}
 
   ngOnInit() { this.load() }
 
+  get pagedClinics() { return paginate(this.clinics, this.page, this.pageSize) }
+
   load() {
     this.http.get<any>('/api/master/finance/summary').subscribe((res: any) => this.summary = res)
-    this.http.get<any[]>('/api/master/finance/clinics').subscribe((res: any[]) => this.clinics = res)
+    this.http.get<any[]>('/api/master/finance/clinics').subscribe((res: any[]) => { this.clinics = res; this.page = 1 })
   }
 }

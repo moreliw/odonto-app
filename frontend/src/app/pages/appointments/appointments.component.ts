@@ -5,6 +5,9 @@ import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
 import { AuthService } from '../../services/auth.service'
 import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
+import { Router } from '@angular/router'
 
 type Patient = { id: string; name: string; email?: string | null; phone?: string | null }
 type Dentist = { id: string; name: string }
@@ -23,6 +26,10 @@ type Appointment = {
   confirmationStatus?: 'PENDING' | 'CONFIRMED' | 'DECLINED'
   confirmationSentAt?: string | null
   confirmationToken?: string | null
+  createdByName?: string | null
+  updatedByName?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 type CalendarBlock = Appointment & { top: number; height: number; left: number; width: number; colorIdx: number; compact: boolean }
 
@@ -73,7 +80,7 @@ function colorIndexFor(id: string | null | undefined) {
 
 @Component({
     selector: 'app-appointments',
-    imports: [CommonModule, FormsModule, SearchableSelectComponent],
+    imports: [CommonModule, FormsModule, SearchableSelectComponent, PaginationComponent],
     template: `
     <div class="agenda-page">
       <div class="page-header">
@@ -198,7 +205,7 @@ function colorIndexFor(id: string | null | undefined) {
                 class="btn btn-sm"
                 [class.btn-primary]="filterStatus === opt.value"
                 [class.btn-ghost]="filterStatus !== opt.value"
-                (click)="filterStatus = opt.value"
+                (click)="filterStatus = opt.value; listPage = 1"
               >{{ opt.label }}</button>
             }
           </div>
@@ -215,15 +222,19 @@ function colorIndexFor(id: string | null | undefined) {
                   <th>Duração</th>
                   <th>Status</th>
                   <th>Confirmação</th>
+                  @if (isAdmin) {
+                    <th>Criado por</th>
+                    <th>Atualizado por</th>
+                  }
                   <th>Obs.</th>
                   <th style="width:110px;"></th>
                 </tr>
               </thead>
               <tbody>
                 @if (loading) {
-                  <tr><td [attr.colspan]="isDentist ? 7 : 8" class="table-empty"><span class="spinner spinner-dark"></span></td></tr>
+                  <tr><td [attr.colspan]="appointmentColspan" class="table-empty"><span class="spinner spinner-dark"></span></td></tr>
                 } @else if (statusFiltered.length === 0) {
-                  <tr><td [attr.colspan]="isDentist ? 7 : 8">
+                  <tr><td [attr.colspan]="appointmentColspan">
                     <div class="empty-state">
                       <div class="empty-state-icon">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -233,7 +244,7 @@ function colorIndexFor(id: string | null | undefined) {
                     </div>
                   </td></tr>
                 } @else {
-                  @for (a of statusFiltered; track a.id) {
+                  @for (a of pagedAppointments; track a.id) {
                     <tr>
                       <td>
                         <div style="display:flex;align-items:center;gap:10px;">
@@ -251,6 +262,10 @@ function colorIndexFor(id: string | null | undefined) {
                       <td>
                         <span class="status-chip" [class]="confirmationClass(a)">{{ confirmationLabel(a) }}</span>
                       </td>
+                      @if (isAdmin) {
+                        <td class="audit-cell"><strong>{{ a.createdByName || 'Sistema' }}</strong><span>{{ a.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                        <td class="audit-cell"><strong>{{ a.updatedByName || a.createdByName || 'Sistema' }}</strong><span>{{ a.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                      }
                       <td class="muted text-sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.notes || '—' }}</td>
                       <td>
                         <div class="table-actions">
@@ -278,6 +293,7 @@ function colorIndexFor(id: string | null | undefined) {
               </tbody>
             </table>
           </div>
+          <app-pagination [page]="listPage" [pageSize]="listPageSize" [totalItems]="statusFiltered.length" (pageChange)="listPage=$event"></app-pagination>
         </div>
       }
     </div>
@@ -285,7 +301,7 @@ function colorIndexFor(id: string | null | undefined) {
     <!-- Create / Edit Modal -->
     @if (showModal) {
       <div class="modal-backdrop" (click)="closeOnBackdrop($event)">
-        <div class="modal" (click)="$event.stopPropagation()">
+        <div class="modal appointment-edit-modal" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <div>
               <h3>{{ editingId ? 'Editar consulta' : 'Nova consulta' }}</h3>
@@ -379,11 +395,11 @@ function colorIndexFor(id: string | null | undefined) {
               <label>Observações</label>
               <textarea class="textarea" [(ngModel)]="form.notes" name="notes" placeholder="Notas sobre a consulta..." rows="3"></textarea>
             </div>
-            <div class="modal-footer" [class.modal-footer-split]="editingId">
-              @if (editingId) {
-                <button class="btn btn-danger-outline" type="button" [disabled]="saving || deleting" (click)="requestDeleteFromEdit()">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                  Excluir consulta
+            @if (editingId) {
+              <div class="appointment-context-actions" aria-label="Ações da consulta">
+                <button class="btn btn-outline" type="button" [disabled]="saving" (click)="openPatientRecord()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>
+                  Adicionar ao prontuário
                 </button>
                 @if (editingAppointment?.status === 'SCHEDULED') {
                   <button class="btn btn-outline whatsapp-action" type="button" [disabled]="saving || sendingConfirmationId === editingId" (click)="openWhatsappConfirmation(editingAppointment!)">
@@ -393,6 +409,14 @@ function colorIndexFor(id: string | null | undefined) {
                     Abrir WhatsApp
                   </button>
                 }
+              </div>
+            }
+            <div class="modal-footer appointment-edit-footer">
+              @if (editingId) {
+                <button class="btn btn-danger-outline" type="button" [disabled]="saving || deleting" (click)="requestDeleteFromEdit()">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  Excluir consulta
+                </button>
               }
               <div class="modal-footer-main">
                 <button class="btn btn-ghost" type="button" (click)="showModal=false">Cancelar</button>
@@ -565,6 +589,8 @@ export class AppointmentsComponent implements OnInit {
   showQuickDentistPwd = false
   quickDentistForm: { name: string; withLogin: boolean; email: string; password: string } = { name: '', withLogin: false, email: '', password: '' }
   sendingConfirmationId: string | null = null
+  listPage = 1
+  readonly listPageSize = 15
 
   weekStart = startOfWeek(new Date())
   readonly hours: number[] = []
@@ -583,10 +609,12 @@ export class AppointmentsComponent implements OnInit {
   ]
 
   isDentist = false
+  isAdmin = false
 
-  constructor(private http: HttpClient, private toast: ToastService, private auth: AuthService) {
+  constructor(private http: HttpClient, private toast: ToastService, private auth: AuthService, private router: Router) {
     for (let h = GRID_START_HOUR; h < GRID_END_HOUR; h++) this.hours.push(h)
     this.isDentist = this.auth.isDentist()
+    this.isAdmin = this.auth.isAdmin()
   }
 
   ngOnInit() {
@@ -622,6 +650,14 @@ export class AppointmentsComponent implements OnInit {
     return this.appointments.filter(a => a.status === this.filterStatus)
   }
 
+  get pagedAppointments() {
+    return paginate(this.statusFiltered, this.listPage, this.listPageSize)
+  }
+
+  get appointmentColspan() {
+    return 7 + (this.isDentist ? 0 : 1) + (this.isAdmin ? 2 : 0)
+  }
+
   isToday(d: Date) {
     return sameDay(d, new Date())
   }
@@ -645,6 +681,7 @@ export class AppointmentsComponent implements OnInit {
   setView(v: 'week' | 'list') {
     if (this.view === v) return
     this.view = v
+    this.listPage = 1
     this.load()
   }
 
@@ -796,7 +833,7 @@ export class AppointmentsComponent implements OnInit {
     if (this.dentistFilter) params.push(`dentistId=${this.dentistFilter}`)
     if (params.length) url += '?' + params.join('&')
     this.http.get<Appointment[]>(url).subscribe({
-      next: res => { this.appointments = res; this.loading = false },
+      next: res => { this.appointments = res; if (this.view === 'list') this.listPage = 1; this.loading = false },
       error: () => { this.loading = false; this.toast.error('Falha ao carregar agenda') }
     })
   }
@@ -883,6 +920,13 @@ export class AppointmentsComponent implements OnInit {
       notes: a.notes,
     }
     this.showModal = true
+  }
+
+  openPatientRecord() {
+    const patientId = this.editingAppointment?.patientId
+    if (!patientId) return
+    this.showModal = false
+    this.router.navigate(['/app/records'], { queryParams: { patientId, new: 1 } })
   }
 
   private toLocal(iso: string) {

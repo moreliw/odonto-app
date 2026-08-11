@@ -4,13 +4,25 @@ import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
 import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
+import { AuthService } from '../../services/auth.service'
+import { ActivatedRoute } from '@angular/router'
 
 type Patient = { id: string; name: string; email?: string }
-type PatientRecord = { id: string; patientId: string; content: any; createdAt: string }
+type PatientRecord = {
+  id: string
+  patientId: string
+  content: any
+  createdByName?: string | null
+  updatedByName?: string | null
+  createdAt: string
+  updatedAt?: string
+}
 
 @Component({
     selector: 'app-records',
-    imports: [CommonModule, FormsModule, SearchableSelectComponent],
+    imports: [CommonModule, FormsModule, SearchableSelectComponent, PaginationComponent],
     template: `
     <div>
       <div class="page-header">
@@ -84,15 +96,22 @@ type PatientRecord = { id: string; patientId: string; content: any; createdAt: s
             </div>
           } @else {
             <div>
-              @for (r of records; track r.id) {
+              @for (r of pagedRecords; track r.id) {
                 <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                     <span class="text-xs muted">{{ r.createdAt | date:'dd/MM/yyyy · HH:mm' }}</span>
                   </div>
                   <p style="font-size:14px;color:var(--text);white-space:pre-wrap;line-height:1.6;">{{ r.content?.text || (r.content | json) }}</p>
+                  @if (isAdmin) {
+                    <div class="audit-summary">
+                      <span><strong>Criado por:</strong> {{ r.createdByName || 'Sistema' }} em {{ r.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+                      <span><strong>Atualizado por:</strong> {{ r.updatedByName || r.createdByName || 'Sistema' }} em {{ (r.updatedAt || r.createdAt) | date:'dd/MM/yyyy HH:mm' }}</span>
+                    </div>
+                  }
                 </div>
               }
             </div>
+            <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="records.length" (pageChange)="page=$event"></app-pagination>
           }
         </div>
 
@@ -161,24 +180,49 @@ export class RecordsComponent implements OnInit {
   saving = false
   showNewRecord = false
   uploadProgress = ''
+  page = 1
+  readonly pageSize = 12
+  isAdmin = false
 
-  constructor(private http: HttpClient, private toast: ToastService) {}
+  constructor(
+    private http: HttpClient,
+    private toast: ToastService,
+    private auth: AuthService,
+    private route: ActivatedRoute,
+  ) {}
 
   ngOnInit() {
-    this.http.get<Patient[]>('/api/patients').subscribe({ next: (res: Patient[]) => this.patients = res })
+    this.isAdmin = this.auth.isAdmin()
+    this.http.get<Patient[]>('/api/patients').subscribe({
+      next: (res: Patient[]) => {
+        this.patients = res
+        const patientId = this.route.snapshot.queryParamMap.get('patientId') || ''
+        if (patientId && this.patients.some(patient => patient.id === patientId)) {
+          this.selectedPatientId = patientId
+          this.onPatientChange(patientId)
+          this.showNewRecord = this.route.snapshot.queryParamMap.get('new') === '1'
+        }
+      }
+    })
   }
 
   get patientItems() {
     return this.patients.map(p => ({ id: p.id, label: p.name, sublabel: p.email }))
   }
 
+  get pagedRecords() {
+    return paginate(this.records, this.page, this.pageSize)
+  }
+
   onPatientChange(id: string) {
+    this.page = 1
     this.selectedPatient = this.patients.find(p => p.id === id) || null
     this.records = []
     if (id) this.loadRecords(id)
   }
 
   loadRecords(patientId: string) {
+    this.page = 1
     this.loadingRecords = true
     this.http.get<PatientRecord[]>(`/api/records/patient/${patientId}`).subscribe({
       next: (res: PatientRecord[]) => { this.records = res; this.loadingRecords = false },

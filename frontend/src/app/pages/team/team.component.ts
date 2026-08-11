@@ -3,9 +3,11 @@ import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
 type Role = 'ADMIN' | 'USER' | 'DENTIST'
-type Member = { id: string; name: string; email: string | null; role: Role; createdAt: string }
+type Member = { id: string; name: string; email: string | null; role: Role; createdAt: string; updatedAt?: string; createdByName?: string | null; updatedByName?: string | null }
 type Quota = { plan: string; limit: number | null; used: number; remaining: number | null }
 
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Administrador', DENTIST: 'Dentista', USER: 'Equipe de apoio' }
@@ -13,7 +15,7 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
 
 @Component({
     selector: 'app-team',
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, PaginationComponent],
     template: `
     <div>
       <div class="page-header">
@@ -52,15 +54,16 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
                 <th>Nome</th>
                 <th>E-mail</th>
                 <th>Função</th>
-                <th>Desde</th>
+                <th>Criado por</th>
+                <th>Atualizado por</th>
                 <th style="width:80px;"></th>
               </tr>
             </thead>
             <tbody>
               @if (loading) {
-                <tr><td colspan="5" class="table-empty"><span class="spinner spinner-dark"></span></td></tr>
+                <tr><td colspan="6" class="table-empty"><span class="spinner spinner-dark"></span></td></tr>
               } @else if (members.length === 0) {
-                <tr><td colspan="5">
+                <tr><td colspan="6">
                   <div class="empty-state">
                     <div class="empty-state-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
@@ -70,7 +73,7 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
                   </div>
                 </td></tr>
               } @else {
-                @for (m of members; track m.id) {
+                @for (m of pagedMembers; track m.id) {
                   <tr>
                     <td>
                       <div style="display:flex;align-items:center;gap:10px;">
@@ -82,7 +85,8 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
                       @if (m.email) { {{ m.email }} } @else { <span class="badge badge-neutral">Sem acesso ao sistema</span> }
                     </td>
                     <td><span class="status-chip" [class]="ROLE_CLASS[m.role]">{{ ROLE_LABEL[m.role] }}</span></td>
-                    <td class="muted text-sm">{{ m.createdAt | date:'dd/MM/yyyy' }}</td>
+                    <td><div class="audit-cell"><strong>{{ m.createdByName || 'Sistema' }}</strong><span>{{ m.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
+                    <td><div class="audit-cell"><strong>{{ m.updatedByName || m.createdByName || 'Sistema' }}</strong><span>{{ (m.updatedAt || m.createdAt) | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
                     <td>
                       <div class="table-actions">
                         <button class="btn btn-sm btn-ghost" (click)="openEdit(m)" title="Editar">
@@ -99,6 +103,7 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
             </tbody>
           </table>
         </div>
+        <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="members.length" (pageChange)="page=$event"></app-pagination>
       </div>
     </div>
 
@@ -231,6 +236,8 @@ export class TeamComponent implements OnInit {
   form: { name: string; email: string; password: string; role: Role } = { name: '', email: '', password: '', role: 'DENTIST' }
   passwordConfirm = ''
   showPwd = false
+  page = 1
+  readonly pageSize = 15
 
   readonly ROLE_LABEL = ROLE_LABEL
   readonly ROLE_CLASS = ROLE_CLASS
@@ -258,10 +265,14 @@ export class TeamComponent implements OnInit {
     )
   }
 
+  get pagedMembers() {
+    return paginate(this.members, this.page, this.pageSize)
+  }
+
   load() {
     this.loading = true
     this.http.get<Member[]>('/api/users').subscribe({
-      next: res => { this.members = res.filter(m => m.role !== 'ADMIN'); this.loading = false },
+      next: res => { this.members = res.filter(m => m.role !== 'ADMIN'); this.page = 1; this.loading = false },
       error: () => { this.loading = false; this.toast.error('Falha ao carregar a equipe') }
     })
   }

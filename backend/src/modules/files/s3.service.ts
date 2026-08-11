@@ -29,14 +29,35 @@ export class S3Service {
     return S3Service.sharedClient
   }
 
+  private async ensureBucket() {
+    const client = this.getMinioClient()
+    const exists = await client.bucketExists(this.bucket)
+    if (!exists) await client.makeBucket(this.bucket)
+    return client
+  }
+
   async presignPut(_contentType: string) {
     const ctx = this.req.tenantContext ?? RequestContext.get()
     if (!ctx) throw new Error('No tenant context')
     const key = `${ctx.slug}/${randomUUID()}`
-    const client = this.getMinioClient()
-    const exists = await client.bucketExists(this.bucket)
-    if (!exists) await client.makeBucket(this.bucket)
+    const client = await this.ensureBucket()
     const url = await client.presignedPutObject(this.bucket, key, 60 * 10)
     return { url, key }
+  }
+
+  async putObject(key: string, data: Buffer, contentType: string) {
+    const client = await this.ensureBucket()
+    await client.putObject(this.bucket, key, data, data.length, { 'Content-Type': contentType })
+    return { key }
+  }
+
+  async getObject(key: string) {
+    const client = await this.ensureBucket()
+    return client.getObject(this.bucket, key)
+  }
+
+  async removeObject(key: string) {
+    const client = await this.ensureBucket()
+    await client.removeObject(this.bucket, key)
   }
 }

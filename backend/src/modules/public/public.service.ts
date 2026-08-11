@@ -7,6 +7,7 @@ import { Prisma as PrismaMaster, SubscriptionStatus } from '@prisma/client-maste
 import { Prisma as PrismaTenant } from '@prisma/client-tenant'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { PrismaClient as MasterPrisma } from '@prisma/client-master'
+import { S3Service } from '../files/s3.service'
 
 function isEmailIdentifier(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -42,12 +43,25 @@ export class PublicService {
     private readonly provision: TenantProvisionService,
     private readonly master: MasterPrismaService,
     private readonly auth: AuthService,
-    private readonly tenants: TenantService
+    private readonly tenants: TenantService,
+    private readonly s3: S3Service
   ) {}
 
   /** Identidade visual pública da clínica (nome, cor, logo) para aplicar no app após o login. */
   async getBranding(subdomain: string) {
     return this.tenants.getBranding(subdomain.trim())
+  }
+
+  async getBrandingLogo(tenantId: string) {
+    const tenant = await this.master.tenant.findUnique({
+      where: { id: tenantId },
+      select: { logoKey: true, logoContentType: true }
+    })
+    if (!tenant?.logoKey) throw new NotFoundException('Logo não encontrada.')
+    return {
+      stream: await this.s3.getObject(tenant.logoKey),
+      contentType: tenant.logoContentType || 'image/png'
+    }
   }
 
   private serializeConfirmation(appt: any, tenant: { name?: string | null; primaryColor?: string | null; logoUrl?: string | null }) {
@@ -94,7 +108,8 @@ export class PublicService {
         where: { id: existing.id },
         data: {
           confirmationStatus: action === 'CONFIRM' ? 'CONFIRMED' : 'DECLINED',
-          confirmationRespondedAt: new Date()
+          confirmationRespondedAt: new Date(),
+          updatedByName: 'Paciente'
         },
         include: { patient: { select: { name: true } }, dentist: { select: { name: true } } }
       })

@@ -15,6 +15,12 @@ type TodayAppointment = { id: string; patientName: string; dentistName?: string 
 type DashboardMetrics = {
   patientCount: number
   appointmentsToday: number
+  appointmentsNextSevenDays: number
+  pendingConfirmations: number
+  unassignedAppointments: number
+  completedThisMonth: number
+  newPatientsThisMonth: number
+  canViewFinancial: boolean
   revenueThisMonth: number
   invoicesStatus: { pending: number; partial: number; paid: number; cancelled: number }
   monthlyPatients: { label: string; count: number }[]
@@ -45,7 +51,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
           <p>{{ isDentist ? 'Veja seus atendimentos e pacientes.' : 'Veja como está a rotina da sua clínica.' }}</p>
         </div>
         <div class="dashboard-mobile-actions">
-          @if (!isDentist) {
+          @if (isAdmin) {
             <button type="button" (click)="privacy.toggle()" [attr.aria-label]="hideValues ? 'Mostrar valores' : 'Esconder valores'" [title]="hideValues ? 'Mostrar valores' : 'Esconder valores'">
               @if (hideValues) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -66,7 +72,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
           <p>{{ isDentist ? 'Seus atendimentos e pacientes · ' + today : 'Visão geral da clínica · ' + today }}</p>
         </div>
         <div class="page-header-actions">
-          @if (!isDentist) {
+          @if (isAdmin) {
             <button class="btn btn-outline btn-sm" (click)="privacy.toggle()" [attr.aria-label]="hideValues ? 'Mostrar valores' : 'Esconder valores'" title="Esconder valores em dinheiro na tela">
               @if (hideValues) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -124,20 +130,35 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                 title="Novos pacientes"
                 subtitle="Últimos 6 meses"
               ></app-line-chart>
-              @if (invoiceSlices.length) {
+              @if (isAdmin && invoiceSlices.length) {
                 <app-donut-chart
                   [slices]="invoiceSlices"
                   title="Cobranças"
                   subtitle="Situação atual"
                   valueSuffix=""
                 ></app-donut-chart>
-              } @else {
+              } @else if (isAdmin) {
                 <article class="card chart-card chart-card--empty">
                   <div class="chart-title-row">
                     <h2>Cobranças</h2>
                     <span class="muted">Situação atual</span>
                   </div>
                   <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma cobrança registrada ainda.</p>
+                </article>
+              } @else if (operationalSlices.length) {
+                <app-donut-chart
+                  [slices]="operationalSlices"
+                  title="Rotina da equipe"
+                  subtitle="PendÃªncias que pedem atenÃ§Ã£o"
+                  valueSuffix=""
+                ></app-donut-chart>
+              } @else {
+                <article class="card chart-card chart-card--empty">
+                  <div class="chart-title-row">
+                    <h2>Rotina da equipe</h2>
+                    <span class="muted">Tudo organizado</span>
+                  </div>
+                  <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma pendência operacional neste momento.</p>
                 </article>
               }
             </div>
@@ -197,6 +218,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loading = false
   error = ''
   isDentist = false
+  isAdmin = false
   hideValues = false
   greetingName = 'Dra.'
 
@@ -206,6 +228,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   patientTrend: ChartPoint[] = []
   appointmentTrend: ChartPoint[] = []
   invoiceSlices: DonutSlice[] = []
+  operationalSlices: DonutSlice[] = []
   hasActivity = false
 
   readonly STATUS_LABELS = STATUS_LABELS
@@ -215,6 +238,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   constructor(private readonly http: HttpClient, private readonly auth: AuthService, readonly privacy: PrivacyService) {
     this.isDentist = this.auth.isDentist()
+    this.isAdmin = this.auth.isAdmin()
     const name = this.auth.getUser()?.name?.trim()
     this.greetingName = name ? name.split(/\s+/)[0] : (this.isDentist ? 'Dra.' : 'Administrador')
   }
@@ -258,11 +282,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       ? 'R$ ••••••'
       : `R$ ${m.revenueThisMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
-    this.kpis = [
-      { id: 'patients', title: 'Pacientes', value: String(m.patientCount), delta: 'Total cadastrados' },
+    this.kpis = this.isAdmin ? [
+      { id: 'patients', title: 'Pacientes', value: String(m.patientCount), delta: `${m.newPatientsThisMonth} novos neste mês` },
       { id: 'appointments', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Agendadas para hoje' },
       { id: 'revenue', title: 'Faturamento do mês', value: revenueValue, delta: 'Cobranças pagas no mês' },
       { id: 'pending', title: 'Cobranças pendentes', value: String(m.invoicesStatus.pending + m.invoicesStatus.partial), delta: 'Aguardando pagamento' }
+    ] : [
+      { id: 'appointments', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Agendadas para hoje' },
+      { id: 'next-seven-days', title: 'Próximos 7 dias', value: String(m.appointmentsNextSevenDays), delta: 'Consultas programadas' },
+      { id: 'confirmations', title: 'Aguardando confirmação', value: String(m.pendingConfirmations), delta: 'Pacientes sem resposta' },
+      { id: 'unassigned', title: 'Sem dentista', value: String(m.unassignedAppointments), delta: 'Agendamentos para organizar' }
     ]
 
     this.patientTrend = m.monthlyPatients.map(p => ({ label: p.label, value: p.count }))
@@ -274,9 +303,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { label: 'Canceladas', value: m.invoicesStatus.cancelled, color: '#ef4444' }
     ].filter(s => s.value > 0)
 
+    this.operationalSlices = [
+      { label: 'Aguardando confirmação', value: m.pendingConfirmations, color: '#f59e0b' },
+      { label: 'Sem dentista', value: m.unassignedAppointments, color: '#ef4444' },
+      { label: 'Concluídas no mês', value: m.completedThisMonth, color: '#22c55e' },
+      { label: 'Novos pacientes', value: m.newPatientsThisMonth, color: '#3b82f6' }
+    ].filter(s => s.value > 0)
+
     const totalInvoices = m.invoicesStatus.paid + m.invoicesStatus.pending + m.invoicesStatus.partial + m.invoicesStatus.cancelled
     const patientsInTrend = m.monthlyPatients.reduce((acc, p) => acc + p.count, 0)
-    this.hasActivity = m.patientCount > 0 || m.appointmentsToday > 0 || totalInvoices > 0 || patientsInTrend > 0
+    this.hasActivity = m.patientCount > 0 || m.appointmentsToday > 0 || (this.isAdmin && totalInvoices > 0) || patientsInTrend > 0
   }
 
   private buildDentistViewModel(m: MyMetrics) {

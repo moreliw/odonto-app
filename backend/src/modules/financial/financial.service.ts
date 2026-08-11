@@ -91,6 +91,10 @@ export class FinancialService {
     return Math.round(Number(value || 0) * 100) / 100
   }
 
+  private actor(requester: FinancialRequester) {
+    return requester.email?.trim() || 'Sistema'
+  }
+
   private paymentTotal(invoice: any) {
     return this.money((invoice.payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount), 0))
   }
@@ -220,6 +224,8 @@ export class FinancialService {
         issuedAt: input.issuedAt ? new Date(input.issuedAt) : new Date(),
         dueDate: new Date(input.dueDate),
         notes: input.notes?.trim() || null,
+        createdByName: this.actor(requester),
+        updatedByName: this.actor(requester),
         items: items.length ? { create: items } : undefined
       },
       include: invoiceInclude
@@ -231,6 +237,7 @@ export class FinancialService {
     const current = await this.invoiceOrThrow(requester, id)
     if (current.status === 'CANCELLED') throw new BadRequestException('Uma cobrança cancelada não pode ser alterada.')
     const data: any = {}
+    data.updatedByName = this.actor(requester)
     if (input.patientId !== undefined) data.patientId = input.patientId
     if (input.description !== undefined) data.description = input.description.trim() || 'Cobrança odontológica'
     if (input.issuedAt !== undefined) data.issuedAt = new Date(input.issuedAt)
@@ -274,7 +281,7 @@ export class FinancialService {
       this.prisma.invoicePayment.create({
         data: { invoiceId: id, amount, paidAt: new Date(input.paidAt), method: input.method, notes: input.notes?.trim() || null }
       }),
-      this.prisma.invoice.update({ where: { id }, data: { status }, include: invoiceInclude })
+      this.prisma.invoice.update({ where: { id }, data: { status, updatedByName: this.actor(requester) }, include: invoiceInclude })
     ])
     return this.serializeInvoice(invoice)
   }
@@ -288,7 +295,7 @@ export class FinancialService {
     const status = remainingPaid <= 0 ? 'PENDING' : remainingPaid + 0.001 >= Number(current.amount) ? 'PAID' : 'PARTIAL'
     const [, invoice] = await this.prisma.$transaction([
       this.prisma.invoicePayment.delete({ where: { id: paymentId } }),
-      this.prisma.invoice.update({ where: { id: invoiceId }, data: { status }, include: invoiceInclude })
+      this.prisma.invoice.update({ where: { id: invoiceId }, data: { status, updatedByName: this.actor(requester) }, include: invoiceInclude })
     ])
     return this.serializeInvoice(invoice)
   }
@@ -296,7 +303,7 @@ export class FinancialService {
   async cancelInvoice(requester: FinancialRequester, id: string) {
     const current = await this.invoiceOrThrow(requester, id)
     if (this.paymentTotal(current) > 0) throw new BadRequestException('Remova os recebimentos antes de cancelar esta cobrança.')
-    const invoice = await this.prisma.invoice.update({ where: { id }, data: { status: 'CANCELLED' }, include: invoiceInclude })
+    const invoice = await this.prisma.invoice.update({ where: { id }, data: { status: 'CANCELLED', updatedByName: this.actor(requester) }, include: invoiceInclude })
     return this.serializeInvoice(invoice)
   }
 
@@ -343,7 +350,9 @@ export class FinancialService {
         issuedAt: input.issuedAt ? new Date(input.issuedAt) : new Date(),
         dueDate: new Date(input.dueDate),
         recurring: Boolean(input.recurring),
-        notes: input.notes?.trim() || null
+        notes: input.notes?.trim() || null,
+        createdByName: this.actor(requester),
+        updatedByName: this.actor(requester)
       }
     })
     return this.serializeExpense(expense)
@@ -355,6 +364,7 @@ export class FinancialService {
     if (!current) throw new NotFoundException('Despesa não encontrada.')
     if (current.status === 'CANCELLED') throw new BadRequestException('Uma despesa cancelada não pode ser alterada.')
     const data: any = {}
+    data.updatedByName = this.actor(requester)
     if (input.description !== undefined) data.description = input.description.trim()
     if (input.category !== undefined) data.category = input.category.trim() || null
     if (input.supplier !== undefined) data.supplier = input.supplier.trim() || null
@@ -374,7 +384,7 @@ export class FinancialService {
     if (current.status === 'CANCELLED') throw new BadRequestException('Não é possível pagar uma despesa cancelada.')
     const expense = await this.prisma.expense.update({
       where: { id },
-      data: { status: 'PAID', paidAt: new Date(input.paidAt), paymentMethod: input.method }
+      data: { status: 'PAID', paidAt: new Date(input.paidAt), paymentMethod: input.method, updatedByName: this.actor(requester) }
     })
     return this.serializeExpense(expense)
   }
@@ -386,7 +396,7 @@ export class FinancialService {
     if (current.status !== 'PAID') throw new BadRequestException('Apenas despesas pagas podem ter o pagamento estornado.')
     const expense = await this.prisma.expense.update({
       where: { id },
-      data: { status: 'PENDING', paidAt: null, paymentMethod: null }
+      data: { status: 'PENDING', paidAt: null, paymentMethod: null, updatedByName: this.actor(requester) }
     })
     return this.serializeExpense(expense)
   }
@@ -396,7 +406,7 @@ export class FinancialService {
     const current = await this.prisma.expense.findUnique({ where: { id } })
     if (!current) throw new NotFoundException('Despesa não encontrada.')
     if (current.status === 'PAID') throw new BadRequestException('Uma despesa paga não pode ser cancelada.')
-    const expense = await this.prisma.expense.update({ where: { id }, data: { status: 'CANCELLED' } })
+    const expense = await this.prisma.expense.update({ where: { id }, data: { status: 'CANCELLED', updatedByName: this.actor(requester) } })
     return this.serializeExpense(expense)
   }
 
@@ -426,7 +436,9 @@ export class FinancialService {
         category: input.category?.trim() || null,
         price: this.money(input.price),
         durationMinutes: input.durationMinutes || null,
-        active: input.active !== false
+        active: input.active !== false,
+        createdByName: this.actor(requester),
+        updatedByName: this.actor(requester)
       }
     })
     return { ...service, price: this.money(service.price) }
@@ -437,6 +449,7 @@ export class FinancialService {
     const current = await this.prisma.clinicService.findUnique({ where: { id } })
     if (!current) throw new NotFoundException('Serviço não encontrado.')
     const data: any = {}
+    data.updatedByName = this.actor(requester)
     if (input.name !== undefined) data.name = input.name.trim()
     if (input.description !== undefined) data.description = input.description.trim() || null
     if (input.category !== undefined) data.category = input.category.trim() || null
@@ -452,7 +465,7 @@ export class FinancialService {
     const current = await this.prisma.clinicService.findUnique({ where: { id }, include: { _count: { select: { invoiceItems: true } } } })
     if (!current) throw new NotFoundException('Serviço não encontrado.')
     if (current._count.invoiceItems > 0) {
-      const service = await this.prisma.clinicService.update({ where: { id }, data: { active: false } })
+      const service = await this.prisma.clinicService.update({ where: { id }, data: { active: false, updatedByName: this.actor(requester) } })
       return { ...service, price: this.money(service.price), archived: true }
     }
     await this.prisma.clinicService.delete({ where: { id } })

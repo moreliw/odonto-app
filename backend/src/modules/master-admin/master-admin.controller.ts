@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { MasterAdminService } from './master-admin.service'
 import { IsBoolean, IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Matches, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { Plan, SubscriptionStatus } from '@prisma/client-master'
 import { MasterAdminGuard } from './master-admin.guard'
 import { Throttle } from '@nestjs/throttler'
+import { FileInterceptor } from '@nestjs/platform-express'
 
 class MasterLoginDto {
   @IsEmail()
@@ -228,6 +229,19 @@ export class MasterAdminController {
       ...rest,
       ...(typeof priceCents === 'number' ? { priceCents } : {})
     })
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Post('clinics/:id/logo')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024, files: 1 } }))
+  uploadClinicLogo(@Param('id') id: string, @UploadedFile() file?: Express.Multer.File) {
+    return this.service.uploadClinicLogo(id, file)
+  }
+
+  @UseGuards(MasterAdminGuard)
+  @Delete('clinics/:id/logo')
+  removeClinicLogo(@Param('id') id: string) {
+    return this.service.removeClinicLogo(id)
   }
 
   @UseGuards(MasterAdminGuard)

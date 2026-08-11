@@ -86,6 +86,18 @@ export class SignupController {
     return res.send(png)
   }
 
+  @Get('branding/logo/:tenantId')
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  async brandingLogo(@Param('tenantId') tenantId: string, @Res() res: Response) {
+    const logo = await this.service.getBrandingLogo(tenantId)
+    res.set({
+      'Content-Type': logo.contentType,
+      'Cache-Control': 'public, max-age=86400, immutable',
+      'X-Content-Type-Options': 'nosniff'
+    })
+    return logo.stream.pipe(res)
+  }
+
   /** Tela pública de confirmação de consulta — o paciente acessa pelo link do e-mail, sem login. */
   @Get('appointments/confirm/:subdomain/:token')
   @Throttle({ default: { ttl: 60_000, limit: 30 } })

@@ -16,19 +16,41 @@ export class DashboardController {
     }
     const prisma: any = this.prismaTenant.getClient()
     const now = new Date()
+    const isAdmin = (req as any).user?.role === 'ADMIN'
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const nextSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
-    const [patientCount, appointmentsToday, paymentRevenueAgg, legacyRevenueAgg, invPending, invPartial, invPaid, invCancelled, todayAppointments] = await Promise.all([
+    const [
+      patientCount,
+      appointmentsToday,
+      newPatientsThisMonth,
+      appointmentsNextSevenDays,
+      pendingConfirmations,
+      unassignedAppointments,
+      completedThisMonth,
+      paymentRevenueAgg,
+      legacyRevenueAgg,
+      invPending,
+      invPartial,
+      invPaid,
+      invCancelled,
+      todayAppointments
+    ] = await Promise.all([
       prisma.patient.count(),
       prisma.appointment.count({ where: { startTime: { gte: startOfToday, lt: endOfToday }, status: 'SCHEDULED' } }),
-      prisma.invoicePayment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: startOfMonth } } }),
-      prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: 'PAID', payments: { none: {} } } }),
-      prisma.invoice.count({ where: { status: 'PENDING' } }),
-      prisma.invoice.count({ where: { status: 'PARTIAL' } }),
-      prisma.invoice.count({ where: { status: 'PAID' } }),
-      prisma.invoice.count({ where: { status: 'CANCELLED' } }),
+      prisma.patient.count({ where: { createdAt: { gte: startOfMonth } } }),
+      prisma.appointment.count({ where: { startTime: { gte: now, lt: nextSevenDays }, status: 'SCHEDULED' } }),
+      prisma.appointment.count({ where: { startTime: { gte: now }, status: 'SCHEDULED', confirmationStatus: 'PENDING' } }),
+      prisma.appointment.count({ where: { startTime: { gte: now }, status: 'SCHEDULED', dentistId: null, dentistName: null } }),
+      prisma.appointment.count({ where: { startTime: { gte: startOfMonth }, status: 'COMPLETED' } }),
+      isAdmin ? prisma.invoicePayment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: startOfMonth } } }) : Promise.resolve({ _sum: { amount: 0 } }),
+      isAdmin ? prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: 'PAID', payments: { none: {} } } }) : Promise.resolve({ _sum: { amount: 0 } }),
+      isAdmin ? prisma.invoice.count({ where: { status: 'PENDING' } }) : Promise.resolve(0),
+      isAdmin ? prisma.invoice.count({ where: { status: 'PARTIAL' } }) : Promise.resolve(0),
+      isAdmin ? prisma.invoice.count({ where: { status: 'PAID' } }) : Promise.resolve(0),
+      isAdmin ? prisma.invoice.count({ where: { status: 'CANCELLED' } }) : Promise.resolve(0),
       prisma.appointment.findMany({
         where: { startTime: { gte: startOfToday, lt: endOfToday } },
         include: { patient: { select: { id: true, name: true } }, dentist: { select: { id: true, name: true } } },
@@ -49,6 +71,12 @@ export class DashboardController {
     return {
       patientCount,
       appointmentsToday,
+      newPatientsThisMonth,
+      appointmentsNextSevenDays,
+      pendingConfirmations,
+      unassignedAppointments,
+      completedThisMonth,
+      canViewFinancial: isAdmin,
       revenueThisMonth: Number(paymentRevenueAgg._sum.amount || 0) + Number(legacyRevenueAgg._sum.amount || 0),
       invoicesStatus: { pending: invPending, partial: invPartial, paid: invPaid, cancelled: invCancelled },
       monthlyPatients,

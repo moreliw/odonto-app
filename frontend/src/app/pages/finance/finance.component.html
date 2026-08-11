@@ -204,9 +204,9 @@
       </div>
       <div class="finance-table-wrap">
         <table class="finance-table">
-          <thead><tr><th>Paciente</th><th>Cobrança</th><th>Vencimento</th><th>Status</th><th>Valor</th><th>Saldo</th><th><span class="sr-only">Ações</span></th></tr></thead>
+          <thead><tr><th>Paciente</th><th>Cobrança</th><th>Vencimento</th><th>Status</th><th>Valor</th><th>Saldo</th>@if (isAdmin) { <th>Criado por</th><th>Atualizado por</th> }<th><span class="sr-only">Ações</span></th></tr></thead>
           <tbody>
-            @for (invoice of invoices; track invoice.id) {
+            @for (invoice of pagedInvoices; track invoice.id) {
               <tr>
                 <td><div class="finance-person"><span>{{ invoice.patient.name[0] }}</span><div><strong>{{ invoice.patient.name }}</strong><small>{{ invoice.dentist?.name || invoice.dentistName || 'Sem dentista vinculado' }}</small></div></div></td>
                 <td><strong>{{ invoice.description }}</strong><small>{{ invoice.items.length }} item{{ invoice.items.length === 1 ? '' : 's' }}</small></td>
@@ -214,17 +214,22 @@
                 <td><span class="finance-status" [class]="statusClass(invoice.effectiveStatus)">{{ statusText(invoice.effectiveStatus) }}</span></td>
                 <td><strong>{{ money(invoice.amount) }}</strong><small>@if (invoice.discount) { {{ money(invoice.discount) }} de desconto }</small></td>
                 <td><strong>{{ money(invoice.remainingAmount) }}</strong><small>{{ money(invoice.paidAmount) }} recebido</small></td>
+                @if (isAdmin) {
+                  <td><div class="audit-cell"><strong>{{ invoice.createdByName || 'Sistema' }}</strong><span>{{ invoice.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
+                  <td><div class="audit-cell"><strong>{{ invoice.updatedByName || invoice.createdByName || 'Sistema' }}</strong><span>{{ invoice.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
+                }
                 <td><div class="finance-row-actions"><button type="button" (click)="openInvoiceDetails(invoice)">Detalhes</button>@if (!['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="finance-action-primary" (click)="openPayment(invoice)">Receber</button> <button type="button" (click)="openInvoice(invoice)" title="Editar cobrança">Editar</button> <button type="button" (click)="cancelInvoice(invoice)" title="Cancelar cobrança">Cancelar</button> } @if (isAdmin && invoice.paidAmount === 0) { <button type="button" class="danger" (click)="deleteInvoice(invoice)" title="Excluir cobrança">Excluir</button> }</div></td>
               </tr>
-            } @empty { <tr><td colspan="7"><div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>Crie uma cobrança ou ajuste os filtros.</span><button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">Criar cobrança</button></div></td></tr> }
+            } @empty { <tr><td [attr.colspan]="isAdmin ? 9 : 7"><div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>Crie uma cobrança ou ajuste os filtros.</span><button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">Criar cobrança</button></div></td></tr> }
           </tbody>
         </table>
       </div>
       <div class="finance-mobile-records">
-        @for (invoice of invoices; track invoice.id) {
+        @for (invoice of pagedInvoices; track invoice.id) {
           <article><header><div class="finance-person"><span>{{ invoice.patient.name[0] }}</span><div><strong>{{ invoice.patient.name }}</strong><small>{{ invoice.description }}</small></div></div><span class="finance-status" [class]="statusClass(invoice.effectiveStatus)">{{ statusText(invoice.effectiveStatus) }}</span></header><div class="finance-record-values"><div><span>Total</span><strong>{{ money(invoice.amount) }}</strong></div><div><span>Saldo</span><strong>{{ money(invoice.remainingAmount) }}</strong></div><div><span>Vence em</span><strong>{{ invoice.dueDate | date:'dd/MM' }}</strong></div></div><footer>@if (!['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="btn btn-primary btn-sm" (click)="openPayment(invoice)">Registrar recebimento</button> }<button type="button" class="btn btn-outline btn-sm" (click)="openInvoiceDetails(invoice)">Detalhes</button></footer></article>
         } @empty { <div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>Crie uma cobrança para começar.</span></div> }
       </div>
+      <app-pagination [page]="invoicePage" [pageSize]="pageSize" [totalItems]="invoices.length" (pageChange)="invoicePage=$event"></app-pagination>
     </section>
   }
 
@@ -232,14 +237,15 @@
     <section class="finance-panel card" role="tabpanel">
       <header class="finance-panel-head"><div><h2>Contas a pagar</h2><p>Organize custos, fornecedores e vencimentos da clínica.</p></div><button class="btn btn-primary btn-sm" type="button" (click)="openExpense()">+ Nova despesa</button></header>
       <div class="finance-filterbar"><div class="finance-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" type="search" [(ngModel)]="search" (ngModelChange)="searchChanged()" placeholder="Buscar despesa ou fornecedor" aria-label="Buscar despesas" /></div><select class="select" [(ngModel)]="statusFilter" (change)="loadExpenses()"><option value="ALL">Todos os status</option><option value="PENDING">Pendentes</option><option value="OVERDUE">Em atraso</option><option value="PAID">Pagas</option><option value="CANCELLED">Canceladas</option></select></div>
-      <div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Despesa</th><th>Categoria</th><th>Vencimento</th><th>Status</th><th>Valor</th><th><span class="sr-only">Ações</span></th></tr></thead><tbody>
-        @for (expense of expenses; track expense.id) {
-          <tr><td><strong>{{ expense.description }}</strong><small>{{ expense.supplier || 'Sem fornecedor' }} @if (expense.recurring) { · Recorrente }</small></td><td>{{ expense.category || 'Não categorizada' }}</td><td><strong>{{ expense.dueDate | date:'dd/MM/yyyy' }}</strong><small>@if (expense.paidAt) { Pago em {{ expense.paidAt | date:'dd/MM/yyyy' }} }</small></td><td><span class="finance-status" [class]="statusClass(expense.effectiveStatus)">{{ statusText(expense.effectiveStatus) }}</span></td><td><strong>{{ money(expense.amount) }}</strong></td><td><div class="finance-row-actions">@if (expense.status === 'PENDING') { <button type="button" class="finance-action-primary" (click)="openExpensePayment(expense)">Pagar</button><button type="button" (click)="openExpense(expense)">Editar</button><button type="button" (click)="cancelExpense(expense)">Cancelar</button> } @if (expense.status === 'PAID') { <button type="button" (click)="reopenExpense(expense)">Estornar</button> } @if (expense.status !== 'PAID') { <button type="button" class="danger" (click)="deleteExpense(expense)">Excluir</button> }</div></td></tr>
-        } @empty { <tr><td colspan="6"><div class="finance-empty"><strong>Nenhuma despesa encontrada</strong><span>Registre custos para acompanhar o resultado real da clínica.</span><button class="btn btn-primary btn-sm" type="button" (click)="openExpense()">Criar despesa</button></div></td></tr> }
+      <div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Despesa</th><th>Categoria</th><th>Vencimento</th><th>Status</th><th>Valor</th><th>Criado por</th><th>Atualizado por</th><th><span class="sr-only">Ações</span></th></tr></thead><tbody>
+        @for (expense of pagedExpenses; track expense.id) {
+          <tr><td><strong>{{ expense.description }}</strong><small>{{ expense.supplier || 'Sem fornecedor' }} @if (expense.recurring) { · Recorrente }</small></td><td>{{ expense.category || 'Não categorizada' }}</td><td><strong>{{ expense.dueDate | date:'dd/MM/yyyy' }}</strong><small>@if (expense.paidAt) { Pago em {{ expense.paidAt | date:'dd/MM/yyyy' }} }</small></td><td><span class="finance-status" [class]="statusClass(expense.effectiveStatus)">{{ statusText(expense.effectiveStatus) }}</span></td><td><strong>{{ money(expense.amount) }}</strong></td><td><div class="audit-cell"><strong>{{ expense.createdByName || 'Sistema' }}</strong><span>{{ expense.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td><td><div class="audit-cell"><strong>{{ expense.updatedByName || expense.createdByName || 'Sistema' }}</strong><span>{{ expense.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td><td><div class="finance-row-actions">@if (expense.status === 'PENDING') { <button type="button" class="finance-action-primary" (click)="openExpensePayment(expense)">Pagar</button><button type="button" (click)="openExpense(expense)">Editar</button><button type="button" (click)="cancelExpense(expense)">Cancelar</button> } @if (expense.status === 'PAID') { <button type="button" (click)="reopenExpense(expense)">Estornar</button> } @if (expense.status !== 'PAID') { <button type="button" class="danger" (click)="deleteExpense(expense)">Excluir</button> }</div></td></tr>
+        } @empty { <tr><td colspan="8"><div class="finance-empty"><strong>Nenhuma despesa encontrada</strong><span>Registre custos para acompanhar o resultado real da clínica.</span><button class="btn btn-primary btn-sm" type="button" (click)="openExpense()">Criar despesa</button></div></td></tr> }
       </tbody></table></div>
       <div class="finance-mobile-records">
-        @for (expense of expenses; track expense.id) { <article><header><div><strong>{{ expense.description }}</strong><small>{{ expense.supplier || expense.category || 'Despesa da clínica' }}</small></div><span class="finance-status" [class]="statusClass(expense.effectiveStatus)">{{ statusText(expense.effectiveStatus) }}</span></header><div class="finance-record-values"><div><span>Valor</span><strong>{{ money(expense.amount) }}</strong></div><div><span>Vencimento</span><strong>{{ expense.dueDate | date:'dd/MM' }}</strong></div></div><footer>@if (expense.status === 'PENDING') { <button class="btn btn-primary btn-sm" type="button" (click)="openExpensePayment(expense)">Registrar pagamento</button><button class="btn btn-outline btn-sm" type="button" (click)="openExpense(expense)">Editar</button> } @if (expense.status === 'PAID') { <button class="btn btn-outline btn-sm" type="button" (click)="reopenExpense(expense)">Estornar pagamento</button> }</footer></article> }
+        @for (expense of pagedExpenses; track expense.id) { <article><header><div><strong>{{ expense.description }}</strong><small>{{ expense.supplier || expense.category || 'Despesa da clínica' }}</small></div><span class="finance-status" [class]="statusClass(expense.effectiveStatus)">{{ statusText(expense.effectiveStatus) }}</span></header><div class="finance-record-values"><div><span>Valor</span><strong>{{ money(expense.amount) }}</strong></div><div><span>Vencimento</span><strong>{{ expense.dueDate | date:'dd/MM' }}</strong></div></div><footer>@if (expense.status === 'PENDING') { <button class="btn btn-primary btn-sm" type="button" (click)="openExpensePayment(expense)">Registrar pagamento</button><button class="btn btn-outline btn-sm" type="button" (click)="openExpense(expense)">Editar</button> } @if (expense.status === 'PAID') { <button class="btn btn-outline btn-sm" type="button" (click)="reopenExpense(expense)">Estornar pagamento</button> }</footer></article> }
       </div>
+      <app-pagination [page]="expensePage" [pageSize]="pageSize" [totalItems]="expenses.length" (pageChange)="expensePage=$event"></app-pagination>
     </section>
   }
 
@@ -248,10 +254,11 @@
       <header class="finance-panel-head"><div><h2>Catálogo de serviços</h2><p>Valores padronizados deixam cobranças e orçamentos mais rápidos.</p></div>@if (isAdmin) { <button class="btn btn-primary btn-sm" type="button" (click)="openService()">+ Novo serviço</button> }</header>
       @if (services.length) {
         <div class="finance-service-grid">
-          @for (service of services; track service.id) {
-            <article [class.inactive]="!service.active"><header><span>{{ service.category || 'Serviço odontológico' }}</span>@if (!service.active) { <b>Arquivado</b> }</header><h3>{{ service.name }}</h3><p>{{ service.description || 'Sem descrição adicional.' }}</p><div><strong>{{ money(service.price) }}</strong>@if (service.durationMinutes) { <span>{{ service.durationMinutes }} min</span> }</div>@if (isAdmin) { <footer><button type="button" (click)="openService(service)">Editar</button><button type="button" class="danger" (click)="archiveService(service)">{{ service.active ? 'Arquivar' : 'Excluir' }}</button></footer> }</article>
+          @for (service of pagedServices; track service.id) {
+            <article [class.inactive]="!service.active"><header><span>{{ service.category || 'Serviço odontológico' }}</span>@if (!service.active) { <b>Arquivado</b> }</header><h3>{{ service.name }}</h3><p>{{ service.description || 'Sem descrição adicional.' }}</p><div><strong>{{ money(service.price) }}</strong>@if (service.durationMinutes) { <span>{{ service.durationMinutes }} min</span> }</div>@if (isAdmin) { <div class="audit-summary"><span><strong>Criado por:</strong> {{ service.createdByName || 'Sistema' }} em {{ service.createdAt | date:'dd/MM/yyyy HH:mm' }}</span><span><strong>Atualizado por:</strong> {{ service.updatedByName || service.createdByName || 'Sistema' }} em {{ service.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div><footer><button type="button" (click)="openService(service)">Editar</button><button type="button" class="danger" (click)="archiveService(service)">{{ service.active ? 'Arquivar' : 'Excluir' }}</button></footer> }</article>
           }
         </div>
+        <app-pagination [page]="servicePage" [pageSize]="pageSize" [totalItems]="services.length" (pageChange)="servicePage=$event"></app-pagination>
       } @else { <div class="finance-empty"><strong>Seu catálogo ainda está vazio</strong><span>Cadastre os procedimentos mais usados para agilizar novas cobranças.</span>@if (isAdmin) { <button class="btn btn-primary btn-sm" type="button" (click)="openService()">Adicionar primeiro serviço</button> }</div> }
     </section>
   }

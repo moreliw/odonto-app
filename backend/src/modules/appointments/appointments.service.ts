@@ -5,7 +5,7 @@ import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 import { RequestContext } from '../tenancy/request-context'
 import { buildWhatsappUrl, normalizeWhatsappPhone } from './whatsapp-link'
 
-type Requester = { userId: string; role: string }
+type Requester = { userId: string; email?: string; role: string }
 
 const DENTIST_SELECT = { id: true, name: true }
 const INCLUDE = { patient: true, dentist: { select: DENTIST_SELECT } }
@@ -65,13 +65,21 @@ export class AppointmentsService {
     // Nome livre só faz sentido quando não há conta vinculada — evita ambiguidade entre os dois.
     const dentistName = dentistId ? null : data.dentistName?.trim() || null
     return this.prismaTenant.getClient().appointment.create({
-      data: { ...data, dentistId, dentistName, confirmationToken: randomUUID() },
+      data: {
+        ...data,
+        dentistId,
+        dentistName,
+        confirmationToken: randomUUID(),
+        createdByName: requester.email?.trim() || 'Sistema',
+        updatedByName: requester.email?.trim() || 'Sistema'
+      },
       include: INCLUDE
     })
   }
 
   async update(requester: Requester, id: string, data: Record<string, unknown>) {
     await this.assertOwnedByDentistOrAdmin(requester, id)
+    data.updatedByName = requester.email?.trim() || 'Sistema'
     // Dentista não pode reatribuir a própria consulta para outro colega.
     if (requester.role === 'DENTIST') {
       delete data.dentistId
@@ -154,7 +162,8 @@ export class AppointmentsService {
         confirmationToken: token,
         // Não existe callback quando o envio é manual; registramos o momento em que a conversa foi preparada.
         confirmationSentAt: new Date(),
-        confirmationStatus: appointment.confirmationStatus === 'DECLINED' ? 'PENDING' : appointment.confirmationStatus
+        confirmationStatus: appointment.confirmationStatus === 'DECLINED' ? 'PENDING' : appointment.confirmationStatus,
+        updatedByName: requester.email?.trim() || 'Sistema'
       },
       include: INCLUDE
     })

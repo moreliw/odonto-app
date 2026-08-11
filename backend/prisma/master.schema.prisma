@@ -57,6 +57,8 @@ model Tenant {
   primaryColor String?
   /// URL pública do logo da clínica, exibido na sidebar e topbar do app da clínica.
   logoUrl      String?
+  logoKey      String?
+  logoContentType String?
   /// Campo legado preservado para compatibilidade com bancos já provisionados.
   whatsappNumber String?
   /// Bloqueio administrativo independente da assinatura: false suspende todo o acesso da clínica.

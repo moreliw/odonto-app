@@ -1,10 +1,12 @@
 import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
 @Component({
     selector: 'app-master-operations',
-    imports: [CommonModule],
+    imports: [CommonModule, PaginationComponent],
     template: `
     <div class="dashboard-page">
       <div class="page-header">
@@ -55,7 +57,7 @@ import { HttpClient } from '@angular/common/http'
               @if (!overview) {
                 <tr><td colspan="9" class="table-empty"><span class="spinner spinner-dark"></span></td></tr>
               }
-              @for (row of overview?.clinics; track row.tenantId) {
+              @for (row of pagedClinics; track row.tenantId) {
                 <tr>
                   <td><strong>{{ row.name }}</strong></td>
                   <td class="muted text-sm">{{ row.subdomain }}</td>
@@ -77,12 +79,17 @@ import { HttpClient } from '@angular/common/http'
             </tbody>
           </table>
         </div>
+        <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="overview?.clinics?.length || 0" (pageChange)="page=$event"></app-pagination>
       </div>
     </div>
   `
 })
 export class MasterOperationsComponent implements OnInit {
   overview: any = null
+  page = 1
+  readonly pageSize = 15
+
+  get pagedClinics(): any[] { return paginate<any>(this.overview?.clinics || [], this.page, this.pageSize) }
 
   get kpis() {
     const t = this.overview?.totals
@@ -106,6 +113,6 @@ export class MasterOperationsComponent implements OnInit {
   ngOnInit() { this.load() }
 
   load() {
-    this.http.get<any>('/api/master/operations/overview').subscribe((res: any) => this.overview = res)
+    this.http.get<any>('/api/master/operations/overview').subscribe((res: any) => { this.overview = res; this.page = 1 })
   }
 }

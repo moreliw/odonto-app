@@ -16,6 +16,8 @@ import {
 import { PrivacyService } from '../../services/privacy.service'
 import { ToastService } from '../../services/toast.service'
 import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
 type FinanceTab = 'overview' | 'receivables' | 'expenses' | 'services'
 type PatientOption = { id: string; name: string; phone?: string | null }
@@ -42,7 +44,7 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
 
 @Component({
   selector: 'app-finance',
-  imports: [CommonModule, FormsModule, SearchableSelectComponent],
+  imports: [CommonModule, FormsModule, SearchableSelectComponent, PaginationComponent],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.css'
 })
@@ -69,6 +71,10 @@ export class FinanceComponent implements OnInit, OnDestroy {
   invoices: ClinicInvoice[] = []
   expenses: Expense[] = []
   services: ClinicService[] = []
+  invoicePage = 1
+  expensePage = 1
+  servicePage = 1
+  readonly pageSize = 15
   patients: PatientOption[] = []
   dentists: DentistOption[] = []
 
@@ -79,6 +85,10 @@ export class FinanceComponent implements OnInit, OnDestroy {
   get dentistItems() {
     return this.dentists.map(d => ({ id: d.id, label: d.name }))
   }
+
+  get pagedInvoices() { return paginate(this.invoices, this.invoicePage, this.pageSize) }
+  get pagedExpenses() { return paginate(this.expenses, this.expensePage, this.pageSize) }
+  get pagedServices() { return paginate(this.services, this.servicePage, this.pageSize) }
 
   invoiceModal = false
   invoiceDetailsModal = false
@@ -151,6 +161,9 @@ export class FinanceComponent implements OnInit, OnDestroy {
     this.activeTab = tab
     this.search = ''
     this.statusFilter = 'ALL'
+    this.invoicePage = 1
+    this.expensePage = 1
+    this.servicePage = 1
   }
 
   loadAll() {
@@ -170,6 +183,9 @@ export class FinanceComponent implements OnInit, OnDestroy {
         this.services = result.services
         this.patients = result.patients
         this.expenses = result.expenses
+        this.invoicePage = 1
+        this.expensePage = 1
+        this.servicePage = 1
         this.dentists = result.dentists
         this.loading = false
       },
@@ -186,6 +202,8 @@ export class FinanceComponent implements OnInit, OnDestroy {
   }
 
   searchChanged() {
+    this.invoicePage = 1
+    this.expensePage = 1
     if (this.searchTimer) clearTimeout(this.searchTimer)
     this.searchTimer = setTimeout(() => this.refreshList(), 300)
   }
@@ -193,7 +211,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
   loadInvoices() {
     this.loading = true
     this.api.invoices({ search: this.search, status: this.statusFilter }).subscribe({
-      next: invoices => { this.invoices = invoices; this.loading = false },
+      next: invoices => { this.invoices = invoices; this.invoicePage = 1; this.loading = false },
       error: error => { this.loading = false; this.toast.error('Falha ao carregar cobranças', this.errorMessage(error)) }
     })
   }
@@ -201,7 +219,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
   loadExpenses() {
     this.loading = true
     this.api.expenses({ search: this.search, status: this.statusFilter }).subscribe({
-      next: expenses => { this.expenses = expenses; this.loading = false },
+      next: expenses => { this.expenses = expenses; this.expensePage = 1; this.loading = false },
       error: error => { this.loading = false; this.toast.error('Falha ao carregar despesas', this.errorMessage(error)) }
     })
   }

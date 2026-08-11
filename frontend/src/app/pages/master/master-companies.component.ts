@@ -1,10 +1,12 @@
 import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
-import { HttpClient } from '@angular/common/http'
+import { HttpClient, HttpEventType } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
 import { AuthService, User } from '../../services/auth.service'
 import { Router } from '@angular/router'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
 type ClinicRow = {
   id: string; name: string; subdomain: string; slug: string; internalNotes?: string | null
@@ -28,7 +30,7 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
 
 @Component({
     selector: 'app-master-companies',
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, PaginationComponent],
     template: `
     <div class="dashboard-page">
       <div class="page-header">
@@ -49,11 +51,11 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
         <div class="master-filter-grid">
           <div class="form-group master-filter-search">
             <label for="master-clinic-search">Buscar clínica</label>
-            <input id="master-clinic-search" class="input" [(ngModel)]="search" placeholder="Nome, subdomínio ou e-mail do administrador" />
+            <input id="master-clinic-search" class="input" [(ngModel)]="search" (ngModelChange)="page=1" placeholder="Nome, subdomínio ou e-mail do administrador" />
           </div>
           <div class="form-group">
             <label for="master-clinic-status">Status</label>
-            <select id="master-clinic-status" class="select" [(ngModel)]="statusFilter">
+            <select id="master-clinic-status" class="select" [(ngModel)]="statusFilter" (ngModelChange)="page=1">
               <option value="ALL">Todos</option>
               <option value="ACTIVE">Ativas</option>
               <option value="BLOCKED">Bloqueadas</option>
@@ -89,7 +91,7 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
                   </div>
                 </td></tr>
               }
-              @for (c of filteredClinics; track c.id) {
+              @for (c of pagedClinics; track c.id) {
                 <tr>
                   <td>
                     <div style="display:flex;align-items:center;gap:10px;">
@@ -123,6 +125,7 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
             </tbody>
           </table>
         </div>
+        <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="filteredClinics.length" (pageChange)="page=$event"></app-pagination>
       </div>
     </div>
 
@@ -197,13 +200,42 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
                 </div>
               </div>
               <div class="form-group">
-                <label>URL do logo</label>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  @if (editForm.logoUrl) {
-                    <img [src]="editForm.logoUrl" alt="" width="34" height="34" style="border-radius:8px;object-fit:contain;border:1px solid var(--border);flex-shrink:0;" />
+                <label>Logo da clínica</label>
+                <input #logoInput type="file" hidden accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" (change)="onLogoSelected($event)" />
+                <div
+                  class="master-logo-upload"
+                  [class.is-dragging]="logoDragging"
+                  [class.is-uploading]="logoUploading"
+                  (dragover)="onLogoDragOver($event)"
+                  (dragleave)="logoDragging=false"
+                  (drop)="onLogoDrop($event)"
+                >
+                  @if (logoPreviewUrl || editForm.logoUrl) {
+                    <img class="master-logo-preview" [src]="logoPreviewUrl || editForm.logoUrl" [alt]="'Logo de ' + editing.name" />
+                  } @else {
+                    <div class="master-logo-placeholder" aria-hidden="true">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
                   }
-                  <input class="input" [(ngModel)]="editForm.logoUrl" name="e_logo" placeholder="https://.../logo.png" />
+                  <div class="master-logo-upload-copy">
+                    <strong>{{ (logoPreviewUrl || editForm.logoUrl) ? 'Substituir logo' : 'Enviar uma logo' }}</strong>
+                    <span>Arraste aqui ou selecione PNG, JPG, JPEG ou WEBP · máximo 2 MB</span>
+                    @if (logoUploading) {
+                      <div class="master-upload-progress" role="progressbar" [attr.aria-valuenow]="logoProgress" aria-valuemin="0" aria-valuemax="100">
+                        <span [style.width.%]="logoProgress"></span>
+                      </div>
+                      <small>Enviando… {{ logoProgress }}%</small>
+                    } @else {
+                      <div class="master-logo-actions">
+                        <button type="button" class="btn btn-outline btn-sm" (click)="logoInput.click()">Selecionar imagem</button>
+                        @if (editForm.logoUrl) {
+                          <button type="button" class="btn btn-ghost btn-sm master-logo-remove" (click)="removeLogo()" [disabled]="logoRemoving">{{ logoRemoving ? 'Removendo…' : 'Remover' }}</button>
+                        }
+                      </div>
+                    }
+                  </div>
                 </div>
+                @if (logoError) { <small class="master-logo-error" role="alert">{{ logoError }}</small> }
               </div>
             </div>
 
@@ -435,6 +467,8 @@ const STATUS_CLASS: Record<string, string> = { PENDING: 'neutral', ACTIVE: '', T
 export class MasterCompaniesComponent implements OnInit {
   clinics: ClinicRow[] = []
   search = ''
+  page = 1
+  readonly pageSize = 15
   statusFilter: 'ALL' | 'ACTIVE' | 'BLOCKED' | 'BENEFIT' = 'ALL'
   editing: ClinicRow | null = null
   paymentEvents: PaymentEventRow[] = []
@@ -469,6 +503,12 @@ export class MasterCompaniesComponent implements OnInit {
   activeSaving = false
   deleteConfirmText = ''
   deleteSaving = false
+  logoDragging = false
+  logoUploading = false
+  logoRemoving = false
+  logoProgress = 0
+  logoError = ''
+  logoPreviewUrl = ''
 
   constructor(
     private readonly http: HttpClient,
@@ -501,7 +541,12 @@ export class MasterCompaniesComponent implements OnInit {
     })
   }
 
+  get pagedClinics() {
+    return paginate(this.filteredClinics, this.page, this.pageSize)
+  }
+
   openEdit(c: ClinicRow) {
+    this.clearLogoPreview()
     this.editing = c
     this.loadPaymentEvents(c.id)
     this.editMessage = ''
@@ -515,6 +560,11 @@ export class MasterCompaniesComponent implements OnInit {
     this.grantForm = this.emptyGrantForm()
     this.deleteConfirmText = ''
     this.deleteSaving = false
+    this.logoDragging = false
+    this.logoUploading = false
+    this.logoRemoving = false
+    this.logoProgress = 0
+    this.logoError = ''
     const sub = c.subscription
     this.editForm = {
       name: c.name,
@@ -529,6 +579,95 @@ export class MasterCompaniesComponent implements OnInit {
       renewsAtLocal: sub?.renewsAt ? this.toLocal(sub.renewsAt) : '',
       canceledAtLocal: sub?.canceledAt ? this.toLocal(sub.canceledAt) : ''
     }
+  }
+
+  onLogoDragOver(event: DragEvent) {
+    event.preventDefault()
+    if (!this.logoUploading) this.logoDragging = true
+  }
+
+  onLogoDrop(event: DragEvent) {
+    event.preventDefault()
+    this.logoDragging = false
+    const file = event.dataTransfer?.files?.[0]
+    if (file) this.uploadLogo(file)
+  }
+
+  onLogoSelected(event: Event) {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (file) this.uploadLogo(file)
+    input.value = ''
+  }
+
+  private uploadLogo(file: File) {
+    if (!this.editing || this.logoUploading) return
+    this.logoError = ''
+    const allowed = ['image/png', 'image/jpeg', 'image/webp']
+    if (!allowed.includes(file.type)) {
+      this.logoError = 'Formato não permitido. Selecione PNG, JPG, JPEG ou WEBP.'
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      this.logoError = 'A imagem ultrapassa o limite máximo de 2 MB.'
+      return
+    }
+    this.clearLogoPreview()
+    this.logoPreviewUrl = URL.createObjectURL(file)
+    const formData = new FormData()
+    formData.append('file', file)
+    this.logoUploading = true
+    this.logoProgress = 0
+    this.http.post<{ logoUrl: string }>(`/api/master/clinics/${this.editing.id}/logo`, formData, {
+      observe: 'events',
+      reportProgress: true,
+    }).subscribe({
+      next: event => {
+        if (event.type === HttpEventType.UploadProgress) {
+          this.logoProgress = Math.round((event.loaded / Math.max(event.total || event.loaded, 1)) * 100)
+        }
+        if (event.type === HttpEventType.Response) {
+          this.logoUploading = false
+          this.logoProgress = 100
+          const logoUrl = event.body?.logoUrl || ''
+          this.editForm.logoUrl = logoUrl
+          if (this.editing) this.editing.logoUrl = logoUrl
+          this.clearLogoPreview()
+          this.toast.success('Logo atualizada com sucesso')
+          this.load()
+        }
+      },
+      error: (error: any) => {
+        this.logoUploading = false
+        this.logoProgress = 0
+        this.logoError = error.error?.message || 'Não foi possível enviar a imagem.'
+      }
+    })
+  }
+
+  removeLogo() {
+    if (!this.editing || this.logoRemoving || this.logoUploading) return
+    this.logoRemoving = true
+    this.logoError = ''
+    this.http.delete(`/api/master/clinics/${this.editing.id}/logo`).subscribe({
+      next: () => {
+        this.logoRemoving = false
+        this.editForm.logoUrl = ''
+        if (this.editing) this.editing.logoUrl = null
+        this.clearLogoPreview()
+        this.toast.success('Logo removida. O padrão do OdontoApp será usado.')
+        this.load()
+      },
+      error: (error: any) => {
+        this.logoRemoving = false
+        this.logoError = error.error?.message || 'Não foi possível remover a logo.'
+      }
+    })
+  }
+
+  private clearLogoPreview() {
+    if (this.logoPreviewUrl) URL.revokeObjectURL(this.logoPreviewUrl)
+    this.logoPreviewUrl = ''
   }
 
   isGrantActive(grant: ClinicRow['accessGrant']) {
@@ -694,7 +833,6 @@ export class MasterCompaniesComponent implements OnInit {
       subdomain: this.editForm.subdomain,
       internalNotes: this.editForm.internalNotes || null,
       primaryColor: this.editForm.primaryColor.trim(),
-      logoUrl: this.editForm.logoUrl.trim(),
       plan: this.editForm.plan,
       status: this.editForm.status,
       priceMonthlyBrl: Number(this.editForm.priceMonthlyBrl),

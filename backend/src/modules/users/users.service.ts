@@ -9,9 +9,20 @@ import { DENTIST_LIMIT_BY_PLAN, PLAN_LABEL, nextPlanAfter } from '../billing/pla
 import * as argon2 from 'argon2'
 
 type TenantRole = 'ADMIN' | 'USER' | 'DENTIST'
-type Requester = { userId: string; role: string }
+type Requester = { userId: string; email?: string; role: string }
 
-const USER_SELECT = { id: true, username: true, email: true, name: true, role: true, active: true, createdAt: true }
+const USER_SELECT = {
+  id: true,
+  username: true,
+  email: true,
+  name: true,
+  role: true,
+  active: true,
+  createdByName: true,
+  updatedByName: true,
+  createdAt: true,
+  updatedAt: true
+}
 
 function usernameFromEmail(email: string) {
   const raw = email.split('@')[0] || 'user'
@@ -70,7 +81,7 @@ export class UsersService {
   }
 
   async create(
-    adminUser: { role: string },
+    adminUser: { role: string; email?: string },
     data: { username?: string; email?: string; name: string; password?: string; role: TenantRole }
   ) {
     if (!canManageTeam(adminUser.role)) throw new ForbiddenException()
@@ -94,7 +105,16 @@ export class UsersService {
 
     try {
       return await this.prismaTenant.getClient().user.create({
-        data: { username, email, name: data.name, passwordHash: hash, role: data.role as never, active: true },
+        data: {
+          username,
+          email,
+          name: data.name,
+          passwordHash: hash,
+          role: data.role as never,
+          active: true,
+          createdByName: adminUser.email?.trim() || 'Sistema',
+          updatedByName: adminUser.email?.trim() || 'Sistema'
+        },
         select: USER_SELECT
       })
     } catch (e) {
@@ -140,6 +160,7 @@ export class UsersService {
       patch.passwordHash = await argon2.hash(data.password)
     }
     if (Object.keys(patch).length === 0) throw new BadRequestException('Nada para atualizar.')
+    patch.updatedByName = requester.email?.trim() || 'Sistema'
 
     try {
       return await this.prismaTenant.getClient().user.update({ where: { id }, data: patch, select: USER_SELECT })

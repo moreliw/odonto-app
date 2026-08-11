@@ -3,12 +3,15 @@ import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
+import { AuthService } from '../../services/auth.service'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
-type Patient = { id: string; name: string; email?: string; phone?: string; birthDate?: string; document?: string; createdAt?: string }
+type Patient = { id: string; name: string; email?: string; phone?: string; birthDate?: string; document?: string; createdByName?: string | null; updatedByName?: string | null; createdAt?: string; updatedAt?: string }
 
 @Component({
     selector: 'app-patients',
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, PaginationComponent],
     template: `
     <div>
       <!-- Page Header -->
@@ -32,7 +35,7 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
             <span class="input-icon">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </span>
-            <input class="input" [(ngModel)]="search" name="search" placeholder="Buscar por nome, e-mail ou documento..." style="padding-left:36px;" />
+            <input class="input" [(ngModel)]="search" (ngModelChange)="page=1" name="search" placeholder="Buscar por nome, e-mail ou documento..." style="padding-left:36px;" />
           </div>
           <span class="text-sm muted" style="white-space:nowrap;">
             {{ filtered.length }} paciente{{ filtered.length !== 1 ? 's' : '' }}
@@ -50,17 +53,22 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                 <th class="text-center">Contato</th>
                 <th class="text-center">Documento</th>
                 <th class="text-center">Nascimento</th>
-                <th class="text-center">Cadastro</th>
+                @if (isAdmin) {
+                  <th>Criado por</th>
+                  <th>Atualizado por</th>
+                } @else {
+                  <th class="text-center">Cadastro</th>
+                }
                 <th style="width:80px;"></th>
               </tr>
             </thead>
             <tbody>
               @if (loading) {
-                <tr><td colspan="6" class="table-empty">
+                <tr><td [attr.colspan]="isAdmin ? 7 : 6" class="table-empty">
                   <span class="spinner spinner-dark"></span>
                 </td></tr>
               } @else if (filtered.length === 0) {
-                <tr><td colspan="6">
+                <tr><td [attr.colspan]="isAdmin ? 7 : 6">
                   <div class="empty-state">
                     <div class="empty-state-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
@@ -70,7 +78,7 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                   </div>
                 </td></tr>
               } @else {
-                @for (p of filtered; track p.id) {
+                @for (p of pagedPatients; track p.id) {
                   <tr>
                     <td>
                       <div style="display:flex;align-items:center;gap:10px;">
@@ -84,7 +92,12 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                     <td class="muted text-center">{{ p.phone || '—' }}</td>
                     <td class="muted text-sm text-center">{{ p.document || '—' }}</td>
                     <td class="muted text-sm text-center">{{ p.birthDate ? (p.birthDate | date:'dd/MM/yyyy') : '—' }}</td>
-                    <td class="muted text-xs text-center">{{ p.createdAt | date:'dd/MM/yyyy' }}</td>
+                    @if (isAdmin) {
+                      <td class="audit-cell"><strong>{{ p.createdByName || 'Sistema' }}</strong><span>{{ p.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                      <td class="audit-cell"><strong>{{ p.updatedByName || p.createdByName || 'Sistema' }}</strong><span>{{ p.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                    } @else {
+                      <td class="muted text-xs text-center">{{ p.createdAt | date:'dd/MM/yyyy' }}</td>
+                    }
                     <td>
                       <div class="table-actions">
                         <button class="btn btn-sm btn-ghost" (click)="openEdit(p)" title="Editar">
@@ -101,6 +114,7 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
             </tbody>
           </table>
         </div>
+        <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="filtered.length" (pageChange)="page=$event"></app-pagination>
       </div>
     </div>
 
@@ -188,10 +202,15 @@ export class PatientsComponent implements OnInit {
   showModal = false
   editingId: string | null = null
   deleteTarget: Patient | null = null
+  page = 1
+  readonly pageSize = 15
+  readonly isAdmin: boolean
 
   form: Partial<Patient> = {}
 
-  constructor(private http: HttpClient, private toast: ToastService) {}
+  constructor(private http: HttpClient, private toast: ToastService, auth: AuthService) {
+    this.isAdmin = auth.isAdmin()
+  }
 
   ngOnInit() { this.load() }
 
@@ -205,10 +224,14 @@ export class PatientsComponent implements OnInit {
     )
   }
 
+  get pagedPatients() {
+    return paginate(this.filtered, this.page, this.pageSize)
+  }
+
   load() {
     this.loading = true
     this.http.get<Patient[]>('/api/patients').subscribe({
-      next: (res: Patient[]) => { this.patients = res; this.loading = false },
+      next: (res: Patient[]) => { this.patients = res; this.page = 1; this.loading = false },
       error: () => { this.loading = false; this.toast.error('Falha ao carregar pacientes') }
     })
   }

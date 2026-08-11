@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
 import { RecordsService } from './records.service'
 import { AuthGuard } from '@nestjs/passport'
 import { IsDefined, IsString } from 'class-validator'
+import { Request } from 'express'
 
 class RecordDto {
   @IsString()
@@ -16,8 +17,8 @@ class RecordDto {
 export class RecordsController {
   constructor(private readonly records: RecordsService) {}
   @Post()
-  create(@Body() dto: RecordDto) {
-    return this.records.create(dto.patientId, dto.content)
+  create(@Req() req: Request, @Body() dto: RecordDto) {
+    return this.records.create(dto.patientId, dto.content, (req as any).user?.email)
   }
   @Get('patient/:patientId')
   list(@Param('patientId') patientId: string) {

@@ -5,6 +5,8 @@ import { HttpClient } from '@angular/common/http'
 import { Router } from '@angular/router'
 import { AuthService, User } from '../../services/auth.service'
 import { ToastService } from '../../services/toast.service'
+import { PaginationComponent } from '../../components/pagination/pagination.component'
+import { paginate } from '../../utils/pagination'
 
 type ClinicOption = { id: string; name: string; subdomain: string }
 type MasterTenantUser = {
@@ -21,7 +23,7 @@ type MasterTenantUser = {
 
 @Component({
   selector: 'app-master-users',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PaginationComponent],
   template: `
     <div class="dashboard-page">
       <div class="page-header">
@@ -47,11 +49,11 @@ type MasterTenantUser = {
           </div>
           <div class="form-group">
             <label for="master-user-search">Buscar usuário</label>
-            <input id="master-user-search" class="input" [(ngModel)]="search" placeholder="Nome, e-mail ou usuário" />
+            <input id="master-user-search" class="input" [(ngModel)]="search" (ngModelChange)="page=1" placeholder="Nome, e-mail ou usuário" />
           </div>
           <div class="form-group">
             <label for="master-user-status">Status</label>
-            <select id="master-user-status" class="select" [(ngModel)]="statusFilter">
+            <select id="master-user-status" class="select" [(ngModel)]="statusFilter" (ngModelChange)="page=1">
               <option value="ALL">Todos</option>
               <option value="ACTIVE">Ativos</option>
               <option value="INACTIVE">Bloqueados</option>
@@ -72,7 +74,7 @@ type MasterTenantUser = {
               } @else if (filteredUsers.length === 0) {
                 <tr><td colspan="8" class="table-empty">Nenhum usuário encontrado nesta clínica.</td></tr>
               }
-              @for (user of filteredUsers; track user.id) {
+              @for (user of pagedUsers; track user.id) {
                 <tr [class.master-row-inactive]="!user.active">
                   <td>
                     <div class="master-user-cell">
@@ -99,6 +101,7 @@ type MasterTenantUser = {
             </tbody>
           </table>
         </div>
+        <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="filteredUsers.length" (pageChange)="page=$event"></app-pagination>
       </div>
     </div>
 
@@ -198,6 +201,8 @@ export class MasterUsersComponent implements OnInit {
   message = ''
   showPassword = false
   showPasswordConfirm = false
+  page = 1
+  readonly pageSize = 15
   form = this.emptyForm()
 
   constructor(
@@ -229,8 +234,11 @@ export class MasterUsersComponent implements OnInit {
     })
   }
 
+  get pagedUsers() { return paginate(this.filteredUsers, this.page, this.pageSize) }
+
   loadUsers() {
     if (!this.selectedClinicId) { this.users = []; return }
+    this.page = 1
     this.loading = true
     this.http.get<MasterTenantUser[]>(`/api/master/clinics/${this.selectedClinicId}/users`).subscribe({
       next: users => { this.loading = false; this.users = users },
