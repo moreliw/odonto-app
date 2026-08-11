@@ -193,6 +193,7 @@ export class FinancialService {
     const invoices = await this.prisma.invoice.findMany({ where, include: invoiceInclude, orderBy: [{ dueDate: 'desc' }, { createdAt: 'desc' }] })
     const serialized = invoices.map((invoice: any) => this.serializeInvoice(invoice))
     if (!filters.status || filters.status === 'ALL') return serialized
+    if (filters.status === 'OPEN') return serialized.filter((invoice: any) => ['PENDING', 'PARTIAL'].includes(invoice.effectiveStatus))
     return serialized.filter((invoice: any) => invoice.effectiveStatus === filters.status)
   }
 

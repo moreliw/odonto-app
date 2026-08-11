@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common'
 import { Component, OnDestroy, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
+import { ActivatedRoute } from '@angular/router'
 import { forkJoin, of, Subscription } from 'rxjs'
 import { AuthService } from '../../services/auth.service'
 import {
@@ -124,13 +125,15 @@ export class FinanceComponent implements OnInit, OnDestroy {
     private readonly http: HttpClient,
     private readonly auth: AuthService,
     readonly privacy: PrivacyService,
-    private readonly toast: ToastService
+    private readonly toast: ToastService,
+    private readonly route: ActivatedRoute
   ) {
     this.isAdmin = this.auth.isAdmin()
   }
 
   ngOnInit() {
-    this.setPeriod('month', false)
+    this.applyRouteFilters()
+    this.setPeriod(this.period, false)
     this.privacySub = this.privacy.hidden.subscribe(hidden => this.hideValues = hidden)
     this.loadAll()
   }
@@ -171,7 +174,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
     this.error = ''
     forkJoin({
       summary: this.api.summary(this.from, this.to),
-      invoices: this.api.invoices(),
+      invoices: this.api.invoices({ status: this.activeTab === 'receivables' ? this.statusFilter : 'ALL' }),
       services: this.api.services(this.isAdmin),
       patients: this.http.get<PatientOption[]>('/api/patients'),
       expenses: this.isAdmin ? this.api.expenses() : of([] as Expense[]),
@@ -199,6 +202,20 @@ export class FinanceComponent implements OnInit, OnDestroy {
   refreshList() {
     if (this.activeTab === 'receivables') this.loadInvoices()
     if (this.activeTab === 'expenses' && this.isAdmin) this.loadExpenses()
+  }
+
+  private applyRouteFilters() {
+    const params = this.route.snapshot.queryParamMap
+    const tab = params.get('tab')
+    if (tab && ['overview', 'receivables', 'expenses', 'services'].includes(tab) && (tab !== 'expenses' || this.isAdmin)) {
+      this.activeTab = tab as FinanceTab
+    }
+    const status = params.get('status')
+    if (status && ['ALL', 'OPEN', 'PENDING', 'PARTIAL', 'OVERDUE', 'PAID', 'CANCELLED'].includes(status)) {
+      this.statusFilter = status
+    }
+    const period = params.get('period')
+    if (period && ['month', 'quarter', 'year'].includes(period)) this.period = period
   }
 
   searchChanged() {

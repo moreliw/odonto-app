@@ -16,7 +16,8 @@ Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearS
       </div>
       <canvas #canvas></canvas>
     </article>
-  `
+  `,
+    styles: [':host { display: block; height: 100%; min-width: 0; }']
 })
 export class LineChartComponent implements AfterViewInit, OnChanges {
   @Input() points: ChartPoint[] = []

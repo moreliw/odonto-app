@@ -95,7 +95,7 @@ export class SignupController {
       'Cache-Control': 'public, max-age=86400, immutable',
       'X-Content-Type-Options': 'nosniff'
     })
-    return logo.stream.pipe(res)
+    return res.send(logo.data)
   }
 
   /** Tela pública de confirmação de consulta — o paciente acessa pelo link do e-mail, sem login. */

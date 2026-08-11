@@ -199,7 +199,7 @@
       <div class="finance-filterbar">
         <div class="finance-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" type="search" [(ngModel)]="search" (ngModelChange)="searchChanged()" placeholder="Buscar paciente ou cobrança" aria-label="Buscar cobranças" /></div>
         <select class="select" [(ngModel)]="statusFilter" (change)="loadInvoices()" aria-label="Filtrar cobranças por status">
-          <option value="ALL">Todos os status</option><option value="PENDING">Pendentes</option><option value="PARTIAL">Parciais</option><option value="OVERDUE">Em atraso</option><option value="PAID">Recebidas</option><option value="CANCELLED">Canceladas</option>
+          <option value="ALL">Todos os status</option><option value="OPEN">Em aberto</option><option value="PENDING">Pendentes</option><option value="PARTIAL">Parciais</option><option value="OVERDUE">Em atraso</option><option value="PAID">Recebidas</option><option value="CANCELLED">Canceladas</option>
         </select>
       </div>
       <div class="finance-table-wrap">

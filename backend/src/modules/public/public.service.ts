@@ -7,7 +7,6 @@ import { Prisma as PrismaMaster, SubscriptionStatus } from '@prisma/client-maste
 import { Prisma as PrismaTenant } from '@prisma/client-tenant'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
 import { PrismaClient as MasterPrisma } from '@prisma/client-master'
-import { S3Service } from '../files/s3.service'
 
 function isEmailIdentifier(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -43,8 +42,7 @@ export class PublicService {
     private readonly provision: TenantProvisionService,
     private readonly master: MasterPrismaService,
     private readonly auth: AuthService,
-    private readonly tenants: TenantService,
-    private readonly s3: S3Service
+    private readonly tenants: TenantService
   ) {}
 
   /** Identidade visual pública da clínica (nome, cor, logo) para aplicar no app após o login. */
@@ -55,11 +53,11 @@ export class PublicService {
   async getBrandingLogo(tenantId: string) {
     const tenant = await this.master.tenant.findUnique({
       where: { id: tenantId },
-      select: { logoKey: true, logoContentType: true }
+      select: { logoData: true, logoContentType: true }
     })
-    if (!tenant?.logoKey) throw new NotFoundException('Logo não encontrada.')
+    if (!tenant?.logoData) throw new NotFoundException('Logo não encontrada.')
     return {
-      stream: await this.s3.getObject(tenant.logoKey),
+      data: Buffer.from(tenant.logoData),
       contentType: tenant.logoContentType || 'image/png'
     }
   }

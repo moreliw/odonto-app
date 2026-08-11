@@ -7,7 +7,7 @@ import { AuthService } from '../../services/auth.service'
 import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
 import { PaginationComponent } from '../../components/pagination/pagination.component'
 import { paginate } from '../../utils/pagination'
-import { Router } from '@angular/router'
+import { ActivatedRoute, Router } from '@angular/router'
 
 type Patient = { id: string; name: string; email?: string | null; phone?: string | null }
 type Dentist = { id: string; name: string }
@@ -198,6 +198,16 @@ function colorIndexFor(id: string | null | undefined) {
           }
         </div>
       } @else {
+        @if (activeDashboardFilterLabel) {
+          <div class="agenda-context-filter" role="status">
+            <div>
+              <strong>Filtro da dashboard</strong>
+              <span>{{ activeDashboardFilterLabel }}</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-ghost" (click)="clearDashboardFilters()">Limpar filtro</button>
+          </div>
+        }
+
         <div class="card" style="padding:14px 20px;margin-bottom:16px;">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             @for (opt of statusOpts; track opt.value) {
@@ -263,8 +273,8 @@ function colorIndexFor(id: string | null | undefined) {
                         <span class="status-chip" [class]="confirmationClass(a)">{{ confirmationLabel(a) }}</span>
                       </td>
                       @if (isAdmin) {
-                        <td class="audit-cell"><strong>{{ a.createdByName || 'Sistema' }}</strong><span>{{ a.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
-                        <td class="audit-cell"><strong>{{ a.updatedByName || a.createdByName || 'Sistema' }}</strong><span>{{ a.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                        <td class="text-center"><div class="audit-cell audit-cell--center"><strong>{{ a.createdByName || 'Sistema' }}</strong><span>{{ a.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
+                        <td class="text-center"><div class="audit-cell audit-cell--center"><strong>{{ a.updatedByName || a.createdByName || 'Sistema' }}</strong><span>{{ a.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
                       }
                       <td class="muted text-sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.notes || '—' }}</td>
                       <td>
@@ -570,6 +580,9 @@ export class AppointmentsComponent implements OnInit {
   patients: Patient[] = []
   dentists: Dentist[] = []
   filterStatus = 'ALL'
+  dashboardRange: 'today' | 'next7' | 'week' | 'month' | '' = ''
+  confirmationFilter: 'PENDING' | 'CONFIRMED' | 'DECLINED' | '' = ''
+  unassignedOnly = false
   dentistFilter = ''
   view: 'week' | 'list' = 'week'
   loading = false
@@ -611,13 +624,20 @@ export class AppointmentsComponent implements OnInit {
   isDentist = false
   isAdmin = false
 
-  constructor(private http: HttpClient, private toast: ToastService, private auth: AuthService, private router: Router) {
+  constructor(
+    private http: HttpClient,
+    private toast: ToastService,
+    private auth: AuthService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {
     for (let h = GRID_START_HOUR; h < GRID_END_HOUR; h++) this.hours.push(h)
     this.isDentist = this.auth.isDentist()
     this.isAdmin = this.auth.isAdmin()
   }
 
   ngOnInit() {
+    this.applyRouteFilters()
     this.loadPatients()
     if (!this.isDentist) this.loadDentists()
     this.load()
@@ -646,8 +666,26 @@ export class AppointmentsComponent implements OnInit {
   }
 
   get statusFiltered() {
-    if (this.filterStatus === 'ALL') return this.appointments
-    return this.appointments.filter(a => a.status === this.filterStatus)
+    return this.appointments.filter(a => {
+      if (this.filterStatus !== 'ALL' && a.status !== this.filterStatus) return false
+      if (this.confirmationFilter && (a.confirmationStatus || 'PENDING') !== this.confirmationFilter) return false
+      if (this.unassignedOnly && (a.dentistId || a.dentist?.id || a.dentistName)) return false
+      if ((this.confirmationFilter || this.unassignedOnly) && new Date(a.startTime).getTime() < Date.now()) return false
+      return this.matchesDashboardRange(a)
+    })
+  }
+
+  get activeDashboardFilterLabel() {
+    const labels: string[] = []
+    if (this.dashboardRange === 'today') labels.push('Consultas de hoje')
+    if (this.dashboardRange === 'next7') labels.push('Próximos 7 dias')
+    if (this.dashboardRange === 'week') labels.push('Consultas desta semana')
+    if (this.dashboardRange === 'month') labels.push('Consultas deste mês')
+    if (this.confirmationFilter === 'PENDING') labels.push('Aguardando confirmação')
+    if (this.confirmationFilter === 'CONFIRMED') labels.push('Confirmadas pelo paciente')
+    if (this.confirmationFilter === 'DECLINED') labels.push('Não confirmadas pelo paciente')
+    if (this.unassignedOnly) labels.push('Sem dentista responsável')
+    return labels.join(' · ')
   }
 
   get pagedAppointments() {
@@ -656,6 +694,56 @@ export class AppointmentsComponent implements OnInit {
 
   get appointmentColspan() {
     return 7 + (this.isDentist ? 0 : 1) + (this.isAdmin ? 2 : 0)
+  }
+
+  clearDashboardFilters() {
+    this.dashboardRange = ''
+    this.confirmationFilter = ''
+    this.unassignedOnly = false
+    this.filterStatus = 'ALL'
+    this.listPage = 1
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { view: 'list' }, replaceUrl: true })
+  }
+
+  private applyRouteFilters() {
+    const params = this.route.snapshot.queryParamMap
+    if (params.get('view') === 'list') this.view = 'list'
+
+    const status = params.get('status')
+    if (status && ['SCHEDULED', 'COMPLETED', 'CANCELLED'].includes(status)) this.filterStatus = status
+
+    const range = params.get('range')
+    if (range && ['today', 'next7', 'week', 'month'].includes(range)) {
+      this.dashboardRange = range as typeof this.dashboardRange
+    }
+
+    const confirmation = params.get('confirmation')
+    if (confirmation && ['PENDING', 'CONFIRMED', 'DECLINED'].includes(confirmation)) {
+      this.confirmationFilter = confirmation as typeof this.confirmationFilter
+    }
+    this.unassignedOnly = params.get('unassigned') === '1'
+  }
+
+  private matchesDashboardRange(appointment: Appointment) {
+    if (!this.dashboardRange) return true
+    const value = new Date(appointment.startTime).getTime()
+    const now = new Date()
+    let from = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    let to = addDays(from, 1)
+
+    if (this.dashboardRange === 'next7') {
+      from = now
+      to = addDays(now, 7)
+    }
+    if (this.dashboardRange === 'week') {
+      from = startOfWeek(now)
+      to = addDays(from, 7)
+    }
+    if (this.dashboardRange === 'month') {
+      from = new Date(now.getFullYear(), now.getMonth(), 1)
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    }
+    return value >= from.getTime() && value < to.getTime()
   }
 
   isToday(d: Date) {

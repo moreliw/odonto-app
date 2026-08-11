@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
-import { RouterLink } from '@angular/router'
+import { Router, RouterLink } from '@angular/router'
 import { Subscription } from 'rxjs'
 import { KpiCardComponent } from '../../components/analytics/kpi-card.component'
 import { LineChartComponent } from '../../components/analytics/line-chart.component'
@@ -98,7 +98,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
       @if (isDentist) {
         @if (myMetrics) {
           <div class="grid cols-4 kpi-grid">
-            <app-kpi-card *ngFor="let m of kpis" [metric]="m"></app-kpi-card>
+            <app-kpi-card *ngFor="let m of kpis" [metric]="m" (activated)="openMetric($event)"></app-kpi-card>
           </div>
 
           <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: myMetrics.todayAppointments, showDentist: false }"></ng-container>
@@ -118,13 +118,13 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
       } @else {
         @if (metrics) {
           <div class="grid cols-4 kpi-grid">
-            <app-kpi-card *ngFor="let m of kpis" [metric]="m"></app-kpi-card>
+            <app-kpi-card *ngFor="let m of kpis" [metric]="m" (activated)="openMetric($event)"></app-kpi-card>
           </div>
 
           <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: metrics.todayAppointments, showDentist: true }"></ng-container>
 
           @if (hasActivity) {
-            <div class="grid cols-2">
+            <div class="grid cols-2 dashboard-chart-grid">
               <app-line-chart
                 [points]="patientTrend"
                 title="Novos pacientes"
@@ -149,7 +149,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                 <app-donut-chart
                   [slices]="operationalSlices"
                   title="Rotina da equipe"
-                  subtitle="PendÃªncias que pedem atenÃ§Ã£o"
+                  subtitle="Pendências que pedem atenção"
                   valueSuffix=""
                 ></app-donut-chart>
               } @else {
@@ -188,7 +188,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
       <article class="card chart-card dashboard-today">
         <div class="chart-title-row">
           <h2>Agenda de hoje</h2>
-          <a routerLink="/app/appointments" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
+          <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
         </div>
         @if (items.length) {
           <ul class="dashboard-upcoming-list">
@@ -236,7 +236,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private privacySub: Subscription | null = null
 
-  constructor(private readonly http: HttpClient, private readonly auth: AuthService, readonly privacy: PrivacyService) {
+  constructor(
+    private readonly http: HttpClient,
+    private readonly auth: AuthService,
+    readonly privacy: PrivacyService,
+    private readonly router: Router
+  ) {
     this.isDentist = this.auth.isDentist()
     this.isAdmin = this.auth.isAdmin()
     const name = this.auth.getUser()?.name?.trim()
@@ -253,6 +258,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.privacySub?.unsubscribe()
+  }
+
+  openMetric(metric: KpiMetric) {
+    const appointmentFilters: Record<string, Record<string, string>> = {
+      appointments: { view: 'list', range: 'today', status: 'SCHEDULED' },
+      today: { view: 'list', range: 'today' },
+      'next-seven-days': { view: 'list', range: 'next7', status: 'SCHEDULED' },
+      confirmations: { view: 'list', confirmation: 'PENDING', status: 'SCHEDULED' },
+      unassigned: { view: 'list', unassigned: '1', status: 'SCHEDULED' },
+      week: { view: 'list', range: 'week' },
+      completed: { view: 'list', range: 'month', status: 'COMPLETED' }
+    }
+
+    if (metric.id === 'patients') {
+      void this.router.navigate(['/app/patients'])
+      return
+    }
+    if (metric.id === 'revenue') {
+      void this.router.navigate(['/app/finance'], { queryParams: { tab: 'overview', period: 'month' } })
+      return
+    }
+    if (metric.id === 'pending') {
+      void this.router.navigate(['/app/finance'], { queryParams: { tab: 'receivables', status: 'OPEN' } })
+      return
+    }
+    const queryParams = appointmentFilters[metric.id]
+    if (queryParams) void this.router.navigate(['/app/appointments'], { queryParams })
   }
 
   load() {

@@ -634,8 +634,20 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .appointment-context-actions .btn { flex: 1; min-width: 190px; justify-content: center; background: var(--surface); }
 .appointment-edit-footer { align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .audit-cell { min-width: 145px; display: grid; gap: 3px; }
+.audit-cell--center { justify-items: center; text-align: center; }
 .audit-cell strong { max-width: 190px; overflow: hidden; color: var(--text-2); font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .audit-cell span { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.patients-table { min-width: 1180px; table-layout: fixed; }
+.patients-table .patients-col-name { width: 34%; }
+.patients-table .patients-col-contact { width: 14%; }
+.patients-table .patients-col-document { width: 12%; }
+.patients-table .patients-col-date { width: 12%; }
+.patients-table .patients-col-audit { width: 13%; }
+.patients-table .patients-col-actions { width: 80px; }
+.patients-table th,
+.patients-table td { vertical-align: middle; }
+.patients-table .patients-number,
+.patients-table .patients-date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .audit-summary { display: flex; align-items: center; gap: 6px 16px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); color: var(--muted); font-size: 10px; line-height: 1.4; }
 .audit-summary strong { color: var(--text-2); font-weight: 650; }
 .confirmation-fieldset { min-width: 0; border: 0; }
@@ -852,10 +864,16 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .kpi-delta--plain { color: var(--muted); font-weight: 500; }
 .kpi-card:hover { transform: translateY(-1px); }
 .kpi-card { transition: transform 0.15s; }
+.kpi-card--interactive { cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.kpi-card--interactive:hover { border-color: var(--primary-100); box-shadow: var(--shadow-md); }
+.kpi-card--interactive:focus-visible { outline: 3px solid var(--primary-100); outline-offset: 2px; border-color: var(--primary); }
 
 /* ─── Dashboard ───────────────────────────────────────────── */
 .dashboard-page { display: grid; gap: 20px; }
 .chart-card { display: grid; gap: 14px; }
+.dashboard-chart-grid { align-items: stretch; }
+.dashboard-chart-grid > * { min-width: 0; height: 100%; }
+.dashboard-chart-grid .chart-card { height: 100%; min-height: 440px; grid-template-rows: auto minmax(0, 1fr) auto; }
 .chart-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .donut-wrap canvas { max-height: 220px; }
 .donut-legend { display: grid; gap: 8px; }
@@ -872,6 +890,14 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .filter-bar { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 12px; }
 .table-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
 .table-pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 8px; }
+.agenda-context-filter {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-bottom: 12px; padding: 12px 14px; border: 1px solid var(--primary-100);
+  border-radius: 11px; background: var(--primary-50);
+}
+.agenda-context-filter > div { min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.agenda-context-filter strong { color: var(--primary-700); font-size: 12px; }
+.agenda-context-filter span { color: var(--text-2); font-size: 13px; }
 
 /* ─── Utility ─────────────────────────────────────────────── */
 .muted { color: var(--muted); }
@@ -2099,6 +2125,9 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
     box-shadow: 0 9px 22px rgba(15, 23, 42, .07);
   }
   .dashboard-page .kpi-card:hover { transform: none; }
+  .dashboard-chart-grid .chart-card { min-height: 360px; }
+  .agenda-context-filter { align-items: stretch; flex-direction: column; gap: 8px; }
+  .agenda-context-filter .btn { align-self: flex-start; }
   .dashboard-page .kpi-title {
     max-width: 105px;
     color: #475569;

@@ -23,7 +23,8 @@ Chart.register(DoughnutController, ArcElement, Tooltip)
         </div>
       </div>
     </article>
-  `
+  `,
+    styles: [':host { display: block; height: 100%; min-width: 0; }']
 })
 export class DonutChartComponent implements AfterViewInit, OnChanges {
   @Input() slices: DonutSlice[] = []

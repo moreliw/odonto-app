@@ -46,7 +46,20 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
       <!-- Table -->
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="table-wrapper">
-          <table class="table">
+          <table class="table patients-table">
+            <colgroup>
+              <col class="patients-col-name" />
+              <col class="patients-col-contact" />
+              <col class="patients-col-document" />
+              <col class="patients-col-date" />
+              @if (isAdmin) {
+                <col class="patients-col-audit" />
+                <col class="patients-col-audit" />
+              } @else {
+                <col class="patients-col-date" />
+              }
+              <col class="patients-col-actions" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Paciente</th>
@@ -54,8 +67,8 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                 <th class="text-center">Documento</th>
                 <th class="text-center">Nascimento</th>
                 @if (isAdmin) {
-                  <th>Criado por</th>
-                  <th>Atualizado por</th>
+                  <th class="text-center">Criado por</th>
+                  <th class="text-center">Atualizado por</th>
                 } @else {
                   <th class="text-center">Cadastro</th>
                 }
@@ -89,12 +102,12 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                         </div>
                       </div>
                     </td>
-                    <td class="muted text-center">{{ p.phone || '—' }}</td>
-                    <td class="muted text-sm text-center">{{ p.document || '—' }}</td>
-                    <td class="muted text-sm text-center">{{ p.birthDate ? (p.birthDate | date:'dd/MM/yyyy') : '—' }}</td>
+                    <td class="muted text-center patients-number">{{ p.phone || '—' }}</td>
+                    <td class="muted text-sm text-center patients-number">{{ p.document || '—' }}</td>
+                    <td class="muted text-sm text-center patients-date">{{ p.birthDate ? (p.birthDate | date:'dd/MM/yyyy') : '—' }}</td>
                     @if (isAdmin) {
-                      <td class="audit-cell"><strong>{{ p.createdByName || 'Sistema' }}</strong><span>{{ p.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
-                      <td class="audit-cell"><strong>{{ p.updatedByName || p.createdByName || 'Sistema' }}</strong><span>{{ p.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                      <td class="text-center"><div class="audit-cell audit-cell--center"><strong>{{ p.createdByName || 'Sistema' }}</strong><span>{{ p.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
+                      <td class="text-center"><div class="audit-cell audit-cell--center"><strong>{{ p.updatedByName || p.createdByName || 'Sistema' }}</strong><span>{{ p.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
                     } @else {
                       <td class="muted text-xs text-center">{{ p.createdAt | date:'dd/MM/yyyy' }}</td>
                     }

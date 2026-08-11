@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core'
+import { Component, EventEmitter, Input, Output } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { KpiMetric } from '../../models/analytics.model'
 
@@ -6,7 +6,15 @@ import { KpiMetric } from '../../models/analytics.model'
     selector: 'app-kpi-card',
     imports: [CommonModule],
     template: `
-    <article class="card kpi-card">
+    <article
+      class="card kpi-card kpi-card--interactive"
+      role="link"
+      tabindex="0"
+      [attr.aria-label]="'Abrir ' + metric.title"
+      (click)="activated.emit(metric)"
+      (keydown.enter)="activated.emit(metric)"
+      (keydown.space)="activateFromKeyboard($event)"
+    >
       <div class="kpi-card-head">
         <span class="kpi-title">{{ metric.title }}</span>
         <span class="kpi-icon" aria-hidden="true">
@@ -42,4 +50,10 @@ import { KpiMetric } from '../../models/analytics.model'
 })
 export class KpiCardComponent {
   @Input({ required: true }) metric!: KpiMetric
+  @Output() activated = new EventEmitter<KpiMetric>()
+
+  activateFromKeyboard(event: Event) {
+    event.preventDefault()
+    this.activated.emit(this.metric)
+  }
 }

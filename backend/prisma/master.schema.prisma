@@ -59,6 +59,8 @@ model Tenant {
   logoUrl      String?
   logoKey      String?
   logoContentType String?
+  /// Conteúdo binário da logo (máximo de 2 MB), mantido no banco mestre para não depender do storage dos arquivos clínicos.
+  logoData     Bytes?
   /// Campo legado preservado para compatibilidade com bancos já provisionados.
   whatsappNumber String?
   /// Bloqueio administrativo independente da assinatura: false suspende todo o acesso da clínica.

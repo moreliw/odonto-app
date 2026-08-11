@@ -8,10 +8,8 @@ import { AccessGrant, Plan, Prisma as MasterPrisma, SubscriptionStatus, Tenant }
 import { BillingService } from '../billing/billing.service'
 import { AuthService } from '../auth/auth.service'
 import { DENTIST_LIMIT_BY_PLAN } from '../billing/plan-limits'
-import { S3Service } from '../files/s3.service'
-import { randomUUID } from 'crypto'
 
-type SanitizedTenant = Omit<Tenant, 'dbPassword'> & { dbPassword?: never }
+type SanitizedTenant = Omit<Tenant, 'dbPassword' | 'logoData'> & { dbPassword?: never; logoData?: never }
 type MasterUserRole = 'ADMIN' | 'USER' | 'DENTIST'
 
 const MASTER_USER_SELECT = {
@@ -39,8 +37,7 @@ export class MasterAdminService implements OnModuleInit {
     private readonly master: MasterPrismaService,
     private readonly provision: TenantProvisionService,
     private readonly billing: BillingService,
-    private readonly auth: AuthService,
-    private readonly s3: S3Service
+    private readonly auth: AuthService
   ) {}
 
   onModuleInit() {
@@ -50,7 +47,7 @@ export class MasterAdminService implements OnModuleInit {
   }
 
   private sanitizeTenant<T extends Tenant>(row: T): SanitizedTenant {
-    const { dbPassword: _p, ...rest } = row
+    const { dbPassword: _p, logoData: _logoData, ...rest } = row
     return rest as SanitizedTenant
   }
 
@@ -81,21 +78,13 @@ export class MasterAdminService implements OnModuleInit {
     const type = this.logoType(file.buffer)
     const existing = await this.master.tenant.findUnique({ where: { id } })
     if (!existing) throw new NotFoundException('Clínica não encontrada')
-    const key = `branding/${existing.slug}/logo-${randomUUID()}.${type.extension}`
-    await this.s3.putObject(key, file.buffer, type.contentType)
     const logoUrl = `${this.publicAppUrl()}/api/public/branding/logo/${id}?v=${Date.now()}`
-    try {
-      const tenant = await this.master.tenant.update({
-        where: { id },
-        data: { logoKey: key, logoContentType: type.contentType, logoUrl }
-      })
-      if (existing.logoKey && existing.logoKey !== key) await this.s3.removeObject(existing.logoKey).catch(() => undefined)
-      await this.audit('CLINIC_LOGO_UPDATED', { tenantId: id, targetType: 'TENANT', targetId: id })
-      return { tenant: this.sanitizeTenant(tenant), logoUrl }
-    } catch (error) {
-      await this.s3.removeObject(key).catch(() => undefined)
-      throw error
-    }
+    const tenant = await this.master.tenant.update({
+      where: { id },
+      data: { logoData: file.buffer, logoKey: null, logoContentType: type.contentType, logoUrl }
+    })
+    await this.audit('CLINIC_LOGO_UPDATED', { tenantId: id, targetType: 'TENANT', targetId: id })
+    return { tenant: this.sanitizeTenant(tenant), logoUrl }
   }
 
   async removeClinicLogo(id: string) {
@@ -103,9 +92,8 @@ export class MasterAdminService implements OnModuleInit {
     if (!existing) throw new NotFoundException('Clínica não encontrada')
     const tenant = await this.master.tenant.update({
       where: { id },
-      data: { logoKey: null, logoContentType: null, logoUrl: null }
+      data: { logoData: null, logoKey: null, logoContentType: null, logoUrl: null }
     })
-    if (existing.logoKey) await this.s3.removeObject(existing.logoKey).catch(() => undefined)
     await this.audit('CLINIC_LOGO_REMOVED', { tenantId: id, targetType: 'TENANT', targetId: id })
     return { tenant: this.sanitizeTenant(tenant) }
   }
