@@ -45,8 +45,8 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
 
       <!-- Table -->
       <div class="card" style="padding:0;overflow:hidden;">
-        <div class="table-wrapper">
-          <table class="table patients-table">
+        <div class="table-wrapper patients-table-wrapper" tabindex="0" aria-label="Tabela de pacientes. Deslize horizontalmente para consultar todas as colunas.">
+          <table class="table patients-table" [class.patients-table--admin]="isAdmin">
             <colgroup>
               <col class="patients-col-name" />
               <col class="patients-col-contact" />
@@ -72,7 +72,7 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                 } @else {
                   <th class="text-center">Cadastro</th>
                 }
-                <th style="width:80px;"></th>
+                <th class="patients-actions-cell"><span class="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
@@ -93,11 +93,11 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
               } @else {
                 @for (p of pagedPatients; track p.id) {
                   <tr>
-                    <td>
-                      <div style="display:flex;align-items:center;gap:10px;">
+                    <td class="patients-name-cell">
+                      <div class="patients-person">
                         <div class="patient-avatar">{{ p.name[0].toUpperCase() }}</div>
-                        <div>
-                          <div style="font-weight:600;color:var(--text);">{{ p.name }}</div>
+                        <div class="patients-person-copy">
+                          <div class="patients-person-name">{{ p.name }}</div>
                           @if (p.email) { <div class="text-xs muted">{{ p.email }}</div> }
                         </div>
                       </div>
@@ -111,7 +111,7 @@ type Patient = { id: string; name: string; email?: string; phone?: string; birth
                     } @else {
                       <td class="muted text-xs text-center">{{ p.createdAt | date:'dd/MM/yyyy' }}</td>
                     }
-                    <td>
+                    <td class="patients-actions-cell">
                       <div class="table-actions">
                         <button class="btn btn-sm btn-ghost" (click)="openEdit(p)" title="Editar">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>

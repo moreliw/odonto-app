@@ -121,15 +121,53 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
             <app-kpi-card *ngFor="let m of kpis" [metric]="m" (activated)="openMetric($event)"></app-kpi-card>
           </div>
 
+          @if (isAdmin) {
+            <section class="dashboard-section" aria-labelledby="dashboard-operation-title">
+              <div class="dashboard-section-heading">
+                <div>
+                  <h2 id="dashboard-operation-title">Operação da clínica</h2>
+                  <p>Indicadores que precisam de acompanhamento da equipe.</p>
+                </div>
+                <a routerLink="/app/appointments" class="dashboard-today-link">Abrir agenda <span aria-hidden="true">→</span></a>
+              </div>
+              <div class="grid cols-4 kpi-grid kpi-grid--secondary">
+                <app-kpi-card *ngFor="let m of operationalKpis" [metric]="m" (activated)="openMetric($event)"></app-kpi-card>
+              </div>
+            </section>
+          }
+
           <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: metrics.todayAppointments, showDentist: true }"></ng-container>
 
           @if (hasActivity) {
-            <div class="grid cols-2 dashboard-chart-grid">
+            <section class="dashboard-section" aria-labelledby="dashboard-analysis-title">
+              <div class="dashboard-section-heading">
+                <div>
+                  <h2 id="dashboard-analysis-title">Análises da clínica</h2>
+                  <p>Crescimento, rotina operacional e situação das cobranças.</p>
+                </div>
+              </div>
+            <div class="dashboard-analytics-grid dashboard-chart-grid" [class.dashboard-analytics-grid--admin]="isAdmin">
               <app-line-chart
                 [points]="patientTrend"
                 title="Novos pacientes"
                 subtitle="Últimos 6 meses"
               ></app-line-chart>
+              @if (operationalSlices.length) {
+                <app-donut-chart
+                  [slices]="operationalSlices"
+                  title="Rotina da equipe"
+                  subtitle="Indicadores operacionais"
+                  valueSuffix=""
+                ></app-donut-chart>
+              } @else {
+                <article class="card chart-card chart-card--empty">
+                  <div class="chart-title-row">
+                    <h2>Rotina da equipe</h2>
+                    <span class="muted">Tudo organizado</span>
+                  </div>
+                  <p class="muted dashboard-chart-empty">Nenhuma pendência operacional neste momento.</p>
+                </article>
+              }
               @if (isAdmin && invoiceSlices.length) {
                 <app-donut-chart
                   [slices]="invoiceSlices"
@@ -143,25 +181,11 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                     <h2>Cobranças</h2>
                     <span class="muted">Situação atual</span>
                   </div>
-                  <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma cobrança registrada ainda.</p>
-                </article>
-              } @else if (operationalSlices.length) {
-                <app-donut-chart
-                  [slices]="operationalSlices"
-                  title="Rotina da equipe"
-                  subtitle="Pendências que pedem atenção"
-                  valueSuffix=""
-                ></app-donut-chart>
-              } @else {
-                <article class="card chart-card chart-card--empty">
-                  <div class="chart-title-row">
-                    <h2>Rotina da equipe</h2>
-                    <span class="muted">Tudo organizado</span>
-                  </div>
-                  <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma pendência operacional neste momento.</p>
+                  <p class="muted dashboard-chart-empty">Nenhuma cobrança registrada ainda.</p>
                 </article>
               }
             </div>
+            </section>
           } @else {
             <div class="card empty-state">
               <div class="empty-state-icon">
@@ -225,6 +249,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   metrics: DashboardMetrics | null = null
   myMetrics: MyMetrics | null = null
   kpis: KpiMetric[] = []
+  operationalKpis: KpiMetric[] = []
   patientTrend: ChartPoint[] = []
   appointmentTrend: ChartPoint[] = []
   invoiceSlices: DonutSlice[] = []
@@ -325,6 +350,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { id: 'confirmations', title: 'Aguardando confirmação', value: String(m.pendingConfirmations), delta: 'Pacientes sem resposta' },
       { id: 'unassigned', title: 'Sem dentista', value: String(m.unassignedAppointments), delta: 'Agendamentos para organizar' }
     ]
+
+    this.operationalKpis = this.isAdmin ? [
+      { id: 'next-seven-days', title: 'Próximos 7 dias', value: String(m.appointmentsNextSevenDays), delta: 'Consultas programadas' },
+      { id: 'confirmations', title: 'Aguardando confirmação', value: String(m.pendingConfirmations), delta: 'Pacientes sem resposta' },
+      { id: 'unassigned', title: 'Sem dentista', value: String(m.unassignedAppointments), delta: 'Agendamentos para organizar' },
+      { id: 'completed', title: 'Concluídas no mês', value: String(m.completedThisMonth), delta: 'Atendimentos finalizados' }
+    ] : []
 
     this.patientTrend = m.monthlyPatients.map(p => ({ label: p.label, value: p.count }))
 

@@ -974,11 +974,15 @@ export class AppointmentsComponent implements OnInit {
     if ((ev.target as HTMLElement).closest('.agenda-block')) return
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
     const y = ev.clientY - rect.top
-    const totalMinutes = Math.round((y / PX_PER_HOUR) * 60 / 15) * 15
+    const gridMinutes = (GRID_END_HOUR - GRID_START_HOUR) * 60
+    const clickedMinutes = (y / PX_PER_HOUR) * 60
+    // Cada metade visual da hora representa um intervalo exato de 30 minutos.
+    // O floor mantém o horário dentro da faixa efetivamente clicada (ex.: 14:00–14:29 → 14:00).
+    const totalMinutes = Math.floor(Math.max(0, Math.min(clickedMinutes, gridMinutes - 30)) / 30) * 30
     const start = new Date(day)
     start.setHours(GRID_START_HOUR, 0, 0, 0)
-    start.setMinutes(start.getMinutes() + Math.max(0, totalMinutes))
-    const end = new Date(start.getTime() + 60 * 60000)
+    start.setMinutes(start.getMinutes() + totalMinutes)
+    const end = new Date(start.getTime() + 30 * 60000)
     this.openCreate(start, end)
   }
 
