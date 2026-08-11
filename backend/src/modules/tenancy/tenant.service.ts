@@ -25,8 +25,7 @@ export class TenantService {
     const tenantSettings = {
       name: t.name,
       primaryColor: t.primaryColor,
-      logoUrl: t.logoUrl,
-      whatsappNumber: t.whatsappNumber
+      logoUrl: t.logoUrl
     }
     if (process.env.DEV_SQLITE === 'true') {
       const url = `file:./prisma/dev-${t.slug}.db`

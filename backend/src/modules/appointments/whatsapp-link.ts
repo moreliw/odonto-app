@@ -1,4 +1,4 @@
-/** Normaliza telefones brasileiros e internacionais para E.164. */
+/** Normaliza telefones brasileiros e internacionais para o formato E.164 usado pelo wa.me. */
 export function normalizeWhatsappPhone(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -10,4 +10,10 @@ export function normalizeWhatsappPhone(raw: string): string | null {
   if (digits.length < 8 || digits.length > 15) return null
 
   return `+${digits}`
+}
+
+/** Link oficial do WhatsApp que abre o app ou o WhatsApp Web com a mensagem preenchida. */
+export function buildWhatsappUrl(phone: string, message: string) {
+  const digits = phone.replace(/\D/g, '')
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
 }

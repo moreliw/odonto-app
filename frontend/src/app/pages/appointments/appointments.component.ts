@@ -29,7 +29,7 @@ type CalendarBlock = Appointment & { top: number; height: number; left: number; 
 const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendado', COMPLETED: 'Concluído', CANCELLED: 'Cancelado' }
 const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '', CANCELLED: 'neutral' }
 
-/** "Não enviado" até o e-mail sair; depois disso reflete a resposta do paciente (ou "Aguardando" enquanto não responde). */
+/** "Não enviado" até o WhatsApp ser aberto; depois reflete a resposta do paciente. */
 function confirmationLabel(a: Pick<Appointment, 'confirmationSentAt' | 'confirmationStatus'>) {
   if (!a.confirmationSentAt) return 'Não enviado'
   if (a.confirmationStatus === 'CONFIRMED') return 'Confirmada'
@@ -85,12 +85,6 @@ function colorIndexFor(id: string | null | undefined) {
           <p>{{ isDentist ? 'Seus atendimentos agendados' : 'Consultas e procedimentos agendados' }}</p>
         </div>
         <div class="page-header-actions">
-          <button class="btn btn-outline" [disabled]="sendingBulkConfirmations" (click)="sendBulkConfirmations()" title="Envia a confirmação por e-mail e WhatsApp para as consultas pendentes da semana">
-            @if (sendingBulkConfirmations) { <span class="spinner spinner-dark"></span> } @else {
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
-            }
-            Enviar confirmações da semana
-          </button>
           <button class="btn btn-primary" (click)="openCreate()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nova consulta
@@ -262,9 +256,9 @@ function colorIndexFor(id: string | null | undefined) {
                       <td>
                         <div class="table-actions">
                           @if (a.status === 'SCHEDULED') {
-                            <button class="btn btn-sm btn-ghost" [disabled]="sendingConfirmationId === a.id" (click)="sendConfirmation(a)" [title]="a.confirmationSentAt ? 'Reenviar confirmação' : 'Enviar confirmação'">
+                            <button class="btn btn-sm btn-ghost whatsapp-action" [disabled]="sendingConfirmationId === a.id" (click)="openWhatsappConfirmation(a)" title="Abrir mensagem no WhatsApp">
                               @if (sendingConfirmationId === a.id) { <span class="spinner spinner-dark"></span> } @else {
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.38 8.38 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8z"/><path d="M8.8 8.6c.3 2.9 2.6 5.2 5.5 5.5"/></svg>
                               }
                             </button>
                             <button class="btn btn-sm btn-ghost" (click)="copyConfirmationLink(a)" title="Copiar link de confirmação">
@@ -363,6 +357,14 @@ function colorIndexFor(id: string | null | undefined) {
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                   Excluir consulta
                 </button>
+                @if (editingAppointment?.status === 'SCHEDULED') {
+                  <button class="btn btn-outline whatsapp-action" type="button" [disabled]="saving || sendingConfirmationId === editingId" (click)="openWhatsappConfirmation(editingAppointment!)">
+                    @if (sendingConfirmationId === editingId) { <span class="spinner spinner-dark"></span> } @else {
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.38 8.38 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8z"/><path d="M8.8 8.6c.3 2.9 2.6 5.2 5.5 5.5"/></svg>
+                    }
+                    Abrir WhatsApp
+                  </button>
+                }
               }
               <div class="modal-footer-main">
                 <button class="btn btn-ghost" type="button" (click)="showModal=false">Cancelar</button>
@@ -535,7 +537,6 @@ export class AppointmentsComponent implements OnInit {
   showQuickDentistPwd = false
   quickDentistForm: { name: string; withLogin: boolean; email: string; password: string } = { name: '', withLogin: false, email: '', password: '' }
   sendingConfirmationId: string | null = null
-  sendingBulkConfirmations = false
 
   weekStart = startOfWeek(new Date())
   readonly hours: number[] = []
@@ -722,66 +723,35 @@ export class AppointmentsComponent implements OnInit {
     )
   }
 
-  sendConfirmation(a: Appointment) {
+  openWhatsappConfirmation(a: Appointment) {
     if (this.sendingConfirmationId) return
+
+    // Abrir a aba dentro do clique evita que navegadores bloqueiem o pop-up depois da chamada HTTP.
+    const whatsappWindow = window.open('', '_blank')
+    if (whatsappWindow) {
+      whatsappWindow.opener = null
+      whatsappWindow.document.title = 'Abrindo WhatsApp...'
+      whatsappWindow.document.body.textContent = 'Preparando a mensagem no WhatsApp...'
+    }
+
     this.sendingConfirmationId = a.id
     this.http.post<{
       ok: boolean
-      emailed: boolean
-      whatsapped: boolean
-      whatsappReason: 'NO_PHONE' | 'SENT' | 'NOT_CONFIGURED' | 'INVALID_PHONE' | 'PROVIDER_ERROR'
+      whatsappUrl: string
+      message: string
       link: string
-    }>(`/api/appointments/${a.id}/send-confirmation`, {}).subscribe({
+    }>(`/api/appointments/${a.id}/prepare-whatsapp`, {}).subscribe({
       next: res => {
         this.sendingConfirmationId = null
-        if (res.emailed && res.whatsapped) this.toast.success('Confirmação enviada por e-mail e WhatsApp')
-        else if (res.whatsapped) this.toast.success('Confirmação enviada por WhatsApp')
-        else if (res.emailed) this.toast.success('E-mail de confirmação enviado')
-        else if (res.whatsappReason === 'NOT_CONFIGURED' && a.patient?.phone) {
-          this.toast.warning('WhatsApp da clínica não configurado', 'Configure o número em Meu perfil ou copie o link para enviar manualmente.')
-        } else if (res.whatsappReason === 'INVALID_PHONE') {
-          this.toast.warning('Telefone do paciente inválido', 'Corrija o telefone no cadastro do paciente ou copie o link.')
-        } else if (res.whatsappReason === 'PROVIDER_ERROR') {
-          this.toast.warning('O WhatsApp não aceitou o envio', 'Verifique o remetente/template ou copie o link para enviar manualmente.')
-        } else if (!a.patient?.email && !a.patient?.phone) {
-          this.toast.warning('Paciente sem e-mail ou telefone cadastrado', 'Use "Copiar link" para enviar manualmente.')
-        } else {
-          this.toast.warning('Não foi possível entregar a confirmação', 'Use "Copiar link" para enviar manualmente.')
-        }
+        if (whatsappWindow) whatsappWindow.location.href = res.whatsappUrl
+        else window.location.href = res.whatsappUrl
+        this.toast.success('Mensagem pronta no WhatsApp', 'Revise o texto e clique em Enviar.')
         this.load()
       },
       error: (err: any) => {
         this.sendingConfirmationId = null
-        this.toast.error('Erro ao enviar confirmação', err.error?.message)
-      }
-    })
-  }
-
-  sendBulkConfirmations() {
-    if (this.sendingBulkConfirmations) return
-    this.sendingBulkConfirmations = true
-    const from = encodeURIComponent(this.weekStart.toISOString())
-    const to = encodeURIComponent(addDays(this.weekStart, 7).toISOString())
-    this.http.post<{ ok: boolean; sent: number; failed: number; skippedNoContact: number; total: number }>(`/api/appointments/send-confirmations?from=${from}&to=${to}`, {}).subscribe({
-      next: res => {
-        this.sendingBulkConfirmations = false
-        if (res.total === 0) this.toast.info('Nenhuma consulta pendente de confirmação nesta semana')
-        else {
-          const details = [
-            res.failed ? `${res.failed} envio${res.failed === 1 ? '' : 's'} com falha` : '',
-            res.skippedNoContact ? `${res.skippedNoContact} paciente${res.skippedNoContact === 1 ? '' : 's'} sem contato` : ''
-          ].filter(Boolean).join(' · ') || undefined
-          if (res.sent > 0) {
-            this.toast.success(`${res.sent} confirmação${res.sent === 1 ? '' : 'ões'} enviada${res.sent === 1 ? '' : 's'}`, details)
-          } else {
-            this.toast.warning('Nenhuma confirmação foi enviada', details || 'Revise a configuração do WhatsApp e os contatos dos pacientes.')
-          }
-        }
-        this.load()
-      },
-      error: (err: any) => {
-        this.sendingBulkConfirmations = false
-        this.toast.error('Erro ao enviar confirmações', err.error?.message)
+        whatsappWindow?.close()
+        this.toast.error('Não foi possível abrir o WhatsApp', err.error?.message)
       }
     })
   }

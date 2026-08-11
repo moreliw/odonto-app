@@ -14,7 +14,6 @@ export type TenantContext = {
   name?: string
   primaryColor?: string | null
   logoUrl?: string | null
-  whatsappNumber?: string | null
 }
 
 const storage = new AsyncLocalStorage<TenantContext>()
