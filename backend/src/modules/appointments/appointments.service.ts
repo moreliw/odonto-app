@@ -81,6 +81,11 @@ export class AppointmentsService {
       if (data.dentistId) data.dentistName = null
       else if (data.dentistName) data.dentistId = null
     }
+    // Uma alteração manual deve registrar quando a decisão foi tomada. Voltar para pendente
+    // limpa a resposta anterior, mas preserva o histórico de quando a mensagem foi preparada.
+    if (data.confirmationStatus !== undefined) {
+      data.confirmationRespondedAt = data.confirmationStatus === 'PENDING' ? null : new Date()
+    }
     // Reagendar (horário realmente diferente) invalida uma confirmação já dada — o paciente
     // precisa reconfirmar o novo horário. O formulário sempre reenvia startTime/endTime mesmo
     // quando só o status ou as notas mudaram, então comparamos com o valor atual em vez de só

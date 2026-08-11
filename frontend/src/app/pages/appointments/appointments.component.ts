@@ -29,15 +29,12 @@ type CalendarBlock = Appointment & { top: number; height: number; left: number; 
 const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendado', COMPLETED: 'Concluído', CANCELLED: 'Cancelado' }
 const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '', CANCELLED: 'neutral' }
 
-/** "Não enviado" até o WhatsApp ser aberto; depois reflete a resposta do paciente. */
-function confirmationLabel(a: Pick<Appointment, 'confirmationSentAt' | 'confirmationStatus'>) {
-  if (!a.confirmationSentAt) return 'Não enviado'
-  if (a.confirmationStatus === 'CONFIRMED') return 'Confirmada'
-  if (a.confirmationStatus === 'DECLINED') return 'Recusada'
-  return 'Aguardando resposta'
+function confirmationLabel(a: Pick<Appointment, 'confirmationStatus'>) {
+  if (a.confirmationStatus === 'CONFIRMED') return 'Confirmado'
+  if (a.confirmationStatus === 'DECLINED') return 'Não confirmado'
+  return 'Aguardando confirmação'
 }
-function confirmationClass(a: Pick<Appointment, 'confirmationSentAt' | 'confirmationStatus'>) {
-  if (!a.confirmationSentAt) return 'neutral'
+function confirmationClass(a: Pick<Appointment, 'confirmationStatus'>) {
   if (a.confirmationStatus === 'CONFIRMED') return ''
   if (a.confirmationStatus === 'DECLINED') return 'late'
   return 'pending'
@@ -175,6 +172,8 @@ function colorIndexFor(id: string | null | undefined) {
                           <span class="agenda-block-confirm confirmed" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
                         } @else if (block.confirmationStatus === 'DECLINED') {
                           <span class="agenda-block-confirm declined" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m18 6-12 12M6 6l12 12"/></svg></span>
+                        } @else {
+                          <span class="agenda-block-confirm pending" aria-hidden="true"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
                         }
                         <strong>{{ block.patient?.name || 'Paciente' }}</strong>
                         @if (block.compact) {
@@ -347,6 +346,35 @@ function colorIndexFor(id: string | null | undefined) {
                 <option value="CANCELLED">Cancelado</option>
               </select>
             </div>
+            @if (editingId) {
+              <fieldset class="confirmation-fieldset">
+                <legend>Confirmação do paciente</legend>
+                <p>Consulte a resposta recebida ou altere o status manualmente.</p>
+                <div class="confirmation-options">
+                  <label class="confirmation-option confirmation-option--pending" [class.active]="form.confirmationStatus === 'PENDING'">
+                    <input type="radio" [(ngModel)]="form.confirmationStatus" name="confirmationStatus" value="PENDING" />
+                    <span class="confirmation-option-icon" aria-hidden="true">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    </span>
+                    <span><strong>Aguardando</strong><small>Sem resposta</small></span>
+                  </label>
+                  <label class="confirmation-option confirmation-option--declined" [class.active]="form.confirmationStatus === 'DECLINED'">
+                    <input type="radio" [(ngModel)]="form.confirmationStatus" name="confirmationStatus" value="DECLINED" />
+                    <span class="confirmation-option-icon" aria-hidden="true">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="m18 6-12 12M6 6l12 12"/></svg>
+                    </span>
+                    <span><strong>Não confirmado</strong><small>Não comparecerá</small></span>
+                  </label>
+                  <label class="confirmation-option confirmation-option--confirmed" [class.active]="form.confirmationStatus === 'CONFIRMED'">
+                    <input type="radio" [(ngModel)]="form.confirmationStatus" name="confirmationStatus" value="CONFIRMED" />
+                    <span class="confirmation-option-icon" aria-hidden="true">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>
+                    </span>
+                    <span><strong>Confirmado</strong><small>Presença confirmada</small></span>
+                  </label>
+                </div>
+              </fieldset>
+            }
             <div class="form-group">
               <label>Observações</label>
               <textarea class="textarea" [(ngModel)]="form.notes" name="notes" placeholder="Notas sobre a consulta..." rows="3"></textarea>
@@ -851,6 +879,7 @@ export class AppointmentsComponent implements OnInit {
       startTime: this.toLocal(a.startTime),
       endTime: this.toLocal(a.endTime),
       status: a.status,
+      confirmationStatus: a.confirmationStatus || 'PENDING',
       notes: a.notes,
     }
     this.showModal = true
@@ -873,6 +902,7 @@ export class AppointmentsComponent implements OnInit {
       body.dentistId = this.form.dentistId || null
       body.dentistName = this.form.dentistName || null
     }
+    if (this.editingId) body.confirmationStatus = this.form.confirmationStatus || 'PENDING'
     const req = this.editingId
       ? this.http.put(`/api/appointments/${this.editingId}`, body)
       : this.http.post('/api/appointments', body)

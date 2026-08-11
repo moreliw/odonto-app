@@ -553,7 +553,7 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   transition: filter .12s ease;
 }
 .agenda-block:hover { filter: brightness(0.97); z-index: 2; }
-.agenda-block strong { font-size: 11.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agenda-block strong { padding-right: 16px; font-size: 11.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-block span { font-size: 10.5px; opacity: .85; line-height: 1.2; }
 .agenda-block em { font-style: normal; font-size: 10px; opacity: .75; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-block.status-completed { background: var(--success-bg); color: var(--success-text); border-left-color: var(--success); }
@@ -567,6 +567,7 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 }
 .agenda-block-confirm.confirmed { background: var(--success); }
 .agenda-block-confirm.declined { background: var(--danger); }
+.agenda-block-confirm.pending { background: var(--warning); }
 
 @media (max-width: 1180px) {
   .agenda-page .page-header { align-items: stretch; }
@@ -625,6 +626,31 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 }
 .modal-footer-split { justify-content: space-between; flex-wrap: wrap; }
 .modal-footer-main { display: flex; gap: 10px; margin-left: auto; }
+.confirmation-fieldset { min-width: 0; border: 0; }
+.confirmation-fieldset legend { margin-bottom: 3px; color: var(--text-2); font-size: 13px; font-weight: 500; }
+.confirmation-fieldset > p { margin-bottom: 10px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.confirmation-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.confirmation-option {
+  min-width: 0; min-height: 72px; display: flex; align-items: center; gap: 8px;
+  padding: 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.confirmation-option input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.confirmation-option-icon {
+  width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center;
+  border-radius: 50%; background: var(--surface-2); color: var(--muted);
+}
+.confirmation-option > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.confirmation-option strong { color: var(--text-2); font-size: 12px; line-height: 1.25; }
+.confirmation-option small { color: var(--muted); font-size: 10px; line-height: 1.25; }
+.confirmation-option:hover { border-color: #cbd5e1; }
+.confirmation-option:focus-within { outline: 3px solid var(--primary-100); outline-offset: 2px; }
+.confirmation-option--pending.active { border-color: var(--warning); background: var(--warning-bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 18%, transparent); }
+.confirmation-option--pending.active .confirmation-option-icon { background: #fef3c7; color: var(--warning-text); }
+.confirmation-option--declined.active { border-color: var(--danger); background: var(--danger-bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 16%, transparent); }
+.confirmation-option--declined.active .confirmation-option-icon { background: #fee2e2; color: var(--danger-text); }
+.confirmation-option--confirmed.active { border-color: var(--success); background: var(--success-bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 16%, transparent); }
+.confirmation-option--confirmed.active .confirmation-option-icon { background: #dcfce7; color: var(--success-text); }
 .appointment-delete-modal { max-width: 440px; }
 .appointment-delete-heading { display: flex; align-items: flex-start; gap: 14px; }
 .appointment-delete-icon {
@@ -642,6 +668,8 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .appointment-delete-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
 .appointment-delete-actions .btn { width: 100%; min-width: 0; }
 @media (max-width: 560px) {
+  .confirmation-options { grid-template-columns: 1fr; }
+  .confirmation-option { min-height: 58px; }
   .modal-footer-split { align-items: stretch; }
   .modal-footer-split > .btn { width: 100%; }
   .modal-footer-main { display: grid; grid-template-columns: 1fr 1fr; width: 100%; margin-left: 0; }

@@ -10,6 +10,12 @@ enum AppointmentStatusLocal {
   CANCELLED = 'CANCELLED'
 }
 
+enum ConfirmationStatusLocal {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  DECLINED = 'DECLINED'
+}
+
 class AppointmentDto {
   @IsString()
   patientId: string
@@ -49,6 +55,9 @@ class UpdateAppointmentDto {
   @IsOptional()
   @IsEnum(AppointmentStatusLocal)
   status?: AppointmentStatusLocal
+  @IsOptional()
+  @IsEnum(ConfirmationStatusLocal)
+  confirmationStatus?: ConfirmationStatusLocal
   @IsOptional()
   @IsString()
   notes?: string
@@ -94,6 +103,7 @@ export class AppointmentsController {
     if (dto.startTime !== undefined) data.startTime = new Date(dto.startTime)
     if (dto.endTime !== undefined) data.endTime = new Date(dto.endTime)
     if (dto.status !== undefined) data.status = dto.status
+    if (dto.confirmationStatus !== undefined) data.confirmationStatus = dto.confirmationStatus
     if (dto.notes !== undefined) data.notes = dto.notes
     return this.appointments.update(user, id, data)
   }
