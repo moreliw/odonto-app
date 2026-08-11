@@ -244,6 +244,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
     this.invoiceForm = invoice ? {
       patientId: invoice.patientId,
       dentistId: invoice.dentistId || '',
+      dentistName: invoice.dentistName || '',
       description: invoice.description,
       discount: invoice.discount,
       issuedAt: this.toDateInput(new Date(invoice.issuedAt)),
@@ -280,6 +281,14 @@ export class FinanceComponent implements OnInit, OnDestroy {
     return Math.max(0, this.invoiceGross() - Number(this.invoiceForm.discount || 0))
   }
 
+  onInvoiceDentistIdChange(id: string) {
+    if (id) this.invoiceForm.dentistName = ''
+  }
+
+  onInvoiceDentistNameChange(name: string) {
+    if (name) this.invoiceForm.dentistId = ''
+  }
+
   saveInvoice() {
     if (!this.invoiceForm.patientId || !this.invoiceForm.dueDate || this.invoiceTotal() <= 0) {
       this.toast.warning('Revise a cobrança', 'Informe paciente, vencimento e ao menos um serviço com valor.')
@@ -287,7 +296,8 @@ export class FinanceComponent implements OnInit, OnDestroy {
     }
     const data = {
       patientId: this.invoiceForm.patientId,
-      dentistId: this.invoiceForm.dentistId || undefined,
+      dentistId: this.invoiceForm.dentistId || null,
+      dentistName: this.invoiceForm.dentistName || null,
       description: this.invoiceForm.description || this.invoiceForm.items[0]?.description || 'Cobrança odontológica',
       discount: Number(this.invoiceForm.discount || 0),
       issuedAt: this.apiDate(this.invoiceForm.issuedAt),
@@ -519,7 +529,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
 
   private emptyInvoiceForm() {
     return {
-      patientId: '', dentistId: '', description: '', discount: 0,
+      patientId: '', dentistId: '', dentistName: '', description: '', discount: 0,
       issuedAt: this.todayInput(), dueDate: this.dateOffsetInput(7), notes: '',
       items: [{ serviceId: '', description: '', quantity: 1, unitPrice: 0 }] as InvoiceFormItem[]
     }

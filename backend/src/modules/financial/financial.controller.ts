@@ -67,6 +67,10 @@ class CreateInvoiceDto {
 
   @IsOptional()
   @IsString()
+  dentistName?: string
+
+  @IsOptional()
+  @IsString()
   description?: string
 
   @IsOptional()
@@ -105,6 +109,10 @@ class UpdateInvoiceDto {
   @IsOptional()
   @IsString()
   dentistId?: string
+
+  @IsOptional()
+  @IsString()
+  dentistName?: string
 
   @IsOptional()
   @IsString()

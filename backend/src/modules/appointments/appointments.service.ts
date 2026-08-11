@@ -36,11 +36,13 @@ export class AppointmentsService {
 
   create(
     requester: Requester,
-    data: { patientId: string; dentistId?: string; startTime: Date; endTime: Date; status: AppointmentStatus; notes?: string }
+    data: { patientId: string; dentistId?: string; dentistName?: string; startTime: Date; endTime: Date; status: AppointmentStatus; notes?: string }
   ) {
     const dentistId = requester.role === 'DENTIST' ? requester.userId : data.dentistId || null
+    // Nome livre só faz sentido quando não há conta vinculada — evita ambiguidade entre os dois.
+    const dentistName = dentistId ? null : data.dentistName?.trim() || null
     return this.prismaTenant.getClient().appointment.create({
-      data: { ...data, dentistId },
+      data: { ...data, dentistId, dentistName },
       include: INCLUDE
     })
   }
@@ -48,7 +50,14 @@ export class AppointmentsService {
   async update(requester: Requester, id: string, data: Record<string, unknown>) {
     await this.assertOwnedByDentistOrAdmin(requester, id)
     // Dentista não pode reatribuir a própria consulta para outro colega.
-    if (requester.role === 'DENTIST') delete data.dentistId
+    if (requester.role === 'DENTIST') {
+      delete data.dentistId
+      delete data.dentistName
+    } else {
+      // Conta vinculada e nome livre são mutuamente exclusivos.
+      if (data.dentistId) data.dentistName = null
+      else if (data.dentistName) data.dentistId = null
+    }
     return this.prismaTenant.getClient().appointment.update({ where: { id }, data, include: INCLUDE })
   }
 

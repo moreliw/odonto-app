@@ -41,6 +41,8 @@ export type ClinicInvoice = {
   patient: { id: string; name: string; phone?: string | null }
   dentistId?: string | null
   dentist?: { id: string; name: string } | null
+  /** Nome do dentista sem conta no sistema (só quando dentistId é nulo). */
+  dentistName?: string | null
   description: string
   amount: number
   discount: number

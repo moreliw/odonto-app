@@ -8,10 +8,11 @@ import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 export class DashboardController {
   constructor(private readonly prismaTenant: TenantPrismaService) {}
 
+  /** Visão geral da clínica: administrador e equipe de apoio. Dentistas usam /my-metrics (agenda própria). */
   @Get('metrics')
   async metrics(@Req() req: Request) {
-    if ((req as any).user?.role !== 'ADMIN') {
-      throw new ForbiddenException('Apenas o administrador da clínica pode acessar os indicadores gerais.')
+    if ((req as any).user?.role === 'DENTIST') {
+      throw new ForbiddenException('Dentistas acompanham a própria agenda em "Minha agenda".')
     }
     const prisma: any = this.prismaTenant.getClient()
     const now = new Date()
@@ -54,7 +55,7 @@ export class DashboardController {
       todayAppointments: todayAppointments.map((a: any) => ({
         id: a.id,
         patientName: a.patient?.name || 'Paciente',
-        dentistName: a.dentist?.name || null,
+        dentistName: a.dentist?.name || a.dentistName || null,
         startTime: a.startTime,
         endTime: a.endTime,
         status: a.status

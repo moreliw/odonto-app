@@ -89,6 +89,8 @@ model Appointment {
   patientId String
   dentist   User?             @relation("DentistAppointments", fields: [dentistId], references: [id], onDelete: SetNull)
   dentistId String?
+  /// Nome do dentista sem conta no sistema (preenchido só quando dentistId é nulo).
+  dentistName String?
   startTime DateTime
   endTime   DateTime
   status    AppointmentStatus @default(SCHEDULED)
@@ -125,6 +127,8 @@ model Invoice {
   patientId   String
   dentist     User?            @relation("DentistInvoices", fields: [dentistId], references: [id], onDelete: SetNull)
   dentistId   String?
+  /// Nome do dentista sem conta no sistema (preenchido só quando dentistId é nulo).
+  dentistName String?
   description String           @default("Cobrança odontológica")
   amount      Decimal          @db.Decimal(12, 2)
   discount    Decimal          @default(0) @db.Decimal(12, 2)

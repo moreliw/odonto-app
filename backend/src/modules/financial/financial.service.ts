@@ -8,6 +8,7 @@ type ItemInput = { serviceId?: string; description?: string; quantity?: number; 
 type InvoiceInput = {
   patientId?: string
   dentistId?: string
+  dentistName?: string
   description?: string
   amount?: number
   discount?: number
@@ -202,6 +203,8 @@ export class FinancialService {
       const dentist = await this.prisma.user.findFirst({ where: { id: dentistId, role: 'DENTIST' }, select: { id: true } })
       if (!dentist) throw new BadRequestException('Dentista responsável não encontrado.')
     }
+    // Nome livre só faz sentido quando não há conta vinculada — evita ambiguidade entre os dois.
+    const dentistName = dentistId ? null : input.dentistName?.trim() || null
 
     const items = await this.normalizeItems(input.items)
     const discount = this.money(input.discount)
@@ -210,6 +213,7 @@ export class FinancialService {
       data: {
         patientId: input.patientId,
         dentistId,
+        dentistName,
         description: input.description?.trim() || items[0]?.description || 'Cobrança odontológica',
         amount,
         discount,
@@ -233,6 +237,10 @@ export class FinancialService {
     if (input.dueDate !== undefined) data.dueDate = new Date(input.dueDate)
     if (input.notes !== undefined) data.notes = input.notes.trim() || null
     if (requester.role === 'ADMIN' && input.dentistId !== undefined) data.dentistId = input.dentistId || null
+    if (requester.role === 'ADMIN' && input.dentistName !== undefined) data.dentistName = input.dentistName?.trim() || null
+    // Conta vinculada e nome livre são mutuamente exclusivos.
+    if (data.dentistId) data.dentistName = null
+    else if (data.dentistName) data.dentistId = null
 
     const items = input.items !== undefined ? await this.normalizeItems(input.items) : null
     const discount = input.discount !== undefined ? this.money(input.discount) : this.money(current.discount)

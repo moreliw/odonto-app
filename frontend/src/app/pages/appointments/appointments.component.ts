@@ -14,6 +14,8 @@ type Appointment = {
   patient?: Patient
   dentistId?: string | null
   dentist?: Dentist | null
+  /** Nome do dentista sem conta no sistema (só quando dentistId é nulo). */
+  dentistName?: string | null
   startTime: string
   endTime: string
   status: string
@@ -144,13 +146,13 @@ function colorIndexFor(id: string | null | undefined) {
                         [style.height.px]="block.height"
                         [style.left.%]="block.left"
                         [style.width.%]="block.width"
-                        [style.border-left-color]="!isDentist && block.dentist ? dentistColor(block.colorIdx) : null"
+                        [style.border-left-color]="!isDentist && (block.dentist || block.dentistName) ? dentistColor(block.colorIdx) : null"
                         (click)="onBlockClick($event, block)"
-                        [title]="(block.patient?.name || 'Paciente') + ' · ' + (block.startTime | date:'HH:mm') + '–' + (block.endTime | date:'HH:mm') + (block.dentist ? ' · ' + block.dentist.name : '')"
+                        [title]="(block.patient?.name || 'Paciente') + ' · ' + (block.startTime | date:'HH:mm') + '–' + (block.endTime | date:'HH:mm') + ((block.dentist?.name || block.dentistName) ? ' · ' + (block.dentist?.name || block.dentistName) : '')"
                       >
                         <strong>{{ block.patient?.name || 'Paciente' }}</strong>
                         <span>{{ block.startTime | date:'HH:mm' }}–{{ block.endTime | date:'HH:mm' }}</span>
-                        @if (!isDentist && block.dentist) { <em>{{ block.dentist.name }}</em> }
+                        @if (!isDentist && (block.dentist || block.dentistName)) { <em>{{ block.dentist?.name || block.dentistName }}</em> }
                       </button>
                     }
                   </div>
@@ -209,7 +211,7 @@ function colorIndexFor(id: string | null | undefined) {
                           <span style="font-weight:500;">{{ a.patient?.name || a.patientId }}</span>
                         </div>
                       </td>
-                      @if (!isDentist) { <td class="muted text-sm">{{ a.dentist?.name || '—' }}</td> }
+                      @if (!isDentist) { <td class="muted text-sm">{{ a.dentist?.name || a.dentistName || '—' }}</td> }
                       <td>
                         <div style="font-weight:500;">{{ a.startTime | date:'dd/MM/yyyy' }}</div>
                         <div class="text-xs muted">{{ a.startTime | date:'HH:mm' }}</div>
@@ -277,9 +279,19 @@ function colorIndexFor(id: string | null | undefined) {
                   ariaLabel="Dentista responsável"
                   [(ngModel)]="form.dentistId"
                   name="dentistId"
+                  (ngModelChange)="onDentistIdChange($event)"
                 ></app-searchable-select>
-                @if (dentists.length === 0) {
-                  <small class="muted">Cadastre um dentista em Equipe para poder vincular os atendimentos.</small>
+                @if (!form.dentistId) {
+                  <div style="margin-top:8px;">
+                    <input
+                      class="input"
+                      [(ngModel)]="form.dentistName"
+                      name="dentistName"
+                      placeholder="Ou digite o nome (sem conta no sistema)"
+                      (ngModelChange)="onDentistNameChange($event)"
+                    />
+                    <small class="muted">Use quando o profissional não tem login no sistema — fica só como referência no agendamento.</small>
+                  </div>
                 }
               </div>
             }
@@ -568,7 +580,7 @@ export class AppointmentsComponent implements OnInit {
         top, height,
         left: (col / totalCols) * 100,
         width: (1 / totalCols) * 100 - 1,
-        colorIdx: colorIndexFor(a.dentistId)
+        colorIdx: colorIndexFor(a.dentistId || a.dentistName)
       }
     })
   }
@@ -605,12 +617,21 @@ export class AppointmentsComponent implements OnInit {
     this.form = {
       patientId: a.patientId,
       dentistId: a.dentistId || '',
+      dentistName: a.dentistName || '',
       startTime: this.toLocal(a.startTime),
       endTime: this.toLocal(a.endTime),
       status: a.status,
       notes: a.notes,
     }
     this.showModal = true
+  }
+
+  onDentistIdChange(id: string) {
+    if (id) this.form.dentistName = ''
+  }
+
+  onDentistNameChange(name: string) {
+    if (name) this.form.dentistId = ''
   }
 
   private toLocal(iso: string) {
@@ -626,7 +647,10 @@ export class AppointmentsComponent implements OnInit {
       status: this.form.status || 'SCHEDULED',
       notes: this.form.notes || undefined,
     }
-    if (!this.isDentist) body.dentistId = this.form.dentistId || null
+    if (!this.isDentist) {
+      body.dentistId = this.form.dentistId || null
+      body.dentistName = this.form.dentistName || null
+    }
     const req = this.editingId
       ? this.http.put(`/api/appointments/${this.editingId}`, body)
       : this.http.post('/api/appointments', body)

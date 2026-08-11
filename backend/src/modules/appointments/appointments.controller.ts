@@ -16,6 +16,9 @@ class AppointmentDto {
   @IsOptional()
   @IsString()
   dentistId?: string
+  @IsOptional()
+  @IsString()
+  dentistName?: string
   @IsDateString()
   startTime: string
   @IsDateString()
@@ -34,6 +37,9 @@ class UpdateAppointmentDto {
   @IsOptional()
   @IsString()
   dentistId?: string | null
+  @IsOptional()
+  @IsString()
+  dentistName?: string | null
   @IsOptional()
   @IsDateString()
   startTime?: string
@@ -70,6 +76,7 @@ export class AppointmentsController {
     return this.appointments.create(user, {
       patientId: dto.patientId,
       dentistId: dto.dentistId,
+      dentistName: dto.dentistName,
       startTime: new Date(dto.startTime),
       endTime: new Date(dto.endTime),
       status: dto.status,
@@ -83,6 +90,7 @@ export class AppointmentsController {
     const data: Record<string, unknown> = {}
     if (dto.patientId !== undefined) data.patientId = dto.patientId
     if (dto.dentistId !== undefined) data.dentistId = dto.dentistId || null
+    if (dto.dentistName !== undefined) data.dentistName = dto.dentistName || null
     if (dto.startTime !== undefined) data.startTime = new Date(dto.startTime)
     if (dto.endTime !== undefined) data.endTime = new Date(dto.endTime)
     if (dto.status !== undefined) data.status = dto.status
