@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http'
 import { ToastService } from '../../services/toast.service'
 
 type Role = 'ADMIN' | 'USER' | 'DENTIST'
-type Member = { id: string; name: string; email: string; role: Role; createdAt: string }
+type Member = { id: string; name: string; email: string | null; role: Role; createdAt: string }
 type Quota = { plan: string; limit: number | null; used: number; remaining: number | null }
 
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Administrador', DENTIST: 'Dentista', USER: 'Equipe de apoio' }
@@ -78,7 +78,9 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
                         <span style="font-weight:500;">{{ m.name }}</span>
                       </div>
                     </td>
-                    <td class="muted text-sm">{{ m.email }}</td>
+                    <td class="muted text-sm">
+                      @if (m.email) { {{ m.email }} } @else { <span class="badge badge-neutral">Sem acesso ao sistema</span> }
+                    </td>
                     <td><span class="status-chip" [class]="ROLE_CLASS[m.role]">{{ ROLE_LABEL[m.role] }}</span></td>
                     <td class="muted text-sm">{{ m.createdAt | date:'dd/MM/yyyy' }}</td>
                     <td>
@@ -139,12 +141,15 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
               <input class="input" [(ngModel)]="form.name" name="name" placeholder="Nome completo" required />
             </div>
             <div class="form-group">
-              <label>E-mail *</label>
-              <input class="input" [(ngModel)]="form.email" name="email" type="email" placeholder="email@clinica.com" required />
+              <label>E-mail{{ requiresLogin ? ' *' : '' }}</label>
+              <input class="input" [(ngModel)]="form.email" name="email" type="email" placeholder="email@clinica.com" [required]="requiresLogin" />
+              @if (form.role === 'DENTIST') {
+                <small class="muted">Deixe em branco para cadastrar só como referência na agenda, sem acesso ao sistema.</small>
+              }
             </div>
             <div class="grid cols-2">
               <div class="form-group">
-                <label>{{ editingId ? 'Nova senha (opcional)' : 'Senha *' }}</label>
+                <label>{{ editingId ? 'Nova senha (opcional)' : (requiresLogin ? 'Senha *' : 'Senha (opcional)') }}</label>
                 <div class="input-wrapper">
                   <input
                     class="input"
@@ -152,7 +157,7 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
                     name="password"
                     [type]="showPwd ? 'text' : 'password'"
                     minlength="8"
-                    [required]="!editingId"
+                    [required]="!editingId && requiresLogin"
                     placeholder="Mínimo 8 caracteres"
                     style="padding-right:42px;"
                   />
@@ -166,14 +171,14 @@ const ROLE_CLASS: Record<Role, string> = { ADMIN: 'blue', DENTIST: '', USER: 'ne
                 </div>
               </div>
               <div class="form-group">
-                <label>{{ editingId ? 'Confirmar nova senha' : 'Confirmar senha *' }}</label>
+                <label>{{ editingId ? 'Confirmar nova senha' : (requiresLogin ? 'Confirmar senha *' : 'Confirmar senha') }}</label>
                 <input
                   class="input"
                   [(ngModel)]="passwordConfirm"
                   name="passwordConfirm"
                   [type]="showPwd ? 'text' : 'password'"
                   minlength="8"
-                  [required]="!editingId || !!form.password"
+                  [required]="(!editingId && requiresLogin) || !!form.password"
                   placeholder="Repita a senha"
                 />
                 @if (passwordConfirm && form.password !== passwordConfirm) {
@@ -237,8 +242,20 @@ export class TeamComponent implements OnInit {
     this.loadQuota()
   }
 
+  /** Só entra na vaga do plano quem vai ter acesso ao sistema — referência sem login é sempre livre. */
+  get requiresLogin() {
+    return this.form.role !== 'DENTIST' || !!this.form.email.trim() || !!this.form.password
+  }
+
   get blockedByQuota() {
-    return !this.editingId && this.form.role === 'DENTIST' && !!this.quota && this.quota.limit !== null && this.quota.remaining === 0
+    return (
+      !this.editingId &&
+      this.form.role === 'DENTIST' &&
+      !!this.form.email.trim() &&
+      !!this.quota &&
+      this.quota.limit !== null &&
+      this.quota.remaining === 0
+    )
   }
 
   load() {
@@ -262,7 +279,7 @@ export class TeamComponent implements OnInit {
 
   openEdit(m: Member) {
     this.editingId = m.id
-    this.form = { name: m.name, email: m.email, password: '', role: m.role }
+    this.form = { name: m.name, email: m.email || '', password: '', role: m.role }
     this.passwordConfirm = ''
     this.showModal = true
   }
@@ -271,6 +288,10 @@ export class TeamComponent implements OnInit {
     if (this.blockedByQuota) return
     if (this.form.password !== this.passwordConfirm) {
       this.toast.error('As senhas não coincidem')
+      return
+    }
+    if (this.form.role === 'DENTIST' && Boolean(this.form.email.trim()) !== Boolean(this.form.password)) {
+      this.toast.error('Informe e-mail e senha juntos para dar acesso, ou deixe os dois em branco.')
       return
     }
     this.saving = true
@@ -287,7 +308,12 @@ export class TeamComponent implements OnInit {
       })
       return
     }
-    this.http.post('/api/users', this.form).subscribe({
+    // E-mail/senha em branco precisam ficar de fora do corpo (não como string vazia) para o
+    // cadastro sem login funcionar — @IsOptional() só pula a validação quando o campo nem vem.
+    const body: Record<string, unknown> = { name: this.form.name, role: this.form.role }
+    if (this.form.email.trim()) body.email = this.form.email.trim()
+    if (this.form.password) body.password = this.form.password
+    this.http.post('/api/users', body).subscribe({
       next: () => {
         this.saving = false; this.showModal = false
         this.toast.success('Membro cadastrado com sucesso')

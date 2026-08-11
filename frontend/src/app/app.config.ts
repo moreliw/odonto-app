@@ -54,11 +54,18 @@ const masterGuestGuard = () => {
   return token ? router.parseUrl('/admin/dashboard') : true
 }
 
-/** Área de gestão da equipe (cadastrar/editar dentistas) — só o administrador da clínica. */
+/** Área restrita ao administrador da clínica (ex.: plano e assinatura). */
 const adminOnlyGuard = () => {
   const router = inject(Router)
   const auth = inject(AuthService)
   return auth.isAdmin() ? true : router.parseUrl('/app')
+}
+
+/** Equipe: administrador e equipe de apoio gerenciam o dia a dia (agendar dentistas, etc.); dentista não. */
+const teamAccessGuard = () => {
+  const router = inject(Router)
+  const auth = inject(AuthService)
+  return auth.isAdmin() || auth.isUser() ? true : router.parseUrl('/app')
 }
 
 /** Financeiro da clínica: administrador ou dentista responsável pela própria produção. */
@@ -104,7 +111,7 @@ export const routes: Routes = [
       { path: 'appointments', component: AppointmentsComponent },
       { path: 'records', component: RecordsComponent },
       { path: 'finance', component: FinanceComponent, canActivate: [financeGuard] },
-      { path: 'team', component: TeamComponent, canActivate: [adminOnlyGuard] },
+      { path: 'team', component: TeamComponent, canActivate: [teamAccessGuard] },
       { path: 'billing', component: BillingComponent, canActivate: [adminOnlyGuard] }
     ]
   },

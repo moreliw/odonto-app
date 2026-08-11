@@ -10,13 +10,16 @@ class CreateUserDto {
   @IsString()
   @Matches(/^[a-zA-Z0-9_.-]{3,32}$/)
   username?: string
+  /** Opcional só para DENTIST — cadastro de referência, sem acesso ao sistema. */
+  @IsOptional()
   @IsEmail()
-  email: string
+  email?: string
   @IsString()
   name: string
+  @IsOptional()
   @IsString()
   @MinLength(8)
-  password: string
+  password?: string
   @IsEnum(RoleLocal)
   role: RoleLocal
 }
@@ -38,12 +41,6 @@ class UpdateUserDto {
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
-
-  private assertAdmin(req: Request) {
-    if ((req as any).user?.role !== 'ADMIN') {
-      throw new ForbiddenException('Apenas o administrador da clínica pode gerenciar a equipe.')
-    }
-  }
 
   /** Consultar a equipe (ex.: escolher o dentista de um agendamento) é diferente de gerenciá-la — equipe de apoio também precisa disso no dia a dia. */
   private assertStaffAccess(req: Request) {
@@ -69,7 +66,7 @@ export class UsersController {
   /** Quantos dentistas o plano permite e quantos já foram cadastrados. */
   @Get('dentist-quota')
   dentistQuota(@Req() req: Request) {
-    this.assertAdmin(req)
+    this.assertStaffAccess(req)
     return this.users.dentistQuota()
   }
 

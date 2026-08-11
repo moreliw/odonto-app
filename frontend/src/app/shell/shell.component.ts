@@ -61,16 +61,20 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
             </a>
           }
 
-          @if (isAdmin) {
+          @if (isAdmin || canManageTeam) {
             <p class="nav-section-title">Gestão</p>
-            <a routerLink="/app/team" routerLinkActive="active" aria-label="Equipe">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <span>Equipe</span>
-            </a>
-            <a routerLink="/app/billing" routerLinkActive="active" aria-label="Plano">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-              <span>Plano</span>
-            </a>
+            @if (canManageTeam) {
+              <a routerLink="/app/team" routerLinkActive="active" aria-label="Equipe">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Equipe</span>
+              </a>
+            }
+            @if (isAdmin) {
+              <a routerLink="/app/billing" routerLinkActive="active" aria-label="Plano">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                <span>Plano</span>
+              </a>
+            }
           }
         </nav>
 
@@ -206,11 +210,13 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
                 Prontuário
               </a>
             }
-            @if (isAdmin) {
+            @if (canManageTeam) {
               <a routerLink="/app/team" (click)="mobileMoreOpen=false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
                 Equipe
               </a>
+            }
+            @if (isAdmin) {
               <a routerLink="/app/billing" (click)="mobileMoreOpen=false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                 Plano e assinatura
@@ -235,6 +241,7 @@ export class ShellComponent {
   initial = ''
   isAdmin = false
   canAccessFinance = false
+  canManageTeam = false
   supportSession: MasterSupportSession | null = null
   logoUrl: string | null = null
   clinicName: string | null = null
@@ -248,6 +255,7 @@ export class ShellComponent {
     this.initial = (this.userName[0] || 'U').toUpperCase()
     this.isAdmin = this.auth.isAdmin()
     this.canAccessFinance = this.isAdmin || this.auth.isDentist()
+    this.canManageTeam = this.isAdmin || this.auth.isUser()
     if (typeof localStorage !== 'undefined') {
       const support = localStorage.getItem('masterSupportSession')
       if (support) {

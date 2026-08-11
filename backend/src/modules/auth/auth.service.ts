@@ -30,16 +30,25 @@ export class AuthService {
             ]
           }
     })
-    if (!user) throw new UnauthorizedException('Credenciais inválidas')
-    const ok = await argon2.verify(user.passwordHash, password)
-    if (!ok) throw new UnauthorizedException('Credenciais inválidas')
+    // Dentista cadastrado só como referência (sem e-mail/senha) nunca deve ser encontrado aqui,
+    // mas o try/catch cobre qualquer hash ausente com uma falha de login normal, não um 500.
+    if (!user || !user.passwordHash || !user.email) throw new UnauthorizedException('Credenciais inválidas')
+    try {
+      const ok = await argon2.verify(user.passwordHash, password)
+      if (!ok) throw new UnauthorizedException('Credenciais inválidas')
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e
+      throw new UnauthorizedException('Credenciais inválidas')
+    }
     return user
   }
 
   async login(identifier: string, password: string) {
     const user = await this.validateUser(identifier, password)
     const prisma = this.prismaTenant.getClient()
-    return this.issueTokensAndPersistRefresh(prisma, user)
+    // validateUser já garante user.email (dentista sem login nunca chega aqui) — o narrowing de
+    // propriedade não "sobe" para o tipo do objeto inteiro, por isso a asserção explícita.
+    return this.issueTokensAndPersistRefresh(prisma, { ...user, email: user.email as string })
   }
 
   /** Login público: não usa TenantPrismaService nem RequestContext (evita 500 por escopo ALS/Nest). */
@@ -47,7 +56,7 @@ export class AuthService {
     const prisma = new TenantPrisma({ datasources: { db: { url: connectionString } } })
     try {
       const user = await this.validateUserWithPrisma(prisma, identifier, password)
-      return await this.issueTokensAndPersistRefresh(prisma, user)
+      return await this.issueTokensAndPersistRefresh(prisma, { ...user, email: user.email as string })
     } catch (e) {
       if (e instanceof UnauthorizedException) throw e
       if (e instanceof Prisma.PrismaClientKnownRequestError || e instanceof Prisma.PrismaClientInitializationError) {
@@ -68,9 +77,9 @@ export class AuthService {
     type UserRow = {
       id: string
       username: string | null
-      email: string
+      email: string | null
       name: string
-      passwordHash: string
+      passwordHash: string | null
       role: string
       active: boolean
     }
@@ -112,7 +121,7 @@ export class AuthService {
   private async validateUserWithPrisma(prisma: TenantPrisma, identifier: string, password: string) {
     if (!identifier.trim() || !password) throw new UnauthorizedException('Credenciais inválidas')
     const user = await this.findUserWithPrisma(prisma, identifier)
-    if (!user || !user.active) throw new UnauthorizedException('Credenciais inválidas')
+    if (!user || !user.active || !user.passwordHash || !user.email) throw new UnauthorizedException('Credenciais inválidas')
     try {
       const ok = await argon2.verify(user.passwordHash, password)
       if (!ok) throw new UnauthorizedException('Credenciais inválidas')
@@ -133,8 +142,8 @@ export class AuthService {
     const prisma = new TenantPrisma({ datasources: { db: { url: connectionString } } })
     try {
       const user = await this.findUserWithPrisma(prisma, email)
-      if (!user || !user.active) throw new UnauthorizedException('Conta não encontrada após provisionamento')
-      return await this.issueTokensAndPersistRefresh(prisma, user)
+      if (!user || !user.active || !user.email) throw new UnauthorizedException('Conta não encontrada após provisionamento')
+      return await this.issueTokensAndPersistRefresh(prisma, { ...user, email: user.email as string })
     } finally {
       await prisma.$disconnect().catch(() => undefined)
     }

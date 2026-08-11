@@ -267,10 +267,18 @@
         @if (isAdmin) {
           <div>
             <label>Dentista responsável</label>
-            <app-searchable-select [items]="dentistItems" clearLabel="Não vincular" placeholder="Não vincular" searchPlaceholder="Buscar dentista..." ariaLabel="Dentista responsável" [(ngModel)]="invoiceForm.dentistId" name="invoiceDentistId" (ngModelChange)="onInvoiceDentistIdChange($event)"></app-searchable-select>
-            @if (!invoiceForm.dentistId) {
-              <input class="input" style="margin-top:6px;" [(ngModel)]="invoiceForm.dentistName" name="invoiceDentistName" placeholder="Ou digite o nome (sem conta no sistema)" (ngModelChange)="onInvoiceDentistNameChange($event)" />
-            }
+            <app-searchable-select
+              [items]="dentistItems"
+              clearLabel="Não vincular"
+              placeholder="Não vincular"
+              searchPlaceholder="Buscar dentista..."
+              ariaLabel="Dentista responsável"
+              [(ngModel)]="invoiceForm.dentistId"
+              name="invoiceDentistId"
+              [allowCreate]="true"
+              createLabel="Cadastrar novo dentista"
+              (createRequested)="openQuickCreateDentist($event)"
+            ></app-searchable-select>
           </div>
         }
         <label>Emissão <input class="input" type="date" [(ngModel)]="invoiceForm.issuedAt" /></label>
@@ -297,6 +305,32 @@
       <label>Observações <textarea class="textarea" [(ngModel)]="invoiceForm.notes" placeholder="Informações internas sobre esta cobrança"></textarea></label>
     </div>
     <footer><button class="btn btn-ghost" type="button" (click)="invoiceModal=false">Cancelar</button><button class="btn btn-primary" type="button" (click)="saveInvoice()" [disabled]="saving">{{ saving ? 'Salvando…' : editingInvoiceId ? 'Salvar alterações' : 'Criar cobrança' }}</button></footer>
+  </section>
+}
+
+@if (quickDentistModal) {
+  <div class="finance-modal-backdrop" (click)="quickDentistModal=false"></div>
+  <section class="finance-modal finance-modal-small" role="dialog" aria-modal="true" aria-labelledby="quick-dentist-title">
+    <header><div><span>Equipe</span><h2 id="quick-dentist-title">Cadastrar dentista</h2></div><button type="button" (click)="quickDentistModal=false" aria-label="Fechar">×</button></header>
+    <div class="finance-modal-body">
+      <label>Nome completo <input class="input" [(ngModel)]="quickDentistForm.name" placeholder="Nome do dentista" required /></label>
+      <label class="master-check-row" style="margin-top:12px;">
+        <input type="checkbox" [(ngModel)]="quickDentistForm.withLogin" />
+        <span><strong>Criar acesso ao sistema</strong><small>Permite que este dentista faça login. Se deixar desmarcado, o nome fica só como referência.</small></span>
+      </label>
+      @if (quickDentistForm.withLogin) {
+        <div class="finance-form-grid" style="margin-top:12px;">
+          <label>E-mail <input class="input" type="email" [(ngModel)]="quickDentistForm.email" placeholder="email@clinica.com" [required]="quickDentistForm.withLogin" /></label>
+          <label>Senha <input class="input" type="password" [(ngModel)]="quickDentistForm.password" minlength="8" placeholder="Mínimo 8 caracteres" [required]="quickDentistForm.withLogin" /></label>
+        </div>
+      }
+    </div>
+    <footer>
+      <button class="btn btn-ghost" type="button" (click)="quickDentistModal=false">Cancelar</button>
+      <button class="btn btn-primary" type="button" (click)="saveQuickDentist()" [disabled]="savingQuickDentist">
+        {{ savingQuickDentist ? 'Salvando…' : (quickDentistForm.withLogin ? 'Cadastrar e dar acesso' : 'Cadastrar e selecionar') }}
+      </button>
+    </footer>
   </section>
 }
 

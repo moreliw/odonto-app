@@ -73,6 +73,9 @@ export class AuthService {
   isDentist() {
     return this.user$.value?.role === 'DENTIST'
   }
+  isUser() {
+    return this.user$.value?.role === 'USER'
+  }
   logout() {
     this.accessToken$.next(null)
     this.refreshToken = null

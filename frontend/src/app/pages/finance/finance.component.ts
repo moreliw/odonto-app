@@ -86,6 +86,9 @@ export class FinanceComponent implements OnInit, OnDestroy {
   expenseModal = false
   expensePaymentModal = false
   serviceModal = false
+  quickDentistModal = false
+  savingQuickDentist = false
+  quickDentistForm: { name: string; withLogin: boolean; email: string; password: string } = { name: '', withLogin: false, email: '', password: '' }
   editingInvoiceId: string | null = null
   editingExpenseId: string | null = null
   editingServiceId: string | null = null
@@ -281,12 +284,36 @@ export class FinanceComponent implements OnInit, OnDestroy {
     return Math.max(0, this.invoiceGross() - Number(this.invoiceForm.discount || 0))
   }
 
-  onInvoiceDentistIdChange(id: string) {
-    if (id) this.invoiceForm.dentistName = ''
+  openQuickCreateDentist(searchText: string) {
+    this.quickDentistForm = { name: searchText, withLogin: false, email: '', password: '' }
+    this.quickDentistModal = true
   }
 
-  onInvoiceDentistNameChange(name: string) {
-    if (name) this.invoiceForm.dentistId = ''
+  saveQuickDentist() {
+    if (!this.quickDentistForm.name.trim() || this.savingQuickDentist) return
+    if (this.quickDentistForm.withLogin && (!this.quickDentistForm.email.trim() || this.quickDentistForm.password.length < 8)) {
+      this.toast.error('Informe e-mail e senha (mínimo 8 caracteres) para criar o acesso.')
+      return
+    }
+    this.savingQuickDentist = true
+    const body: Record<string, unknown> = { name: this.quickDentistForm.name.trim(), role: 'DENTIST' }
+    if (this.quickDentistForm.withLogin) {
+      body.email = this.quickDentistForm.email.trim()
+      body.password = this.quickDentistForm.password
+    }
+    this.http.post<DentistOption>('/api/users', body).subscribe({
+      next: dentist => {
+        this.savingQuickDentist = false
+        this.quickDentistModal = false
+        this.dentists = [...this.dentists, dentist]
+        this.invoiceForm.dentistId = dentist.id
+        this.toast.success(this.quickDentistForm.withLogin ? 'Dentista cadastrado com acesso ao sistema' : 'Dentista cadastrado como referência')
+      },
+      error: (err: any) => {
+        this.savingQuickDentist = false
+        this.toast.error('Erro ao cadastrar dentista', err.error?.message)
+      }
+    })
   }
 
   saveInvoice() {

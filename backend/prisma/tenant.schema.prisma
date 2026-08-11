@@ -53,9 +53,11 @@ enum PaymentMethod {
 model User {
   id            String         @id @default(uuid())
   username      String?        @unique
-  email         String         @unique
+  /// Nulo para um dentista cadastrado só como referência (sem acesso ao sistema).
+  email         String?        @unique
   name          String
-  passwordHash  String
+  /// Nulo junto com email — sem os dois, a conta não consegue fazer login.
+  passwordHash  String?
   role          Role
   active        Boolean        @default(true)
   createdAt     DateTime       @default(now())

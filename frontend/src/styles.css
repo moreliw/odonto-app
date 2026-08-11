@@ -583,6 +583,9 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .agenda-block em { font-style: normal; font-size: 10px; opacity: .75; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-block.status-completed { background: var(--success-bg); color: var(--success-text); border-left-color: var(--success); }
 .agenda-block.status-cancelled { background: var(--surface-2); color: var(--muted); border-left-color: var(--muted-light); text-decoration: line-through; opacity: .75; }
+.agenda-block.compact { padding: 2px 6px; gap: 0; justify-content: center; }
+.agenda-block.compact strong { font-size: 10.5px; line-height: 1.15; }
+.agenda-block.compact span { font-size: 9.5px; }
 .agenda-block-confirm {
   position: absolute; top: 3px; right: 3px; width: 13px; height: 13px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; color: #fff;

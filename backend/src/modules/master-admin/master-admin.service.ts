@@ -4,7 +4,7 @@ import * as argon2 from 'argon2'
 import { Prisma as TenantPrismaNamespace, PrismaClient as TenantPrisma, Role as TenantRole } from '@prisma/client-tenant'
 import { MasterPrismaService } from '../tenancy/master-prisma.service'
 import { TenantProvisionService } from '../tenancy/tenant-provision.service'
-import { AccessGrant, Plan, SubscriptionStatus, Tenant } from '@prisma/client-master'
+import { AccessGrant, Plan, Prisma as MasterPrisma, SubscriptionStatus, Tenant } from '@prisma/client-master'
 import { BillingService } from '../billing/billing.service'
 import { AuthService } from '../auth/auth.service'
 import { DENTIST_LIMIT_BY_PLAN } from '../billing/plan-limits'
@@ -516,7 +516,8 @@ export class MasterAdminService implements OnModuleInit {
     const plan = grant?.plan ?? commercial?.plan ?? 'FREE'
     const limit = grant ? grant.dentistLimit : DENTIST_LIMIT_BY_PLAN[plan]
     if (limit === null) return
-    const used = await this.withTenantPrisma(tenant, prisma => prisma.user.count({ where: { role: 'DENTIST' } }))
+    // Dentista cadastrado só como referência (sem login) não ocupa vaga do plano — mesmo critério do tenant.
+    const used = await this.withTenantPrisma(tenant, prisma => prisma.user.count({ where: { role: 'DENTIST', email: { not: null } } }))
     if (used >= limit) {
       throw new ConflictException(`O plano efetivo permite ${limit} dentista${limit === 1 ? '' : 's'}. Ajuste o benefício ou o plano antes de adicionar outro.`)
     }
@@ -617,10 +618,12 @@ export class MasterAdminService implements OnModuleInit {
         return updated
       })
       if (email && email !== existing.email) {
-        await this.master.$transaction([
-          this.master.loginIdentity.deleteMany({ where: { email: existing.email, tenantId } }),
-          this.master.loginIdentity.upsert({ where: { email }, update: { tenantId }, create: { email, tenantId } })
-        ])
+        // existing.email pode ser nulo (dentista cadastrado só como referência ganhando acesso agora) — nesse caso não há LoginIdentity antiga para remover.
+        const ops: MasterPrisma.PrismaPromise<unknown>[] = existing.email
+          ? [this.master.loginIdentity.deleteMany({ where: { email: existing.email, tenantId } })]
+          : []
+        ops.push(this.master.loginIdentity.upsert({ where: { email }, update: { tenantId }, create: { email, tenantId } }))
+        await this.master.$transaction(ops)
       }
       await this.audit('TENANT_USER_UPDATED', {
         tenantId,

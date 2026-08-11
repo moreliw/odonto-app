@@ -18,6 +18,22 @@ function usernameFromEmail(email: string) {
   return raw.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
 }
 
+function usernameFromName(name: string) {
+  const raw = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s.-]/g, '')
+    .trim()
+    .replace(/\s+/g, '.')
+  return raw || 'usuario'
+}
+
+/** Equipe de apoio também gerencia a equipe no dia a dia (agendar com um dentista sem login, etc.) — só não mexe em contas de administrador. */
+function canManageTeam(role: string) {
+  return role === 'ADMIN' || role === 'USER'
+}
+
 @Injectable({ scope: Scope.REQUEST })
 export class UsersService {
   constructor(
@@ -32,12 +48,12 @@ export class UsersService {
     return plan && plan in DENTIST_LIMIT_BY_PLAN ? plan : 'BASIC'
   }
 
-  /** Quantos dentistas o plano permite e quantos já existem. */
+  /** Quantos dentistas o plano permite e quantos já existem — só conta quem tem acesso ao sistema (com login); um dentista cadastrado só como referência não ocupa vaga. */
   async dentistQuota() {
     const plan = this.currentPlan()
     const ctx = this.req.tenantContext ?? RequestContext.get() ?? null
     const limit = ctx?.dentistLimit !== undefined ? ctx.dentistLimit : DENTIST_LIMIT_BY_PLAN[plan]
-    const used = await this.prismaTenant.getClient().user.count({ where: { role: 'DENTIST' as never } })
+    const used = await this.prismaTenant.getClient().user.count({ where: { role: 'DENTIST' as never, email: { not: null } } })
     return { plan, limit, used, remaining: limit === null ? null : Math.max(limit - used, 0) }
   }
 
@@ -48,26 +64,37 @@ export class UsersService {
     const next = nextPlanAfter(plan)
     const upgrade = next ? ` Para cadastrar mais, mude para o plano ${PLAN_LABEL[next]}.` : ''
     throw new ConflictException(
-      `Seu plano ${PLAN_LABEL[plan]} permite ${limit} ${limit === 1 ? 'dentista' : 'dentistas'} e você já cadastrou ${used}.${upgrade}` +
-        ' Recepção e secretária não contam nesse limite.'
+      `Seu plano ${PLAN_LABEL[plan]} permite ${limit} ${limit === 1 ? 'dentista' : 'dentistas'} com acesso ao sistema e você já tem ${used}.${upgrade}` +
+        ' Recepção, secretária e dentistas cadastrados só como referência (sem login) não contam nesse limite.'
     )
   }
 
   async create(
     adminUser: { role: string },
-    data: { username?: string; email: string; name: string; password: string; role: TenantRole }
+    data: { username?: string; email?: string; name: string; password?: string; role: TenantRole }
   ) {
-    if (adminUser.role !== 'ADMIN') throw new ForbiddenException()
+    if (!canManageTeam(adminUser.role)) throw new ForbiddenException()
+    if (adminUser.role === 'USER' && data.role === 'ADMIN') {
+      throw new ForbiddenException('Equipe de apoio não pode criar administradores.')
+    }
+    // Acesso ao sistema (login) é opcional para dentistas: ou informa e-mail + senha juntos, ou nenhum dos dois.
+    if (Boolean(data.email) !== Boolean(data.password)) {
+      throw new BadRequestException('Para criar acesso ao sistema, informe e-mail e senha juntos.')
+    }
+    if (!data.email && data.role !== 'DENTIST') {
+      throw new BadRequestException('E-mail e senha são obrigatórios para este perfil.')
+    }
 
-    if (data.role === 'DENTIST') await this.assertDentistSlotAvailable()
+    if (data.role === 'DENTIST' && data.email) await this.assertDentistSlotAvailable()
 
-    const hash = await argon2.hash(data.password)
-    const generatedUsername = usernameFromEmail(data.email)
+    const hash = data.password ? await argon2.hash(data.password) : null
+    const email = data.email || null
+    const generatedUsername = email ? usernameFromEmail(email) : usernameFromName(data.name)
     const username = (data.username || generatedUsername).slice(0, 32)
 
     try {
       return await this.prismaTenant.getClient().user.create({
-        data: { username, email: data.email, name: data.name, passwordHash: hash, role: data.role as never, active: true },
+        data: { username, email, name: data.name, passwordHash: hash, role: data.role as never, active: true },
         select: USER_SELECT
       })
     } catch (e) {
@@ -93,13 +120,25 @@ export class UsersService {
   }
 
   async update(requester: Requester, id: string, data: { name?: string; email?: string; password?: string }) {
-    if (requester.role !== 'ADMIN' && requester.userId !== id) {
-      throw new ForbiddenException('Você só pode editar o próprio perfil.')
+    const isSelf = requester.userId === id
+    if (!isSelf) {
+      if (!canManageTeam(requester.role)) {
+        throw new ForbiddenException('Você só pode editar o próprio perfil.')
+      }
+      if (requester.role === 'USER') {
+        const target = await this.prismaTenant.getClient().user.findUnique({ where: { id }, select: { role: true } })
+        if (target?.role === 'ADMIN') throw new ForbiddenException('Equipe de apoio não pode editar um administrador.')
+      }
     }
     const patch: Record<string, unknown> = {}
     if (data.name !== undefined) patch.name = data.name
-    if (data.email !== undefined) patch.email = data.email
-    if (data.password) patch.passwordHash = await argon2.hash(data.password)
+    if (data.email !== undefined) patch.email = data.email || null
+    if (data.password) {
+      // Uma senha sem e-mail deixa a conta sem forma de login — exige que o e-mail já exista ou venha junto.
+      const resultingEmail = data.email !== undefined ? data.email : (await this.prismaTenant.getClient().user.findUnique({ where: { id }, select: { email: true } }))?.email
+      if (!resultingEmail) throw new BadRequestException('Informe um e-mail para criar o acesso deste usuário.')
+      patch.passwordHash = await argon2.hash(data.password)
+    }
     if (Object.keys(patch).length === 0) throw new BadRequestException('Nada para atualizar.')
 
     try {
@@ -116,8 +155,12 @@ export class UsersService {
   }
 
   async remove(requester: Requester, id: string) {
-    if (requester.role !== 'ADMIN') throw new ForbiddenException()
+    if (!canManageTeam(requester.role)) throw new ForbiddenException()
     if (requester.userId === id) throw new BadRequestException('Você não pode remover a própria conta.')
+    if (requester.role === 'USER') {
+      const target = await this.prismaTenant.getClient().user.findUnique({ where: { id }, select: { role: true } })
+      if (target?.role === 'ADMIN') throw new ForbiddenException('Equipe de apoio não pode remover um administrador.')
+    }
     try {
       // As consultas já atribuídas ficam sem dentista (onDelete: SetNull) — não perdem histórico.
       await this.prismaTenant.getClient().user.delete({ where: { id } })

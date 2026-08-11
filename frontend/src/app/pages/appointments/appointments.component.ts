@@ -24,7 +24,7 @@ type Appointment = {
   confirmationSentAt?: string | null
   confirmationToken?: string | null
 }
-type CalendarBlock = Appointment & { top: number; height: number; left: number; width: number; colorIdx: number }
+type CalendarBlock = Appointment & { top: number; height: number; left: number; width: number; colorIdx: number; compact: boolean }
 
 const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendado', COMPLETED: 'Concluído', CANCELLED: 'Cancelado' }
 const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '', CANCELLED: 'neutral' }
@@ -45,8 +45,9 @@ function confirmationClass(a: Pick<Appointment, 'confirmationSentAt' | 'confirma
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const GRID_START_HOUR = 7
 const GRID_END_HOUR = 20
-const PX_PER_HOUR = 56
+const PX_PER_HOUR = 64
 const DENTIST_PALETTE = ['#2563eb', '#14b8a6', '#a855f7', '#f59e0b', '#ec4899', '#22c55e']
+const DENTIST_PALETTE_BG = ['#eff6ff', '#f0fdfa', '#faf5ff', '#fffbeb', '#fdf2f8', '#f0fdf4']
 
 function startOfWeek(d: Date) {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -165,11 +166,14 @@ function colorIndexFor(id: string | null | undefined) {
                         type="button"
                         class="agenda-block"
                         [class]="'status-' + block.status.toLowerCase()"
+                        [class.compact]="block.compact"
                         [style.top.px]="block.top"
                         [style.height.px]="block.height"
                         [style.left.%]="block.left"
                         [style.width.%]="block.width"
                         [style.border-left-color]="!isDentist && (block.dentist || block.dentistName) ? dentistColor(block.colorIdx) : null"
+                        [style.background]="!isDentist && block.status === 'SCHEDULED' && (block.dentist || block.dentistName) ? dentistBg(block.colorIdx) : null"
+                        [style.color]="!isDentist && block.status === 'SCHEDULED' && (block.dentist || block.dentistName) ? '#1e293b' : null"
                         (click)="onBlockClick($event, block)"
                         [title]="(block.patient?.name || 'Paciente') + ' · ' + (block.startTime | date:'HH:mm') + '–' + (block.endTime | date:'HH:mm') + ((block.dentist?.name || block.dentistName) ? ' · ' + (block.dentist?.name || block.dentistName) : '') + ' · ' + confirmationLabel(block)"
                       >
@@ -179,8 +183,12 @@ function colorIndexFor(id: string | null | undefined) {
                           <span class="agenda-block-confirm declined" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m18 6-12 12M6 6l12 12"/></svg></span>
                         }
                         <strong>{{ block.patient?.name || 'Paciente' }}</strong>
-                        <span>{{ block.startTime | date:'HH:mm' }}–{{ block.endTime | date:'HH:mm' }}</span>
-                        @if (!isDentist && (block.dentist || block.dentistName)) { <em>{{ block.dentist?.name || block.dentistName }}</em> }
+                        @if (block.compact) {
+                          <span>{{ block.startTime | date:'HH:mm' }}</span>
+                        } @else {
+                          <span>{{ block.startTime | date:'HH:mm' }}–{{ block.endTime | date:'HH:mm' }}</span>
+                          @if (!isDentist && (block.dentist || block.dentistName)) { <em>{{ block.dentist?.name || block.dentistName }}</em> }
+                        }
                       </button>
                     }
                   </div>
@@ -321,20 +329,10 @@ function colorIndexFor(id: string | null | undefined) {
                   ariaLabel="Dentista responsável"
                   [(ngModel)]="form.dentistId"
                   name="dentistId"
-                  (ngModelChange)="onDentistIdChange($event)"
+                  [allowCreate]="true"
+                  createLabel="Cadastrar novo dentista"
+                  (createRequested)="openQuickCreateDentist($event)"
                 ></app-searchable-select>
-                @if (!form.dentistId) {
-                  <div style="margin-top:8px;">
-                    <input
-                      class="input"
-                      [(ngModel)]="form.dentistName"
-                      name="dentistName"
-                      placeholder="Ou digite o nome (sem conta no sistema)"
-                      (ngModelChange)="onDentistNameChange($event)"
-                    />
-                    <small class="muted">Use quando o profissional não tem login no sistema — fica só como referência no agendamento.</small>
-                  </div>
-                }
               </div>
             }
             <div class="grid cols-2">
@@ -409,6 +407,68 @@ function colorIndexFor(id: string | null | undefined) {
       </div>
     }
 
+    <!-- Quick create dentist (sem sair do agendamento) -->
+    @if (quickDentistModal) {
+      <div class="modal-backdrop" (click)="closeQuickDentistOnBackdrop($event)">
+        <div class="modal" style="max-width:420px;" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <div>
+              <h3>Cadastrar dentista</h3>
+              <p>Cadastro rápido — o acesso ao sistema é opcional</p>
+            </div>
+            <button class="btn btn-icon" (click)="quickDentistModal=false" aria-label="Fechar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <form class="form" (ngSubmit)="saveQuickDentist()">
+            <div class="form-group">
+              <label>Nome completo *</label>
+              <input class="input" [(ngModel)]="quickDentistForm.name" name="qd_name" placeholder="Nome do dentista" required />
+            </div>
+            <label class="master-check-row">
+              <input type="checkbox" [(ngModel)]="quickDentistForm.withLogin" name="qd_with_login" />
+              <span><strong>Criar acesso ao sistema</strong><small>Permite que este dentista faça login. Se deixar desmarcado, o nome fica só como referência na agenda.</small></span>
+            </label>
+            @if (quickDentistForm.withLogin) {
+              <div class="form-group">
+                <label>E-mail *</label>
+                <input class="input" [(ngModel)]="quickDentistForm.email" name="qd_email" type="email" placeholder="email@clinica.com" [required]="quickDentistForm.withLogin" />
+              </div>
+              <div class="form-group">
+                <label>Senha *</label>
+                <div class="input-wrapper">
+                  <input
+                    class="input"
+                    [(ngModel)]="quickDentistForm.password"
+                    name="qd_password"
+                    [type]="showQuickDentistPwd ? 'text' : 'password'"
+                    minlength="8"
+                    [required]="quickDentistForm.withLogin"
+                    placeholder="Mínimo 8 caracteres"
+                    style="padding-right:42px;"
+                  />
+                  <button type="button" class="input-action" (click)="showQuickDentistPwd = !showQuickDentistPwd" [attr.aria-label]="showQuickDentistPwd ? 'Ocultar senha' : 'Mostrar senha'">
+                    @if (showQuickDentistPwd) {
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    } @else {
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
+                  </button>
+                </div>
+              </div>
+            }
+            <div class="modal-footer">
+              <button class="btn btn-ghost" type="button" (click)="quickDentistModal=false">Cancelar</button>
+              <button class="btn btn-primary" [disabled]="savingQuickDentist" type="submit">
+                @if (savingQuickDentist) { <span class="spinner"></span> }
+                {{ quickDentistForm.withLogin ? 'Cadastrar e dar acesso' : 'Cadastrar e selecionar' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
     <!-- Delete Confirm -->
     @if (deleteTarget) {
       <div class="modal-backdrop" (click)="deleteTarget=null">
@@ -447,6 +507,10 @@ export class AppointmentsComponent implements OnInit {
   quickPatientModal = false
   savingQuickPatient = false
   quickPatientForm: { name: string; phone: string; email: string } = { name: '', phone: '', email: '' }
+  quickDentistModal = false
+  savingQuickDentist = false
+  showQuickDentistPwd = false
+  quickDentistForm: { name: string; withLogin: boolean; email: string; password: string } = { name: '', withLogin: false, email: '', password: '' }
   sendingConfirmationId: string | null = null
   sendingBulkConfirmations = false
 
@@ -514,6 +578,10 @@ export class AppointmentsComponent implements OnInit {
     return DENTIST_PALETTE[idx] || DENTIST_PALETTE[0]
   }
 
+  dentistBg(idx: number) {
+    return DENTIST_PALETTE_BG[idx] || DENTIST_PALETTE_BG[0]
+  }
+
   duration(start: string, end: string) {
     const diff = new Date(end).getTime() - new Date(start).getTime()
     const m = Math.round(diff / 60000)
@@ -576,6 +644,44 @@ export class AppointmentsComponent implements OnInit {
 
   closeQuickPatientOnBackdrop(ev: MouseEvent) {
     if ((ev.target as HTMLElement).classList.contains('modal-backdrop')) this.quickPatientModal = false
+  }
+
+  openQuickCreateDentist(searchText: string) {
+    this.quickDentistForm = { name: searchText, withLogin: false, email: '', password: '' }
+    this.showQuickDentistPwd = false
+    this.quickDentistModal = true
+  }
+
+  saveQuickDentist() {
+    if (!this.quickDentistForm.name.trim() || this.savingQuickDentist) return
+    if (this.quickDentistForm.withLogin && (!this.quickDentistForm.email.trim() || this.quickDentistForm.password.length < 8)) {
+      this.toast.error('Informe e-mail e senha (mínimo 8 caracteres) para criar o acesso.')
+      return
+    }
+    this.savingQuickDentist = true
+    const body: Record<string, unknown> = { name: this.quickDentistForm.name.trim(), role: 'DENTIST' }
+    if (this.quickDentistForm.withLogin) {
+      body.email = this.quickDentistForm.email.trim()
+      body.password = this.quickDentistForm.password
+    }
+    this.http.post<Dentist>('/api/users', body).subscribe({
+      next: dentist => {
+        this.savingQuickDentist = false
+        this.quickDentistModal = false
+        this.dentists = [...this.dentists, dentist]
+        this.form.dentistId = dentist.id
+        this.form.dentistName = ''
+        this.toast.success(this.quickDentistForm.withLogin ? 'Dentista cadastrado com acesso ao sistema' : 'Dentista cadastrado como referência')
+      },
+      error: (err: any) => {
+        this.savingQuickDentist = false
+        this.toast.error('Erro ao cadastrar dentista', err.error?.message)
+      }
+    })
+  }
+
+  closeQuickDentistOnBackdrop(ev: MouseEvent) {
+    if ((ev.target as HTMLElement).classList.contains('modal-backdrop')) this.quickDentistModal = false
   }
 
   confirmationLink(a: Appointment) {
@@ -675,11 +781,15 @@ export class AppointmentsComponent implements OnInit {
       const startMin = (start.getHours() - GRID_START_HOUR) * 60 + start.getMinutes()
       const endMin = (end.getHours() - GRID_START_HOUR) * 60 + end.getMinutes()
       const top = Math.max(0, (startMin / 60) * PX_PER_HOUR)
-      const height = Math.max(22, ((endMin - startMin) / 60) * PX_PER_HOUR)
+      const rawHeight = ((endMin - startMin) / 60) * PX_PER_HOUR
+      // -2px cria um respiro visual entre consultas seguidas (sem isso, back-to-back parece um bloco só).
+      const height = Math.max(24, rawHeight - 2)
       const col = columnOf.get(a.id) || 0
       return {
         ...a,
         top, height,
+        // Abaixo desse tamanho não cabem 3 linhas (paciente, horário, dentista) sem cortar — esconde a linha do dentista.
+        compact: rawHeight < 46,
         left: (col / totalCols) * 100,
         width: (1 / totalCols) * 100 - 1,
         colorIdx: colorIndexFor(a.dentistId || a.dentistName)
@@ -726,14 +836,6 @@ export class AppointmentsComponent implements OnInit {
       notes: a.notes,
     }
     this.showModal = true
-  }
-
-  onDentistIdChange(id: string) {
-    if (id) this.form.dentistName = ''
-  }
-
-  onDentistNameChange(name: string) {
-    if (name) this.form.dentistId = ''
   }
 
   private toLocal(iso: string) {
