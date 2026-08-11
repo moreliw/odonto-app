@@ -7,7 +7,9 @@ if [[ ! -f .env ]]; then
 fi
 
 declare -A managed_values=()
-while IFS='=' read -r key encoded_value; do
+while IFS= read -r encoded_line; do
+  key="${encoded_line%%=*}"
+  encoded_value="${encoded_line#*=}"
   case "${key}" in
     TWILIO_ACCOUNT_SID|TWILIO_AUTH_TOKEN|TWILIO_WHATSAPP_CONTENT_SID)
       managed_values["${key}"]="$(printf '%s' "${encoded_value}" | base64 --decode)"
