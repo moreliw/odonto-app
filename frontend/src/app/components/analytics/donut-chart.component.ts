@@ -9,7 +9,7 @@ Chart.register(DoughnutController, ArcElement, Tooltip)
     selector: 'app-donut-chart',
     imports: [CommonModule],
     template: `
-    <article class="card chart-card donut-wrap">
+    <article class="card chart-card donut-wrap" [class.chart-card--compact]="compact">
       <div class="chart-title-row">
         <h2>{{ title }}</h2>
         <span class="muted">{{ subtitle }}</span>
@@ -32,6 +32,7 @@ export class DonutChartComponent implements AfterViewInit, OnChanges {
   @Input() subtitle = ''
   /** '%' quando os valores já vierem em percentual; '' quando forem contagens brutas. */
   @Input() valueSuffix = '%'
+  @Input() compact = false
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>
   private chart: Chart | null = null
 

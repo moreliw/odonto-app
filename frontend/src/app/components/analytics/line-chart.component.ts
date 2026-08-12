@@ -9,7 +9,7 @@ Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearS
     selector: 'app-line-chart',
     imports: [CommonModule],
     template: `
-    <article class="card chart-card">
+    <article class="card chart-card" [class.chart-card--compact]="compact">
       <div class="chart-title-row">
         <h2>{{ title }}</h2>
         <span class="muted">{{ subtitle }}</span>
@@ -24,6 +24,7 @@ export class LineChartComponent implements AfterViewInit, OnChanges {
   @Input() title = 'Tendência'
   @Input() subtitle = ''
   @Input() color = '#2563eb'
+  @Input() compact = false
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>
   private chart: Chart | null = null
 

@@ -42,6 +42,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
 @Component({
     selector: 'app-dashboard',
     imports: [CommonModule, RouterLink, KpiCardComponent, LineChartComponent, DonutChartComponent],
+    styleUrl: './dashboard.component.css',
     template: `
     <div class="dashboard-page dashboard-home-page">
       <section class="dashboard-mobile-hero" aria-label="Resumo da clínica">
@@ -97,8 +98,8 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
 
       @if (isDentist) {
         @if (myMetrics) {
-          <div class="grid cols-4 kpi-grid">
-            <app-kpi-card *ngFor="let m of kpis" [metric]="m" (activated)="openMetric($event)"></app-kpi-card>
+          <div class="grid cols-4 kpi-grid dashboard-primary-kpis">
+            <app-kpi-card *ngFor="let m of kpis" [metric]="m" [compact]="true" (activated)="openMetric($event)"></app-kpi-card>
           </div>
 
           <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: myMetrics.todayAppointments, showDentist: false }"></ng-container>
@@ -108,6 +109,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
               [points]="appointmentTrend"
               title="Meus atendimentos"
               subtitle="Últimos 6 meses"
+              [compact]="true"
             ></app-line-chart>
           }
         } @else if (loading) {
@@ -117,26 +119,54 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
         }
       } @else {
         @if (metrics) {
-          <div class="grid cols-4 kpi-grid">
-            <app-kpi-card *ngFor="let m of kpis" [metric]="m" (activated)="openMetric($event)"></app-kpi-card>
+          <div class="grid cols-4 kpi-grid dashboard-primary-kpis" [class.dashboard-primary-kpis--admin]="isAdmin">
+            <app-kpi-card *ngFor="let m of kpis" [metric]="m" [compact]="true" (activated)="openMetric($event)"></app-kpi-card>
           </div>
 
           @if (isAdmin) {
-            <section class="dashboard-section" aria-labelledby="dashboard-operation-title">
+            <section class="dashboard-section dashboard-command-section" aria-labelledby="dashboard-operation-title">
               <div class="dashboard-section-heading">
                 <div>
-                  <h2 id="dashboard-operation-title">Operação da clínica</h2>
-                  <p>Indicadores que precisam de acompanhamento da equipe.</p>
+                  <h2 id="dashboard-operation-title">Hoje, em foco</h2>
+                  <p>Agenda do dia e pontos que precisam de atenção.</p>
                 </div>
                 <a routerLink="/app/appointments" class="dashboard-today-link">Abrir agenda <span aria-hidden="true">→</span></a>
               </div>
-              <div class="grid cols-4 kpi-grid kpi-grid--secondary">
-                <app-kpi-card *ngFor="let m of operationalKpis" [metric]="m" (activated)="openMetric($event)"></app-kpi-card>
+              <div class="dashboard-command-grid">
+                <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: metrics.todayAppointments, showDentist: true }"></ng-container>
+
+                <article class="card dashboard-attention-card" aria-labelledby="dashboard-attention-title">
+                  <div class="dashboard-attention-head">
+                    <div><span>Central de atenção</span><h3 id="dashboard-attention-title">Pendências operacionais</h3></div>
+                    <span class="dashboard-attention-count">{{ attentionCount }}</span>
+                  </div>
+                  <div class="dashboard-attention-list">
+                    <button type="button" (click)="openMetricById('confirmations')">
+                      <span class="dashboard-attention-icon dashboard-attention-icon--warning" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.3 9.3 0 0 1-3.8-.9L3 21l1.8-5.2A8.5 8.5 0 1 1 21 11.5Z"/><path d="M12 7.5V12l2.8 1.7"/></svg></span>
+                      <span><strong>Aguardando confirmação</strong><small>Pacientes que ainda não responderam</small></span>
+                      <b>{{ metrics.pendingConfirmations }}</b><i aria-hidden="true">→</i>
+                    </button>
+                    <button type="button" (click)="openMetricById('unassigned')">
+                      <span class="dashboard-attention-icon dashboard-attention-icon--danger" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M18 8v4M18 16h.01"/></svg></span>
+                      <span><strong>Sem dentista</strong><small>Consultas que precisam de responsável</small></span>
+                      <b>{{ metrics.unassignedAppointments }}</b><i aria-hidden="true">→</i>
+                    </button>
+                    <button type="button" (click)="openMetricById('pending')">
+                      <span class="dashboard-attention-icon dashboard-attention-icon--blue" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg></span>
+                      <span><strong>Cobranças pendentes</strong><small>Pagamentos aguardando baixa</small></span>
+                      <b>{{ metrics.invoicesStatus.pending + metrics.invoicesStatus.partial }}</b><i aria-hidden="true">→</i>
+                    </button>
+                  </div>
+                  <div class="dashboard-attention-footer">
+                    <div><span>Próximos 7 dias</span><strong>{{ metrics.appointmentsNextSevenDays }}</strong></div>
+                    <div><span>Concluídas no mês</span><strong>{{ metrics.completedThisMonth }}</strong></div>
+                  </div>
+                </article>
               </div>
             </section>
+          } @else {
+            <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: metrics.todayAppointments, showDentist: true }"></ng-container>
           }
-
-          <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: metrics.todayAppointments, showDentist: true }"></ng-container>
 
           @if (hasActivity) {
             <section class="dashboard-section" aria-labelledby="dashboard-analysis-title">
@@ -146,45 +176,56 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                   <p>Crescimento, rotina operacional e situação das cobranças.</p>
                 </div>
               </div>
-            <div class="dashboard-analytics-grid dashboard-chart-grid" [class.dashboard-analytics-grid--admin]="isAdmin">
-              <app-line-chart
-                [points]="patientTrend"
-                title="Novos pacientes"
-                subtitle="Últimos 6 meses"
-              ></app-line-chart>
-              @if (operationalSlices.length) {
-                <app-donut-chart
-                  [slices]="operationalSlices"
-                  title="Rotina da equipe"
-                  subtitle="Indicadores operacionais"
-                  valueSuffix=""
-                ></app-donut-chart>
+              @if (isAdmin) {
+                <div class="dashboard-admin-analysis-grid dashboard-chart-grid">
+                  <app-line-chart
+                    [points]="patientTrend"
+                    title="Evolução de pacientes"
+                    subtitle="Novos cadastros · últimos 6 meses"
+                    [compact]="true"
+                  ></app-line-chart>
+
+                  <article class="card dashboard-month-card">
+                    <div class="dashboard-month-head">
+                      <div><span>Resumo mensal</span><h3>Desempenho da clínica</h3></div>
+                      <a routerLink="/app/finance">Ver financeiro <span aria-hidden="true">→</span></a>
+                    </div>
+                    <div class="dashboard-month-stats">
+                      <div><span>Novos pacientes</span><strong>{{ metrics.newPatientsThisMonth }}</strong><small>neste mês</small></div>
+                      <div><span>Consultas concluídas</span><strong>{{ metrics.completedThisMonth }}</strong><small>neste mês</small></div>
+                    </div>
+                    <div class="dashboard-finance-summary">
+                      <div class="dashboard-finance-title"><span>Situação das cobranças</span><strong>{{ invoiceTotal }} registros</strong></div>
+                      @if (invoiceSlices.length) {
+                        <div class="dashboard-finance-bar" aria-label="Distribuição das cobranças">
+                          @for (slice of invoiceSlices; track slice.label) {
+                            <span [style.width.%]="invoicePercentage(slice.value)" [style.background]="slice.color" [title]="slice.label + ': ' + slice.value"></span>
+                          }
+                        </div>
+                        <div class="dashboard-finance-legend">
+                          @for (slice of invoiceSlices; track slice.label) {
+                            <div><i [style.background]="slice.color"></i><span>{{ slice.label }}</span><strong>{{ slice.value }}</strong></div>
+                          }
+                        </div>
+                      } @else {
+                        <p>Nenhuma cobrança registrada ainda.</p>
+                      }
+                    </div>
+                  </article>
+                </div>
               } @else {
-                <article class="card chart-card chart-card--empty">
-                  <div class="chart-title-row">
-                    <h2>Rotina da equipe</h2>
-                    <span class="muted">Tudo organizado</span>
-                  </div>
-                  <p class="muted dashboard-chart-empty">Nenhuma pendência operacional neste momento.</p>
-                </article>
+                <div class="dashboard-analytics-grid dashboard-chart-grid">
+                  <app-line-chart [points]="patientTrend" title="Novos pacientes" subtitle="Últimos 6 meses" [compact]="true"></app-line-chart>
+                  @if (operationalSlices.length) {
+                    <app-donut-chart [slices]="operationalSlices" title="Rotina da equipe" subtitle="Indicadores operacionais" valueSuffix="" [compact]="true"></app-donut-chart>
+                  } @else {
+                    <article class="card chart-card chart-card--empty chart-card--compact">
+                      <div class="chart-title-row"><h2>Rotina da equipe</h2><span class="muted">Tudo organizado</span></div>
+                      <p class="muted dashboard-chart-empty">Nenhuma pendência operacional neste momento.</p>
+                    </article>
+                  }
+                </div>
               }
-              @if (isAdmin && invoiceSlices.length) {
-                <app-donut-chart
-                  [slices]="invoiceSlices"
-                  title="Cobranças"
-                  subtitle="Situação atual"
-                  valueSuffix=""
-                ></app-donut-chart>
-              } @else if (isAdmin) {
-                <article class="card chart-card chart-card--empty">
-                  <div class="chart-title-row">
-                    <h2>Cobranças</h2>
-                    <span class="muted">Situação atual</span>
-                  </div>
-                  <p class="muted dashboard-chart-empty">Nenhuma cobrança registrada ainda.</p>
-                </article>
-              }
-            </div>
             </section>
           } @else {
             <div class="card empty-state">
@@ -254,6 +295,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   appointmentTrend: ChartPoint[] = []
   invoiceSlices: DonutSlice[] = []
   operationalSlices: DonutSlice[] = []
+  invoiceTotal = 0
+  attentionCount = 0
   hasActivity = false
 
   readonly STATUS_LABELS = STATUS_LABELS
@@ -312,6 +355,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (queryParams) void this.router.navigate(['/app/appointments'], { queryParams })
   }
 
+  openMetricById(id: string) {
+    const metric = [...this.kpis, ...this.operationalKpis].find(item => item.id === id)
+    if (metric) this.openMetric(metric)
+  }
+
+  invoicePercentage(value: number) {
+    return this.invoiceTotal ? (value / this.invoiceTotal) * 100 : 0
+  }
+
   load() {
     this.loading = true
     this.error = ''
@@ -366,6 +418,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { label: 'Parciais', value: m.invoicesStatus.partial, color: '#3b82f6' },
       { label: 'Canceladas', value: m.invoicesStatus.cancelled, color: '#ef4444' }
     ].filter(s => s.value > 0)
+    this.invoiceTotal = m.invoicesStatus.paid + m.invoicesStatus.pending + m.invoicesStatus.partial + m.invoicesStatus.cancelled
+    this.attentionCount = m.pendingConfirmations + m.unassignedAppointments + m.invoicesStatus.pending + m.invoicesStatus.partial
 
     this.operationalSlices = [
       { label: 'Aguardando confirmação', value: m.pendingConfirmations, color: '#f59e0b' },
@@ -374,7 +428,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { label: 'Novos pacientes', value: m.newPatientsThisMonth, color: '#3b82f6' }
     ].filter(s => s.value > 0)
 
-    const totalInvoices = m.invoicesStatus.paid + m.invoicesStatus.pending + m.invoicesStatus.partial + m.invoicesStatus.cancelled
+    const totalInvoices = this.invoiceTotal
     const patientsInTrend = m.monthlyPatients.reduce((acc, p) => acc + p.count, 0)
     this.hasActivity = m.patientCount > 0 || m.appointmentsToday > 0 || (this.isAdmin && totalInvoices > 0) || patientsInTrend > 0
   }

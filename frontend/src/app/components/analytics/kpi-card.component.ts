@@ -8,6 +8,7 @@ import { KpiMetric } from '../../models/analytics.model'
     template: `
     <article
       class="card kpi-card kpi-card--interactive"
+      [class.kpi-card--compact]="compact"
       role="link"
       tabindex="0"
       [attr.aria-label]="'Abrir ' + metric.title"
@@ -56,6 +57,7 @@ import { KpiMetric } from '../../models/analytics.model'
 })
 export class KpiCardComponent {
   @Input({ required: true }) metric!: KpiMetric
+  @Input() compact = false
   @Output() activated = new EventEmitter<KpiMetric>()
 
   activateFromKeyboard(event: Event) {

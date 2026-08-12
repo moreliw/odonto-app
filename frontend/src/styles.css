@@ -889,6 +889,13 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .kpi-card--interactive { cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
 .kpi-card--interactive:hover { border-color: var(--primary-100); box-shadow: var(--shadow-md); }
 .kpi-card--interactive:focus-visible { outline: 3px solid var(--primary-100); outline-offset: 2px; border-color: var(--primary); }
+.kpi-card--compact { min-height: 102px; gap: 5px; padding: 15px 16px; }
+.kpi-card--compact .kpi-card-head { align-items: center; }
+.kpi-card--compact .kpi-icon { width: 31px; height: 31px; border-radius: 8px; }
+.kpi-card--compact .kpi-icon svg { width: 16px; height: 16px; }
+.kpi-card--compact .kpi-title { font-size: 11px; }
+.kpi-card--compact .kpi-value { overflow: hidden; font-size: 23px; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-card--compact .kpi-delta { margin-top: auto; font-size: 9.5px; font-weight: 500; }
 
 /* ─── Dashboard ───────────────────────────────────────────── */
 .dashboard-page { display: grid; gap: 20px; }
@@ -904,6 +911,12 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .dashboard-chart-grid { align-items: stretch; }
 .dashboard-chart-grid > * { min-width: 0; height: 100%; }
 .dashboard-chart-grid .chart-card { height: 100%; min-height: 440px; grid-template-rows: auto minmax(0, 1fr) auto; }
+.dashboard-chart-grid .chart-card.chart-card--compact { min-height: 318px; gap: 10px; padding: 17px; }
+.chart-card--compact .chart-title-row h2 { font-size: 14px; }
+.chart-card--compact .chart-title-row span { font-size: 10px; }
+.chart-card--compact.donut-wrap canvas { max-height: 158px; }
+.chart-card--compact .donut-legend { gap: 5px; }
+.chart-card--compact .legend-item { font-size: 10px; }
 .dashboard-analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .dashboard-analytics-grid--admin { grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(260px, .825fr)); }
 .dashboard-chart-empty { align-self: center; padding: 24px 0; text-align: center; }
@@ -2275,5 +2288,10 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 
 @media (prefers-reduced-motion: reduce) {
   .mobile-more-sheet { animation: none; }
+}
+
+@media (max-width: 700px) {
+  .dashboard-page .kpi-card.kpi-card--compact { min-height: 110px; gap: 5px; padding: 12px; }
+  .dashboard-page .kpi-card.kpi-card--compact .kpi-value { font-size: clamp(19px, 5.6vw, 23px); }
 }
 
