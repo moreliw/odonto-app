@@ -7,11 +7,11 @@
 .dashboard-command-section { gap: 10px; }
 .dashboard-command-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .72fr); align-items: stretch; gap: 12px; }
 .dashboard-command-grid > * { min-width: 0; }
-.dashboard-command-grid .dashboard-today { min-height: 304px; max-height: 338px; align-content: start; padding: 16px 18px; overflow: hidden; }
-.dashboard-command-grid .dashboard-upcoming-list { max-height: 254px; overflow-y: auto; padding-right: 3px; }
+.dashboard-command-grid .dashboard-today { min-height: 264px; max-height: 296px; align-content: start; padding: 16px 18px; overflow: hidden; }
+.dashboard-command-grid .dashboard-upcoming-list { max-height: 212px; overflow-y: auto; padding-right: 3px; }
 .dashboard-command-grid .dashboard-upcoming-list li { min-height: 49px; padding: 8px 2px; }
 
-.dashboard-attention-card { min-height: 304px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 0; overflow: hidden; }
+.dashboard-attention-card { min-height: 264px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 0; overflow: hidden; }
 .dashboard-attention-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 16px 12px; border-bottom: 1px solid var(--border); }
 .dashboard-attention-head > div { min-width: 0; display: grid; gap: 1px; }
 .dashboard-attention-head > div > span, .dashboard-month-head > div > span { color: var(--primary); font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
