@@ -397,11 +397,18 @@ export class RecordsComponent implements OnInit {
   downloadDocument(record: PatientRecord) {
     const file = record.content?.file
     if (!file?.id) return
+    const preview = window.open('', '_blank')
+    if (preview) {
+      preview.opener = null
+      preview.document.title = 'Carregando documento...'
+      preview.document.body.textContent = 'Carregando documento com segurança...'
+    }
     this.http.get(`/api/files/${file.id}/content`, { responseType: 'blob' }).subscribe({
       next: blob => {
         const url = URL.createObjectURL(blob)
-        const tab = window.open(url, '_blank', 'noopener,noreferrer')
-        if (!tab) {
+        if (preview) {
+          preview.location.href = url
+        } else {
           const link = document.createElement('a')
           link.href = url
           link.download = file.name || record.content?.title || 'documento'
@@ -409,7 +416,10 @@ export class RecordsComponent implements OnInit {
         }
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
       },
-      error: () => this.toast.error('Não foi possível abrir o documento')
+      error: () => {
+        preview?.close()
+        this.toast.error('Não foi possível abrir o documento')
+      }
     })
   }
 
