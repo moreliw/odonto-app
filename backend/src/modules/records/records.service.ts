@@ -12,9 +12,13 @@ export class RecordsService {
     const normalized = typeof content === 'string'
       ? { text: content }
       : content && typeof content === 'object'
-        ? content as Prisma.InputJsonValue
+        ? { ...(content as Record<string, unknown>), schemaVersion: 2 } as Prisma.InputJsonObject
         : null
     if (!normalized) throw new BadRequestException('O conteúdo do prontuário é obrigatório')
+    const serialized = JSON.stringify(normalized)
+    if (serialized.length > 100_000) {
+      throw new BadRequestException('O registro clínico excede o limite de 100 KB. Anexe arquivos separadamente.')
+    }
     const auditName = requester.email?.trim() || 'Sistema'
     return this.prismaTenant.getClient().record.create({
       data: { patientId, content: normalized, createdByName: auditName, updatedByName: auditName }

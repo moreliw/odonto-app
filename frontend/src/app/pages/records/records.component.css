@@ -1,0 +1,336 @@
+:host { display: block; min-width: 0; }
+
+.record-page { width: 100%; min-width: 0; }
+.record-eyebrow, .record-patient-kicker, .record-panel-header > div > span, .record-upload-panel > header span {
+  color: var(--primary); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+}
+.record-page-header { margin-bottom: 18px; }
+.record-page-header h1 { margin-top: 2px; }
+
+.record-patient-picker {
+  display: grid; grid-template-columns: minmax(170px, .32fr) minmax(260px, 1fr); align-items: center; gap: 18px;
+  margin-bottom: 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow);
+}
+.record-patient-picker-copy { display: grid; padding-right: 18px; border-right: 1px solid var(--border); }
+.record-patient-picker-copy span { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.record-patient-picker-copy strong { margin-top: 2px; color: var(--text); font-size: 13px; }
+
+.record-empty { min-height: 410px; display: grid; place-items: center; align-content: center; padding: 56px 24px; text-align: center; }
+.record-empty-icon, .record-inline-empty > div {
+  width: 52px; height: 52px; display: grid; place-items: center; margin-bottom: 14px; border-radius: 16px;
+  background: var(--primary-50); color: var(--primary); font-size: 24px;
+}
+.record-empty h2 { margin: 0; color: var(--text); font-size: 20px; }
+.record-empty > p { max-width: 540px; margin-top: 7px; color: var(--muted); }
+.record-empty-features { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
+.record-empty-features span { padding: 6px 10px; border-radius: 99px; background: var(--surface-2); color: var(--text-2); font-size: 11px; font-weight: 600; }
+
+.record-patient-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 12px; padding: 20px 22px;
+  border: 1px solid var(--border); border-radius: 14px; background: linear-gradient(135deg, var(--surface), var(--primary-50)); box-shadow: var(--shadow);
+}
+.record-patient-identity { min-width: 0; display: flex; align-items: center; gap: 14px; }
+.record-patient-avatar { width: 52px; height: 52px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 15px; background: var(--primary); color: white; font-size: 19px; font-weight: 750; }
+.record-patient-identity h2 { overflow: hidden; margin: 1px 0 4px; color: var(--text); font-family: var(--font-display); font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.record-patient-meta { min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 11.5px; }
+.record-patient-meta span { position: relative; }
+.record-patient-meta span + span::before { position: absolute; top: 50%; left: -8px; width: 3px; height: 3px; border-radius: 50%; background: var(--muted-light); content: ''; }
+.record-patient-stats { display: flex; gap: 8px; }
+.record-patient-stats div { min-width: 78px; display: grid; justify-items: center; padding: 9px 12px; border: 1px solid rgba(37,99,235,.1); border-radius: 10px; background: rgba(255,255,255,.78); }
+.record-patient-stats strong { color: var(--text); font-size: 17px; line-height: 1.15; }
+.record-patient-stats span { margin-top: 2px; color: var(--muted); font-size: 10px; }
+
+.record-alert-strip { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; padding: 11px 14px; border: 1px solid #fed7aa; border-radius: 11px; background: #fffaf1; }
+.record-alert-strip > strong { flex: 0 0 auto; margin-top: 4px; color: #7c2d12; font-size: 11px; }
+.record-alert-strip > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.record-alert { max-width: 330px; display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 99px; background: white; color: var(--text-2); font-size: 10.5px; font-weight: 650; box-shadow: inset 0 0 0 1px rgba(15,23,42,.08); }
+.record-alert i { width: 6px; height: 6px; flex: 0 0 auto; margin-right: 5px; border-radius: 50%; background: var(--warning); }
+.record-alert small { overflow: hidden; color: var(--muted); font-size: inherit; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.record-alert-danger i { background: var(--danger); }
+.record-alert-blue i { background: var(--primary); }
+
+.record-tabs { display: flex; gap: 3px; margin: 0 0 14px; padding: 4px; overflow-x: auto; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); scrollbar-width: none; }
+.record-tabs::-webkit-scrollbar { display: none; }
+.record-tabs button { flex: 1 0 auto; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 13px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; cursor: pointer; }
+.record-tabs button:hover { background: var(--surface-2); color: var(--text); }
+.record-tabs button.active { background: var(--primary-50); color: var(--primary-700); box-shadow: inset 0 0 0 1px var(--primary-100); }
+.record-tabs button span { min-width: 18px; padding: 1px 5px; border-radius: 99px; background: rgba(100,116,139,.12); font-size: 9px; }
+.record-tabs button:focus-visible { outline: 3px solid var(--primary-100); outline-offset: -2px; }
+
+.record-loading { min-height: 240px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); }
+.record-tab-content { min-width: 0; }
+.record-panel { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); box-shadow: var(--shadow); }
+.record-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.record-panel-header h3, .record-upload-panel > header h3 { margin: 2px 0 0; color: var(--text); font-family: var(--font-display); font-size: 15.5px; }
+.record-panel-header p { max-width: 670px; margin-top: 3px; color: var(--muted); font-size: 11.5px; }
+.record-text-action { padding: 4px 0; border: 0; background: transparent; color: var(--primary); font-size: 11px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.record-text-action:hover { color: var(--primary-700); text-decoration: underline; }
+.record-section-header { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+
+.record-summary-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .85fr); gap: 14px; }
+.record-summary-history { grid-column: 1; }
+.record-summary-quick { grid-column: 2; grid-row: 2; }
+.record-summary-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.record-summary-facts > div { min-width: 0; display: grid; gap: 3px; padding: 11px 12px; border-radius: 9px; background: var(--surface-2); }
+.record-summary-facts .record-fact-wide { grid-column: 1 / -1; }
+.record-summary-facts span { color: var(--muted); font-size: 9.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.record-summary-facts strong { overflow: hidden; color: var(--text-2); font-size: 11.5px; font-weight: 600; line-height: 1.4; text-overflow: ellipsis; }
+.record-version-note { margin-top: 12px; color: var(--muted); font-size: 9.5px; }
+.record-inline-empty { min-height: 230px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 20px; text-align: center; }
+.record-inline-empty.compact { min-height: 170px; }
+.record-inline-empty h4 { color: var(--text); font-size: 13px; }
+.record-inline-empty p { max-width: 440px; margin: 4px 0 14px; color: var(--muted); font-size: 11.5px; }
+
+.record-mini-teeth { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.record-mini-tooth { min-width: 0; display: grid; padding: 9px; border: 1px solid var(--border); border-top: 3px solid var(--muted-light); border-radius: 8px; background: var(--bg); }
+.record-mini-tooth strong { color: var(--text); font-size: 12px; }
+.record-mini-tooth span { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.record-mini-tooth.tooth-caries, .record-mini-tooth.tooth-extraction { border-top-color: var(--danger); }
+.record-mini-tooth.tooth-restoration, .record-mini-tooth.tooth-crown, .record-mini-tooth.tooth-implant { border-top-color: var(--primary); }
+.record-mini-tooth.tooth-endo { border-top-color: #8b5cf6; }
+.record-mini-tooth.tooth-watch { border-top-color: var(--warning); }
+
+.record-compact-timeline { display: grid; gap: 0; }
+.record-compact-timeline article { display: grid; grid-template-columns: 14px 1fr; gap: 9px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.record-compact-timeline article:last-child { border: 0; }
+.record-timeline-dot { width: 8px; height: 8px; margin-top: 4px; border: 2px solid white; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.record-compact-timeline article > div:last-child { min-width: 0; display: grid; }
+.record-compact-timeline span { color: var(--muted); font-size: 9px; }
+.record-compact-timeline strong { margin-top: 2px; color: var(--text); font-size: 11.5px; }
+.record-compact-timeline p { overflow: hidden; margin-top: 2px; color: var(--text-2); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+
+.record-summary-quick > button { width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 9px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; text-align: left; cursor: pointer; }
+.record-summary-quick > button:last-child { border: 0; }
+.record-summary-quick > button:hover span strong { color: var(--primary); }
+.record-summary-quick i { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; font-style: normal; font-size: 11px; font-weight: 800; }
+.record-summary-quick .quick-blue { background: var(--primary-50); color: var(--primary); }
+.record-summary-quick .quick-red { background: var(--danger-bg); color: var(--danger); }
+.record-summary-quick .quick-green { background: var(--success-bg); color: var(--success-text); }
+.record-summary-quick .quick-violet { background: #f5f3ff; color: #7c3aed; }
+.record-summary-quick button > span { min-width: 0; display: grid; }
+.record-summary-quick strong { color: var(--text); font-size: 11.5px; }
+.record-summary-quick small { color: var(--muted); font-size: 9.5px; }
+.record-summary-quick b { color: var(--muted-light); font-size: 18px; font-weight: 400; }
+
+.record-timeline { padding: 2px 0 8px; }
+.record-entry { display: grid; grid-template-columns: 22px minmax(0, 1fr); }
+.record-entry-rail { position: relative; display: flex; justify-content: center; }
+.record-entry-rail::after { position: absolute; top: 15px; bottom: -1px; width: 1px; background: var(--border); content: ''; }
+.record-entry:last-child .record-entry-rail::after { display: none; }
+.record-entry-rail span { z-index: 1; width: 9px; height: 9px; margin-top: 17px; border: 2px solid var(--surface); border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.record-entry-card { margin: 0 0 12px 6px; overflow: hidden; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+.record-entry-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.record-entry-card > header > div { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.record-entry-card h4 { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.record-entry-card time { flex: 0 0 auto; color: var(--muted); font-size: 9.5px; }
+.record-type-badge { flex: 0 0 auto; padding: 3px 7px; border-radius: 99px; background: var(--primary-50); color: var(--primary-700); font-size: 8.5px; font-weight: 750; text-transform: uppercase; }
+.record-type-badge.record-type-danger { background: var(--danger-bg); color: var(--danger-text); }
+.record-tooth-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 9px 15px 0; }
+.record-tooth-tags > span { margin-right: 3px; color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.record-tooth-tags b { padding: 2px 6px; border-radius: 5px; background: var(--primary-50); color: var(--primary-700); font-size: 9.5px; }
+.record-tooth-tags small { margin-left: 5px; color: var(--muted); font-size: 9px; }
+.record-soap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 11px 15px; overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: var(--border); }
+.record-soap-grid > div { min-width: 0; display: grid; grid-template-columns: 25px 1fr; align-items: start; gap: 7px; padding: 10px; background: var(--surface); }
+.record-soap-grid i, .record-soap-form i { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; background: var(--primary-50); color: var(--primary); font-style: normal; font-size: 10px; font-weight: 800; }
+.record-soap-grid span { min-width: 0; }
+.record-soap-grid strong { display: block; color: var(--text-2); font-size: 9px; text-transform: uppercase; }
+.record-soap-grid p { margin-top: 2px; color: var(--text-2); font-size: 10.5px; line-height: 1.45; white-space: pre-wrap; }
+.record-legacy-text { padding: 14px 15px; color: var(--text-2); font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; }
+.record-entry-details { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 0 15px 13px; padding: 11px 12px; border-radius: 8px; background: var(--surface-2); }
+.record-entry-details div { min-width: 0; }
+.record-entry-details dt { color: var(--muted); font-size: 8.5px; font-weight: 700; text-transform: uppercase; }
+.record-entry-details dd { margin-top: 2px; color: var(--text-2); font-size: 10.5px; white-space: pre-wrap; }
+.record-entry-card > footer { display: flex; justify-content: space-between; gap: 8px; padding: 9px 15px; border-top: 1px solid var(--border); color: var(--muted); font-size: 9px; }
+.record-entry-card > footer strong { color: var(--text-2); }
+
+.record-clinical-form { padding: 0; overflow: hidden; }
+.record-clinical-form > .record-panel-header { margin: 0; padding: 20px; }
+.record-current-version { padding: 5px 9px; border-radius: 99px; background: var(--success-bg); color: var(--success-text); font-size: 9.5px; font-weight: 650; white-space: nowrap; }
+.record-form-section { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 24px; padding: 22px 20px; border-bottom: 1px solid var(--border); }
+.record-form-section-title { display: flex; align-items: flex-start; gap: 9px; }
+.record-form-section-title b { width: 27px; height: 27px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 8px; background: var(--primary-50); color: var(--primary); font-size: 9px; }
+.record-form-section-title span { display: grid; }
+.record-form-section-title strong { color: var(--text); font-size: 11.5px; }
+.record-form-section-title small { margin-top: 2px; color: var(--muted); font-size: 9.5px; line-height: 1.4; }
+.record-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.record-form-grid > label, .record-upload-panel > label, .record-tooth-editor > label, .record-odontogram-footer > label { min-width: 0; display: grid; gap: 5px; color: var(--text-2); font-size: 10.5px; font-weight: 650; }
+.record-field-wide { grid-column: 1 / -1; }
+.record-form-grid-spaced { margin-top: 12px; }
+.record-clinical-form .input, .record-clinical-form .select, .record-clinical-form .textarea, .record-evolution-modal .input, .record-evolution-modal .select, .record-evolution-modal .textarea, .record-plan-form .input, .record-plan-form .select, .record-plan-form .textarea { font-size: 11.5px; }
+.record-check-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.record-check-grid label { min-height: 43px; display: flex; align-items: center; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-2); font-size: 10px; cursor: pointer; }
+.record-check-grid label:has(input:checked) { border-color: var(--primary); background: var(--primary-50); color: var(--primary-700); }
+.record-check-grid input { accent-color: var(--primary); }
+.record-form-attestation { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; background: var(--bg); }
+.record-form-attestation > label { display: flex; align-items: flex-start; gap: 9px; }
+.record-form-attestation input { margin-top: 3px; accent-color: var(--primary); }
+.record-form-attestation label span { display: grid; }
+.record-form-attestation strong { color: var(--text-2); font-size: 11px; }
+.record-form-attestation small { max-width: 650px; margin-top: 2px; color: var(--muted); font-size: 9px; }
+
+.record-segmented { flex: 0 0 auto; display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--surface-2); }
+.record-segmented button { padding: 6px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 650; cursor: pointer; }
+.record-segmented button.active { background: var(--surface); color: var(--primary); box-shadow: var(--shadow); }
+.record-odontogram-layout { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 18px; }
+.record-dental-chart { min-width: 0; padding: 16px; overflow-x: auto; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); }
+.record-arch-label { min-width: 650px; display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--muted); font-size: 8.5px; text-transform: uppercase; }
+.record-tooth-row { min-width: 650px; display: grid; grid-template-columns: repeat(16, minmax(32px, 1fr)); gap: 3px; }
+.record-tooth-row:has(.record-tooth:nth-child(10):last-child) { grid-template-columns: repeat(10, minmax(38px, 1fr)); }
+.record-tooth { min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 4px 2px; border: 1px solid transparent; border-radius: 7px; background: transparent; cursor: pointer; }
+.record-tooth:hover, .record-tooth.active { border-color: var(--primary); background: var(--primary-50); }
+.record-tooth:focus-visible { outline: 3px solid var(--primary-100); }
+.record-tooth span { position: relative; width: 25px; height: 37px; border: 2px solid #94a3b8; border-radius: 45% 45% 35% 35%; background: white; }
+.record-tooth span::after { position: absolute; bottom: -9px; left: 7px; width: 7px; height: 11px; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; border-radius: 0 0 7px; content: ''; transform: rotate(45deg); }
+.record-tooth.lower span { transform: rotate(180deg); }
+.record-tooth b { color: var(--muted); font-size: 8.5px; }
+.record-tooth-caries span, .record-tooth-extraction span { border-color: var(--danger); background: #fee2e2; }
+.record-tooth-restoration span, .record-tooth-crown span, .record-tooth-implant span { border-color: var(--primary); background: var(--primary-100); }
+.record-tooth-endo span { border-color: #8b5cf6; background: #ede9fe; }
+.record-tooth-missing span { opacity: .32; border-style: dashed; }
+.record-tooth-watch span { border-color: var(--warning); background: #fef3c7; }
+.record-mouth-divider { min-width: 650px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; margin: 13px 0; color: var(--muted); font-size: 8px; text-transform: uppercase; }
+.record-mouth-divider i { height: 1px; background: var(--border); }
+.record-odontogram-legend { min-width: 650px; display: flex; flex-wrap: wrap; gap: 9px 16px; margin-top: 18px; padding-top: 11px; border-top: 1px solid var(--border); }
+.record-odontogram-legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 8.5px; }
+.record-odontogram-legend i { width: 8px; height: 8px; border-radius: 2px; background: var(--muted-light); }
+.record-odontogram-legend .legend-caries { background: var(--danger); }.record-odontogram-legend .legend-restoration { background: var(--primary); }.record-odontogram-legend .legend-endo { background: #8b5cf6; }.record-odontogram-legend .legend-missing { background: #cbd5e1; }.record-odontogram-legend .legend-watch { background: var(--warning); }
+.record-tooth-editor { display: grid; align-content: start; gap: 13px; padding: 15px; border: 1px solid var(--border); border-radius: 11px; }
+.record-tooth-editor-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.record-tooth-editor-head span { color: var(--muted); font-size: 9.5px; }
+.record-tooth-editor-head strong { color: var(--primary); font-size: 18px; }
+.record-tooth-editor fieldset { border: 0; }
+.record-tooth-editor legend { margin-bottom: 5px; color: var(--text-2); font-size: 10.5px; font-weight: 650; }
+.record-surface-picker, .record-modal-surfaces { display: flex; flex-wrap: wrap; gap: 5px; }
+.record-surface-picker button, .record-modal-surfaces button, .record-modal-teeth button { min-width: 34px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 9.5px; cursor: pointer; }
+.record-surface-picker button.active, .record-modal-surfaces button.active, .record-modal-teeth button.active { border-color: var(--primary); background: var(--primary-50); color: var(--primary-700); font-weight: 700; }
+.record-odontogram-footer { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 20px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.record-odontogram-footer > div { display: grid; justify-items: end; gap: 7px; }
+.record-odontogram-footer p { max-width: 380px; color: var(--muted); font-size: 9px; text-align: right; }
+
+.record-plan-form { margin: 0 0 18px; padding: 16px; border: 1px solid var(--primary-100); border-radius: 11px; background: var(--primary-50); }
+.record-plan-form footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--primary-100); }
+.record-plan-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.record-plan-list article { min-width: 0; padding: 15px; border: 1px solid var(--border); border-radius: 10px; }
+.record-plan-list article > header { display: flex; justify-content: space-between; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.record-plan-list h4 { margin-top: 5px; color: var(--text); font-size: 12px; }
+.record-plan-list time { color: var(--muted); font-size: 9px; }
+.record-plan-status { padding: 3px 7px; border-radius: 99px; background: var(--warning-bg); color: var(--warning-text); font-size: 8.5px; font-weight: 700; }
+.record-plan-status.status-approved, .record-plan-status.status-completed { background: var(--success-bg); color: var(--success-text); }
+.record-plan-status.status-in_progress { background: var(--primary-50); color: var(--primary); }
+.record-plan-list article > p { display: grid; gap: 2px; margin-top: 9px; color: var(--text-2); font-size: 10.5px; white-space: pre-wrap; }
+.record-plan-list article > p strong { color: var(--muted); font-size: 8.5px; text-transform: uppercase; }
+.record-plan-list article > footer { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--border); color: var(--muted); font-size: 8.5px; }
+
+.record-document-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: 14px; }
+.record-document-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.record-document-grid article { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px; border: 1px solid var(--border); border-radius: 9px; }
+.record-document-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 9px; background: var(--danger-bg); color: var(--danger-text); font-size: 8px; font-weight: 800; }
+.record-document-icon.is-image { background: var(--primary-50); color: var(--primary); }
+.record-document-copy { min-width: 0; display: grid; }
+.record-document-copy > span { color: var(--primary); font-size: 8px; font-weight: 750; text-transform: uppercase; }
+.record-document-copy h4, .record-document-copy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.record-document-copy h4 { color: var(--text); font-size: 11px; }
+.record-document-copy p, .record-document-copy small { color: var(--muted); font-size: 8.5px; }
+.record-upload-panel { position: sticky; top: 78px; display: grid; gap: 13px; }
+.record-upload-panel > header { margin-bottom: 1px; }
+.record-upload-drop { min-height: 145px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; border: 1.5px dashed #bfdbfe; border-radius: 10px; background: var(--primary-50); text-align: center; cursor: pointer; transition: .15s; }
+.record-upload-drop:hover, .record-upload-drop.dragging { border-color: var(--primary); background: var(--primary-100); }
+.record-upload-drop > div { width: 35px; height: 35px; display: grid; place-items: center; margin-bottom: 8px; border-radius: 10px; background: white; color: var(--primary); font-size: 18px; box-shadow: var(--shadow); }
+.record-upload-drop strong { max-width: 240px; overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.record-upload-drop p { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.record-upload-progress { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+
+.record-evolution-modal { max-width: 920px; padding: 0; overflow: hidden; }
+.record-evolution-modal > .modal-header { margin: 0; padding: 20px 22px 16px; border-bottom: 1px solid var(--border); }
+.record-evolution-modal > form { max-height: calc(100dvh - 190px); padding: 18px 22px 0; overflow-y: auto; }
+.record-modal-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.record-modal-section > header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.record-modal-section > header span { color: var(--text); font-size: 11px; font-weight: 700; }
+.record-modal-section > header p { color: var(--muted); font-size: 9.5px; }
+.record-soap-form { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.record-soap-form label { min-width: 0; display: grid; grid-template-columns: 26px 1fr; align-items: start; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 9px; }
+.record-soap-form label > span { min-width: 0; display: grid; }
+.record-soap-form strong { color: var(--text-2); font-size: 10px; }
+.record-soap-form small { margin-bottom: 6px; color: var(--muted); font-size: 8.5px; }
+.record-modal-teeth { display: grid; grid-template-columns: repeat(16, minmax(28px, 1fr)); gap: 4px; }
+.record-modal-surfaces { align-items: center; margin-top: 8px; }
+.record-modal-surfaces > span { margin-right: 4px; color: var(--muted); font-size: 9.5px; font-weight: 650; }
+.record-modal-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 20px; padding: 14px 0 18px; border-top: 1px solid var(--border); background: var(--surface); }
+.record-modal-footer > p { color: var(--muted); font-size: 9px; }
+.record-modal-footer > div { display: flex; gap: 8px; }
+
+@media (max-width: 1180px) {
+  .record-summary-grid { grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); }
+  .record-check-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .record-document-layout { grid-template-columns: minmax(0, 1fr) 280px; }
+  .record-document-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .record-patient-hero { align-items: flex-start; }
+  .record-patient-stats { display: none; }
+  .record-summary-grid { grid-template-columns: 1fr; }
+  .record-summary-history, .record-summary-quick { grid-column: 1; grid-row: auto; }
+  .record-form-section { grid-template-columns: 1fr; gap: 14px; }
+  .record-odontogram-layout { grid-template-columns: 1fr; }
+  .record-tooth-editor { grid-template-columns: 1fr 1fr; }
+  .record-tooth-editor-head { grid-column: 1 / -1; }
+  .record-document-layout { grid-template-columns: 1fr; }
+  .record-upload-panel { position: static; grid-row: 1; }
+  .record-plan-list { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .record-page-header .page-header-actions, .record-page-header .btn { width: 100%; }
+  .record-patient-picker { grid-template-columns: 1fr; gap: 10px; }
+  .record-patient-picker-copy { padding: 0 0 10px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .record-patient-hero { padding: 16px; }
+  .record-patient-avatar { width: 44px; height: 44px; border-radius: 12px; }
+  .record-patient-identity h2 { font-size: 17px; }
+  .record-patient-meta { display: grid; gap: 1px; }
+  .record-patient-meta span + span::before { display: none; }
+  .record-alert-strip { display: grid; gap: 6px; }
+  .record-tabs { margin-right: -4px; margin-left: -4px; border-right: 0; border-left: 0; border-radius: 0; }
+  .record-tabs button { flex: 0 0 auto; }
+  .record-panel { padding: 15px; }
+  .record-panel-header { align-items: stretch; }
+  .record-section-header { flex-direction: column; }
+  .record-section-header > .btn { width: 100%; }
+  .record-summary-facts, .record-soap-grid, .record-entry-details, .record-form-grid, .record-soap-form { grid-template-columns: 1fr; }
+  .record-summary-facts .record-fact-wide, .record-field-wide { grid-column: 1; }
+  .record-entry-card > header, .record-entry-card > header > div { align-items: flex-start; flex-direction: column; }
+  .record-entry-card > header time { margin-left: 0; }
+  .record-entry-card > footer { display: grid; }
+  .record-check-grid { grid-template-columns: 1fr 1fr; }
+  .record-form-attestation { align-items: stretch; flex-direction: column; }
+  .record-form-attestation .btn { width: 100%; }
+  .record-odontogram .record-section-header { gap: 11px; }
+  .record-segmented { width: 100%; }
+  .record-segmented button { flex: 1; }
+  .record-tooth-editor { grid-template-columns: 1fr; }
+  .record-tooth-editor-head { grid-column: 1; }
+  .record-odontogram-footer { grid-template-columns: 1fr; }
+  .record-odontogram-footer > div { justify-items: stretch; }
+  .record-odontogram-footer p { text-align: left; }
+  .record-document-grid article { grid-template-columns: 42px minmax(0, 1fr); }
+  .record-document-grid article .btn { grid-column: 1 / -1; width: 100%; }
+  .record-modal-backdrop { padding: 10px; align-items: flex-end; }
+  .record-evolution-modal { max-height: calc(100dvh - 20px); border-radius: 18px 18px 12px 12px; }
+  .record-evolution-modal > .modal-header { padding: 17px 16px 13px; }
+  .record-evolution-modal > form { max-height: calc(100dvh - 110px); padding: 15px 16px 0; }
+  .record-modal-section > header { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .record-modal-teeth { grid-template-columns: repeat(8, minmax(28px, 1fr)); }
+  .record-modal-footer { align-items: stretch; flex-direction: column; }
+  .record-modal-footer > div, .record-modal-footer .btn { width: 100%; }
+  .record-modal-footer > div { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 420px) {
+  .record-check-grid { grid-template-columns: 1fr; }
+  .record-mini-teeth { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .record-modal-teeth { grid-template-columns: repeat(6, minmax(28px, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-upload-drop { transition: none; }
+}

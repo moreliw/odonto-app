@@ -2,14 +2,23 @@ import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
+import { ActivatedRoute } from '@angular/router'
+import { firstValueFrom } from 'rxjs'
 import { ToastService } from '../../services/toast.service'
 import { SearchableSelectComponent } from '../../components/searchable-select/searchable-select.component'
 import { PaginationComponent } from '../../components/pagination/pagination.component'
 import { paginate } from '../../utils/pagination'
 import { AuthService } from '../../services/auth.service'
-import { ActivatedRoute } from '@angular/router'
 
-type Patient = { id: string; name: string; email?: string }
+type Patient = {
+  id: string
+  name: string
+  email?: string
+  phone?: string
+  birthDate?: string
+  document?: string
+}
+
 type PatientRecord = {
   id: string
   patientId: string
@@ -20,252 +29,476 @@ type PatientRecord = {
   updatedAt?: string
 }
 
+type RecordTab = 'summary' | 'evolutions' | 'anamnesis' | 'odontogram' | 'plans' | 'documents'
+type ToothEntry = { tooth: string; status: string; surfaces: string[]; note: string }
+
+const EMPTY_ANAMNESIS = {
+  chiefComplaint: '', currentHistory: '', medicalHistory: '', dentalHistory: '', allergies: '', medications: '',
+  surgeries: '', observations: '', hasAllergies: false, usesMedications: false, hasDiabetes: false,
+  hasHypertension: false, hasHeartCondition: false, hasBleedingRisk: false, hasInfectiousDisease: false,
+  isPregnant: false, smoker: false, anesthesiaReaction: false, informationConfirmed: false
+}
+
 @Component({
-    selector: 'app-records',
-    imports: [CommonModule, FormsModule, SearchableSelectComponent, PaginationComponent],
-    template: `
-    <div>
-      <div class="page-header">
-        <div class="page-header-left">
-          <h1>Prontuário</h1>
-          <p>{{ isDentist ? 'Prontuários dos pacientes vinculados à sua agenda' : 'Registros clínicos e arquivos dos pacientes' }}</p>
-        </div>
-      </div>
-
-      <!-- Patient Selector -->
-      <div class="card" style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div class="form-group" style="flex:1;min-width:220px;margin:0;">
-            <label>Selecionar paciente</label>
-            <div style="margin-top:6px;">
-              <app-searchable-select
-                [items]="patientItems"
-                placeholder="Escolha um paciente para ver o prontuário"
-                searchPlaceholder="Buscar paciente..."
-                ariaLabel="Selecionar paciente"
-                [(ngModel)]="selectedPatientId"
-                name="patient"
-                (ngModelChange)="onPatientChange($event)"
-              ></app-searchable-select>
-            </div>
-          </div>
-          @if (selectedPatient) {
-            <button class="btn btn-primary" (click)="showNewRecord=true" style="margin-top:20px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Novo registro
-            </button>
-          }
-        </div>
-      </div>
-
-      @if (!selectedPatient) {
-        <div class="card">
-          <div class="empty-state">
-            <div class="empty-state-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </div>
-            <h3>Selecione um paciente</h3>
-            <p>Escolha um paciente acima para visualizar e gerenciar seus prontuários</p>
-          </div>
-        </div>
-      } @else {
-        <!-- Patient Info Card -->
-        <div class="card" style="margin-bottom:16px;padding:16px 20px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div class="patient-avatar" style="width:44px;height:44px;font-size:16px;">{{ selectedPatient.name[0].toUpperCase() }}</div>
-            <div>
-              <div style="font-weight:600;font-size:15px;color:var(--text);">{{ selectedPatient.name }}</div>
-              @if (selectedPatient.email) { <div class="text-sm muted">{{ selectedPatient.email }}</div> }
-            </div>
-          </div>
-        </div>
-
-        <!-- Records List -->
-        <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
-          <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-            <h2 style="margin:0;">Registros clínicos</h2>
-            <span class="badge badge-neutral">{{ records.length }} registro{{ records.length !== 1 ? 's' : '' }}</span>
-          </div>
-
-          @if (loadingRecords) {
-            <div class="table-empty"><span class="spinner spinner-dark"></span></div>
-          } @else if (records.length === 0) {
-            <div class="empty-state">
-              <h3>Sem registros</h3>
-              <p>Clique em "Novo registro" para adicionar uma anotação</p>
-            </div>
-          } @else {
-            <div>
-              @for (r of pagedRecords; track r.id) {
-                <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                    <span class="text-xs muted">{{ r.createdAt | date:'dd/MM/yyyy · HH:mm' }}</span>
-                  </div>
-                  <p style="font-size:14px;color:var(--text);white-space:pre-wrap;line-height:1.6;">{{ r.content?.text || (r.content | json) }}</p>
-                  @if (isAdmin) {
-                    <div class="audit-summary">
-                      <span><strong>Criado por:</strong> {{ r.createdByName || 'Sistema' }} em {{ r.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-                      <span><strong>Atualizado por:</strong> {{ r.updatedByName || r.createdByName || 'Sistema' }} em {{ (r.updatedAt || r.createdAt) | date:'dd/MM/yyyy HH:mm' }}</span>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-            <app-pagination [page]="page" [pageSize]="pageSize" [totalItems]="records.length" (pageChange)="page=$event"></app-pagination>
-          }
-        </div>
-
-        <!-- File Upload -->
-        <div class="card">
-          <h2>Arquivos e imagens</h2>
-          <div class="upload" (click)="fileInput.click()">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <p style="font-weight:500;font-size:14px;margin-bottom:4px;">Clique para fazer upload</p>
-            <p class="text-sm muted">PDF, imagens (JPG, PNG). Até 20 MB</p>
-            <input #fileInput type="file" style="display:none;" (change)="onFile($event)" accept=".pdf,.jpg,.jpeg,.png" />
-          </div>
-          @if (uploadProgress) {
-            <div style="margin-top:12px;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;">
-              <span class="spinner spinner-dark"></span> {{ uploadProgress }}
-            </div>
-          }
-        </div>
-      }
-    </div>
-
-    <!-- New Record Modal -->
-    @if (showNewRecord) {
-      <div class="modal-backdrop" (click)="showNewRecord=false">
-        <div class="modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <div>
-              <h3>Novo registro</h3>
-              <p>Anotação clínica para {{ selectedPatient?.name }}</p>
-            </div>
-            <button class="btn btn-icon" (click)="showNewRecord=false" aria-label="Fechar">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <form class="form" (ngSubmit)="saveRecord()">
-            <div class="form-group">
-              <label>Anotação clínica *</label>
-              <textarea
-                class="textarea"
-                [(ngModel)]="recordContent"
-                name="content"
-                placeholder="Descreva o diagnóstico, procedimentos realizados, observações..."
-                rows="6"
-                required
-              ></textarea>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-ghost" type="button" (click)="showNewRecord=false">Cancelar</button>
-              <button class="btn btn-primary" [disabled]="saving" type="submit">
-                @if (saving) { <span class="spinner"></span> } Salvar registro
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    }
-  `
+  selector: 'app-records',
+  imports: [CommonModule, FormsModule, SearchableSelectComponent, PaginationComponent],
+  templateUrl: './records.component.html',
+  styleUrl: './records.component.css'
 })
 export class RecordsComponent implements OnInit {
   patients: Patient[] = []
   records: PatientRecord[] = []
   selectedPatientId = ''
   selectedPatient: Patient | null = null
-  recordContent = ''
+  activeTab: RecordTab = 'summary'
   loadingRecords = false
   saving = false
-  showNewRecord = false
-  uploadProgress = ''
-  page = 1
-  readonly pageSize = 12
   isAdmin = false
   isDentist = false
 
+  showEvolutionModal = false
+  evolutionPage = 1
+  planPage = 1
+  documentPage = 1
+  readonly evolutionPageSize = 8
+  readonly planPageSize = 6
+  readonly documentPageSize = 9
+  appointmentId = ''
+
+  evolutionForm = this.newEvolutionForm()
+  anamnesisForm = { ...EMPTY_ANAMNESIS }
+  planForm = this.newPlanForm()
+  showPlanForm = false
+
+  odontogramState: Record<string, ToothEntry> = {}
+  selectedTooth = '11'
+  dentition: 'PERMANENT' | 'DECIDUOUS' = 'PERMANENT'
+  odontogramNotes = ''
+  odontogramDirty = false
+
+  documentTitle = ''
+  documentCategory = 'RADIOGRAPH'
+  documentNotes = ''
+  selectedFile: File | null = null
+  uploadProgress = ''
+  draggingFile = false
+
+  readonly upperPermanent = ['18', '17', '16', '15', '14', '13', '12', '11', '21', '22', '23', '24', '25', '26', '27', '28']
+  readonly lowerPermanent = ['48', '47', '46', '45', '44', '43', '42', '41', '31', '32', '33', '34', '35', '36', '37', '38']
+  readonly upperDeciduous = ['55', '54', '53', '52', '51', '61', '62', '63', '64', '65']
+  readonly lowerDeciduous = ['85', '84', '83', '82', '81', '71', '72', '73', '74', '75']
+  readonly surfaces = ['M', 'D', 'V', 'L/P', 'O/I']
+  readonly toothStatuses = [
+    { id: 'HEALTHY', label: 'Hígido' },
+    { id: 'CARIES', label: 'Cárie' },
+    { id: 'RESTORATION', label: 'Restauração' },
+    { id: 'CROWN', label: 'Coroa/prótese' },
+    { id: 'ENDO', label: 'Endodontia' },
+    { id: 'IMPLANT', label: 'Implante' },
+    { id: 'MISSING', label: 'Ausente' },
+    { id: 'EXTRACTION', label: 'Extração indicada' },
+    { id: 'WATCH', label: 'Em observação' }
+  ]
+  readonly recordTypes = [
+    { id: 'EVOLUTION', label: 'Evolução clínica' },
+    { id: 'INTERCURRENCE', label: 'Intercorrência' },
+    { id: 'EXAM', label: 'Exame/diagnóstico' },
+    { id: 'PRESCRIPTION', label: 'Prescrição/orientação' },
+    { id: 'REFERRAL', label: 'Encaminhamento' },
+    { id: 'COMMUNICATION', label: 'Contato com o paciente' },
+    { id: 'CONSENT', label: 'Consentimento registrado' }
+  ]
+  readonly documentCategories = [
+    { id: 'RADIOGRAPH', label: 'Radiografia' },
+    { id: 'INTRAORAL_PHOTO', label: 'Foto intraoral' },
+    { id: 'EXAM', label: 'Exame/laudo' },
+    { id: 'CONSENT', label: 'Termo de consentimento' },
+    { id: 'PRESCRIPTION', label: 'Prescrição' },
+    { id: 'REFERRAL', label: 'Encaminhamento' },
+    { id: 'OTHER', label: 'Outro documento' }
+  ]
+
   constructor(
-    private http: HttpClient,
-    private toast: ToastService,
-    private auth: AuthService,
-    private route: ActivatedRoute,
+    private readonly http: HttpClient,
+    private readonly toast: ToastService,
+    private readonly auth: AuthService,
+    private readonly route: ActivatedRoute
   ) {}
 
   ngOnInit() {
     this.isAdmin = this.auth.isAdmin()
     this.isDentist = this.auth.isDentist()
+    this.appointmentId = this.route.snapshot.queryParamMap.get('appointmentId') || ''
     this.http.get<Patient[]>('/api/patients').subscribe({
-      next: (res: Patient[]) => {
-        this.patients = res
+      next: patients => {
+        this.patients = patients
         const patientId = this.route.snapshot.queryParamMap.get('patientId') || ''
-        if (patientId && this.patients.some(patient => patient.id === patientId)) {
+        if (patientId && patients.some(patient => patient.id === patientId)) {
           this.selectedPatientId = patientId
           this.onPatientChange(patientId)
-          this.showNewRecord = this.route.snapshot.queryParamMap.get('new') === '1'
+          if (this.route.snapshot.queryParamMap.get('new') === 'evolution') this.openEvolution()
         }
-      }
+      },
+      error: () => this.toast.error('Falha ao carregar pacientes')
     })
   }
 
   get patientItems() {
-    return this.patients.map(p => ({ id: p.id, label: p.name, sublabel: p.email }))
+    return this.patients.map(patient => ({ id: patient.id, label: patient.name, sublabel: patient.email }))
   }
 
-  get pagedRecords() {
-    return paginate(this.records, this.page, this.pageSize)
+  get timelineRecords() {
+    return this.records.filter(record => !['ANAMNESIS', 'ODONTOGRAM', 'TREATMENT_PLAN', 'DOCUMENT'].includes(this.recordType(record)))
+  }
+
+  get planRecords() {
+    return this.records.filter(record => this.recordType(record) === 'TREATMENT_PLAN')
+  }
+
+  get documentRecords() {
+    return this.records.filter(record => this.recordType(record) === 'DOCUMENT')
+  }
+
+  get latestAnamnesis() {
+    return this.records.find(record => this.recordType(record) === 'ANAMNESIS') || null
+  }
+
+  get latestOdontogram() {
+    return this.records.find(record => this.recordType(record) === 'ODONTOGRAM') || null
+  }
+
+  get pagedEvolutionRecords() { return paginate(this.timelineRecords, this.evolutionPage, this.evolutionPageSize) }
+  get pagedPlanRecords() { return paginate(this.planRecords, this.planPage, this.planPageSize) }
+  get pagedDocumentRecords() { return paginate(this.documentRecords, this.documentPage, this.documentPageSize) }
+
+  get selectedToothEntry(): ToothEntry {
+    return this.odontogramState[this.selectedTooth] || { tooth: this.selectedTooth, status: 'HEALTHY', surfaces: [], note: '' }
+  }
+
+  get healthAlerts() {
+    const source = this.latestAnamnesis?.content
+    if (!source) return []
+    const alerts: { label: string; detail?: string; tone: string }[] = []
+    if (source.hasAllergies) alerts.push({ label: 'Alergias', detail: source.allergies, tone: 'danger' })
+    if (source.usesMedications) alerts.push({ label: 'Uso de medicamentos', detail: source.medications, tone: 'warning' })
+    if (source.hasBleedingRisk) alerts.push({ label: 'Risco de sangramento', tone: 'danger' })
+    if (source.anesthesiaReaction) alerts.push({ label: 'Reação a anestésico', tone: 'danger' })
+    if (source.hasHeartCondition) alerts.push({ label: 'Condição cardíaca', tone: 'warning' })
+    if (source.hasDiabetes) alerts.push({ label: 'Diabetes', tone: 'warning' })
+    if (source.hasHypertension) alerts.push({ label: 'Hipertensão', tone: 'warning' })
+    if (source.hasInfectiousDisease) alerts.push({ label: 'Doença infectocontagiosa', tone: 'warning' })
+    if (source.isPregnant) alerts.push({ label: 'Gestação', tone: 'blue' })
+    return alerts
+  }
+
+  get patientAge() {
+    if (!this.selectedPatient?.birthDate) return null
+    const birth = new Date(this.selectedPatient.birthDate)
+    const now = new Date()
+    let age = now.getFullYear() - birth.getFullYear()
+    if (now < new Date(now.getFullYear(), birth.getMonth(), birth.getDate())) age--
+    return age
   }
 
   onPatientChange(id: string) {
-    this.page = 1
-    this.selectedPatient = this.patients.find(p => p.id === id) || null
+    this.selectedPatient = this.patients.find(patient => patient.id === id) || null
     this.records = []
+    this.activeTab = 'summary'
+    this.evolutionPage = this.planPage = this.documentPage = 1
+    this.odontogramState = {}
+    this.odontogramDirty = false
     if (id) this.loadRecords(id)
   }
 
   loadRecords(patientId: string) {
-    this.page = 1
     this.loadingRecords = true
     this.http.get<PatientRecord[]>(`/api/records/patient/${patientId}`).subscribe({
-      next: (res: PatientRecord[]) => { this.records = res; this.loadingRecords = false },
-      error: () => { this.loadingRecords = false; this.toast.error('Falha ao carregar prontuários') }
-    })
-  }
-
-  saveRecord() {
-    if (!this.recordContent.trim() || !this.selectedPatientId) return
-    this.saving = true
-    this.http.post('/api/records', { patientId: this.selectedPatientId, content: { text: this.recordContent } }).subscribe({
-      next: () => {
-        this.saving = false
-        this.showNewRecord = false
-        this.recordContent = ''
-        this.toast.success('Registro salvo com sucesso')
-        this.loadRecords(this.selectedPatientId)
+      next: records => {
+        this.records = records
+        this.loadingRecords = false
+        this.restoreLatestStructuredRecords()
       },
-      error: (err: any) => { this.saving = false; this.toast.error('Erro ao salvar registro', err.error?.message) }
+      error: () => {
+        this.loadingRecords = false
+        this.toast.error('Falha ao carregar prontuário')
+      }
     })
   }
 
-  async onFile(event: any) {
-    const file: File = event.target.files?.[0]
-    if (!file) return
-    this.uploadProgress = 'Enviando arquivo...'
-    try {
-      const presign = await this.http.post<{ url: string; key: string }>('/api/files/presign', { contentType: file.type }).toPromise()
-      if (!presign) throw new Error('Presign failed')
-      await fetch(presign.url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
-      await this.http.post('/api/files/finalize', {
-        key: presign.key, url: presign.url.split('?')[0],
-        contentType: file.type, size: file.size,
-        patientId: this.selectedPatientId || undefined
-      }).toPromise()
-      this.uploadProgress = ''
-      this.toast.success('Upload concluído', file.name)
-    } catch {
-      this.uploadProgress = ''
-      this.toast.error('Falha no upload', 'Verifique o arquivo e tente novamente')
+  selectTab(tab: RecordTab) {
+    this.activeTab = tab
+  }
+
+  openEvolution(type = 'EVOLUTION') {
+    this.evolutionForm = this.newEvolutionForm()
+    this.evolutionForm.type = type
+    this.showEvolutionModal = true
+  }
+
+  async saveEvolution() {
+    const form = this.evolutionForm
+    if (!this.selectedPatientId || ![form.subjective, form.objective, form.assessment, form.plan, form.procedure].some(value => value.trim())) {
+      this.toast.error('Informe ao menos um dado clínico antes de salvar')
+      return
     }
-    event.target.value = ''
+    await this.createRecord({
+      ...form,
+      type: form.type,
+      title: form.title.trim() || this.labelForType(form.type),
+      appointmentId: this.appointmentId || undefined,
+      teeth: [...form.teeth],
+      surfaces: [...form.surfaces]
+    }, 'Registro clínico salvo')
+    this.showEvolutionModal = false
+    this.activeTab = 'evolutions'
+  }
+
+  async saveAnamnesis() {
+    if (!this.selectedPatientId) return
+    if (!this.anamnesisForm.chiefComplaint.trim()) {
+      this.toast.error('Informe a queixa principal')
+      return
+    }
+    await this.createRecord({ type: 'ANAMNESIS', title: 'Anamnese', ...this.anamnesisForm }, 'Nova versão da anamnese salva')
+    this.activeTab = 'anamnesis'
+  }
+
+  async savePlan() {
+    if (!this.planForm.title.trim() || !this.planForm.procedures.trim()) {
+      this.toast.error('Informe o título e os procedimentos do plano')
+      return
+    }
+    await this.createRecord({ type: 'TREATMENT_PLAN', ...this.planForm, teeth: [...this.planForm.teeth] }, 'Plano de tratamento registrado')
+    this.planForm = this.newPlanForm()
+    this.showPlanForm = false
+    this.activeTab = 'plans'
+  }
+
+  async saveOdontogram() {
+    const entries = Object.values(this.odontogramState).filter(entry => entry.status !== 'HEALTHY' || entry.note || entry.surfaces.length)
+    if (!entries.length) {
+      this.toast.error('Marque ao menos uma condição no odontograma')
+      return
+    }
+    await this.createRecord({
+      type: 'ODONTOGRAM', title: 'Odontograma clínico', dentition: this.dentition,
+      entries, notes: this.odontogramNotes
+    }, 'Odontograma salvo no histórico')
+    this.odontogramDirty = false
+    this.activeTab = 'odontogram'
+  }
+
+  selectTooth(tooth: string) {
+    this.selectedTooth = tooth
+    if (!this.odontogramState[tooth]) this.odontogramState[tooth] = { tooth, status: 'HEALTHY', surfaces: [], note: '' }
+  }
+
+  updateToothStatus(status: string) {
+    this.ensureSelectedTooth().status = status
+    this.odontogramDirty = true
+  }
+
+  updateToothNote(note: string) {
+    this.ensureSelectedTooth().note = note
+    this.odontogramDirty = true
+  }
+
+  toggleOdontogramSurface(surface: string) {
+    const entry = this.ensureSelectedTooth()
+    entry.surfaces = entry.surfaces.includes(surface)
+      ? entry.surfaces.filter(item => item !== surface)
+      : [...entry.surfaces, surface]
+    this.odontogramDirty = true
+  }
+
+  toggleEvolutionTooth(tooth: string) {
+    this.evolutionForm.teeth = this.evolutionForm.teeth.includes(tooth)
+      ? this.evolutionForm.teeth.filter(item => item !== tooth)
+      : [...this.evolutionForm.teeth, tooth]
+  }
+
+  toggleEvolutionSurface(surface: string) {
+    this.evolutionForm.surfaces = this.evolutionForm.surfaces.includes(surface)
+      ? this.evolutionForm.surfaces.filter(item => item !== surface)
+      : [...this.evolutionForm.surfaces, surface]
+  }
+
+  toothClass(tooth: string) {
+    const status = this.odontogramState[tooth]?.status || 'HEALTHY'
+    return `tooth-${status.toLowerCase()}`
+  }
+
+  onFileInput(event: Event) {
+    const input = event.target as HTMLInputElement
+    if (input.files?.[0]) this.prepareFile(input.files[0])
+    input.value = ''
+  }
+
+  onFileDrop(event: DragEvent) {
+    event.preventDefault()
+    this.draggingFile = false
+    if (event.dataTransfer?.files?.[0]) this.prepareFile(event.dataTransfer.files[0])
+  }
+
+  prepareFile(file: File) {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(file.type)) {
+      this.toast.error('Formato não permitido', 'Use PDF, JPG, PNG ou WEBP')
+      return
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      this.toast.error('Arquivo muito grande', 'O limite é 20 MB')
+      return
+    }
+    this.selectedFile = file
+    if (!this.documentTitle) this.documentTitle = file.name.replace(/\.[^.]+$/, '')
+  }
+
+  async uploadDocument() {
+    if (!this.selectedFile || !this.selectedPatientId || !this.documentTitle.trim()) {
+      this.toast.error('Selecione um arquivo e informe o título')
+      return
+    }
+    this.saving = true
+    this.uploadProgress = 'Preparando envio seguro...'
+    try {
+      const file = this.selectedFile
+      const presign = await firstValueFrom(this.http.post<{ url: string; key: string }>('/api/files/presign', { contentType: file.type }))
+      this.uploadProgress = 'Enviando arquivo...'
+      const upload = await fetch(presign.url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      if (!upload.ok) throw new Error('Upload failed')
+      const stored = await firstValueFrom(this.http.post<any>('/api/files/finalize', {
+        key: presign.key, url: presign.url.split('?')[0], contentType: file.type,
+        size: file.size, patientId: this.selectedPatientId
+      }))
+      this.uploadProgress = 'Organizando no prontuário...'
+      await firstValueFrom(this.http.post('/api/records', {
+        patientId: this.selectedPatientId,
+        content: {
+          type: 'DOCUMENT', title: this.documentTitle.trim(), category: this.documentCategory,
+          notes: this.documentNotes.trim(), file: { id: stored.id, name: file.name, contentType: file.type, size: file.size }
+        }
+      }))
+      this.toast.success('Documento anexado ao prontuário')
+      this.selectedFile = null
+      this.documentTitle = this.documentNotes = ''
+      this.documentCategory = 'RADIOGRAPH'
+      this.uploadProgress = ''
+      this.documentPage = 1
+      this.loadRecords(this.selectedPatientId)
+    } catch (error: any) {
+      this.uploadProgress = ''
+      this.toast.error('Falha no upload', error?.error?.message || 'Verifique o arquivo e tente novamente')
+    } finally {
+      this.saving = false
+    }
+  }
+
+  downloadDocument(record: PatientRecord) {
+    const file = record.content?.file
+    if (!file?.id) return
+    this.http.get(`/api/files/${file.id}/content`, { responseType: 'blob' }).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob)
+        const tab = window.open(url, '_blank', 'noopener,noreferrer')
+        if (!tab) {
+          const link = document.createElement('a')
+          link.href = url
+          link.download = file.name || record.content?.title || 'documento'
+          link.click()
+        }
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      },
+      error: () => this.toast.error('Não foi possível abrir o documento')
+    })
+  }
+
+  recordType(record: PatientRecord) { return record.content?.type || 'LEGACY' }
+
+  labelForType(type: string) {
+    const labels: Record<string, string> = {
+      EVOLUTION: 'Evolução clínica', INTERCURRENCE: 'Intercorrência', EXAM: 'Exame/diagnóstico',
+      PRESCRIPTION: 'Prescrição/orientação', REFERRAL: 'Encaminhamento', COMMUNICATION: 'Contato com o paciente',
+      CONSENT: 'Consentimento registrado', LEGACY: 'Anotação clínica', ANAMNESIS: 'Anamnese',
+      ODONTOGRAM: 'Odontograma', TREATMENT_PLAN: 'Plano de tratamento', DOCUMENT: 'Documento'
+    }
+    return labels[type] || 'Registro clínico'
+  }
+
+  documentCategoryLabel(category: string) {
+    return this.documentCategories.find(item => item.id === category)?.label || 'Documento'
+  }
+
+  planStatusLabel(status: string) {
+    return ({ PROPOSED: 'Proposto', APPROVED: 'Aceito', IN_PROGRESS: 'Em andamento', COMPLETED: 'Concluído', PAUSED: 'Pausado' } as Record<string, string>)[status] || status
+  }
+
+  toothStatusLabel(status: string) {
+    return this.toothStatuses.find(item => item.id === status)?.label || status
+  }
+
+  formatBytes(size = 0) {
+    if (!size) return '—'
+    if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
+    return `${(size / 1024 / 1024).toFixed(1)} MB`
+  }
+
+  summaryText(record: PatientRecord) {
+    const content = record.content || {}
+    return content.text || content.assessment || content.procedure || content.subjective || content.plan || 'Registro clínico sem resumo.'
+  }
+
+  private async createRecord(content: Record<string, unknown>, successMessage: string) {
+    if (!this.selectedPatientId || this.saving) return
+    this.saving = true
+    try {
+      await firstValueFrom(this.http.post('/api/records', { patientId: this.selectedPatientId, content }))
+      this.toast.success(successMessage)
+      this.loadRecords(this.selectedPatientId)
+    } catch (error: any) {
+      this.toast.error('Erro ao salvar registro', error?.error?.message)
+      throw error
+    } finally {
+      this.saving = false
+    }
+  }
+
+  private restoreLatestStructuredRecords() {
+    const latestAnamnesis = this.latestAnamnesis?.content
+    this.anamnesisForm = latestAnamnesis ? { ...EMPTY_ANAMNESIS, ...latestAnamnesis } : { ...EMPTY_ANAMNESIS }
+
+    if (!this.odontogramDirty) {
+      const entries: ToothEntry[] = this.latestOdontogram?.content?.entries || []
+      this.odontogramState = Object.fromEntries(entries.map(entry => [entry.tooth, { ...entry, surfaces: [...(entry.surfaces || [])] }]))
+      this.odontogramNotes = this.latestOdontogram?.content?.notes || ''
+    }
+  }
+
+  private ensureSelectedTooth() {
+    if (!this.odontogramState[this.selectedTooth]) {
+      this.odontogramState[this.selectedTooth] = { tooth: this.selectedTooth, status: 'HEALTHY', surfaces: [], note: '' }
+    }
+    return this.odontogramState[this.selectedTooth]
+  }
+
+  private newEvolutionForm() {
+    return {
+      type: 'EVOLUTION', title: '', clinicalDate: this.localDateTime(), subjective: '', objective: '', assessment: '',
+      plan: '', procedure: '', technique: '', materials: '', anesthetic: '', prescription: '', guidance: '',
+      intercurrences: '', nextVisit: '', patientCommunication: '', teeth: [] as string[], surfaces: [] as string[]
+    }
+  }
+
+  private newPlanForm() {
+    return {
+      title: '', status: 'PROPOSED', diagnosis: '', objectives: '', alternatives: '', procedures: '',
+      risksBenefits: '', estimate: '', patientDecision: '', notes: '', teeth: [] as string[]
+    }
+  }
+
+  private localDateTime() {
+    const date = new Date()
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+    return date.toISOString().slice(0, 16)
   }
 }

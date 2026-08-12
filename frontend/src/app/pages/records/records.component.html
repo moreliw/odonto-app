@@ -1,0 +1,427 @@
+<div class="record-page">
+  <header class="page-header record-page-header">
+    <div class="page-header-left">
+      <span class="record-eyebrow">Cuidado clínico</span>
+      <h1>Prontuário</h1>
+      <p>{{ isDentist ? 'Documentação dos pacientes vinculados à sua agenda' : 'Histórico clínico completo, organizado e seguro' }}</p>
+    </div>
+    @if (selectedPatient) {
+      <div class="page-header-actions">
+        <button class="btn btn-primary" type="button" (click)="openEvolution()">
+          <span aria-hidden="true">＋</span> Nova evolução
+        </button>
+      </div>
+    }
+  </header>
+
+  <section class="record-patient-picker" aria-label="Seleção de paciente">
+    <div class="record-patient-picker-copy">
+      <span>Paciente</span>
+      <strong>Selecione para abrir o prontuário</strong>
+    </div>
+    <app-searchable-select
+      [items]="patientItems"
+      placeholder="Buscar paciente por nome"
+      searchPlaceholder="Digite o nome do paciente..."
+      ariaLabel="Selecionar paciente"
+      [(ngModel)]="selectedPatientId"
+      name="patient"
+      (ngModelChange)="onPatientChange($event)"
+    ></app-searchable-select>
+  </section>
+
+  @if (!selectedPatient) {
+    <section class="record-empty card">
+      <div class="record-empty-icon" aria-hidden="true">✚</div>
+      <h2>Prontuário clínico em um só lugar</h2>
+      <p>Selecione um paciente para consultar anamnese, evoluções, odontograma, planos e documentos.</p>
+      <div class="record-empty-features" aria-label="Recursos disponíveis">
+        <span>Histórico cronológico</span><span>Odontograma FDI</span><span>Documentos organizados</span>
+      </div>
+    </section>
+  } @else {
+    <section class="record-patient-hero">
+      <div class="record-patient-identity">
+        <div class="record-patient-avatar" aria-hidden="true">{{ selectedPatient.name[0].toUpperCase() }}</div>
+        <div>
+          <span class="record-patient-kicker">Prontuário de</span>
+          <h2>{{ selectedPatient.name }}</h2>
+          <div class="record-patient-meta">
+            @if (patientAge !== null) { <span>{{ patientAge }} anos</span> }
+            @if (selectedPatient.phone) { <span>{{ selectedPatient.phone }}</span> }
+            @if (selectedPatient.email) { <span>{{ selectedPatient.email }}</span> }
+            @if (selectedPatient.document) { <span>Documento {{ selectedPatient.document }}</span> }
+            @if (isDentist && !selectedPatient.phone) { <span>Paciente vinculado à sua agenda</span> }
+          </div>
+        </div>
+      </div>
+      <div class="record-patient-stats">
+        <div><strong>{{ timelineRecords.length }}</strong><span>Evoluções</span></div>
+        <div><strong>{{ planRecords.length }}</strong><span>Planos</span></div>
+        <div><strong>{{ documentRecords.length }}</strong><span>Documentos</span></div>
+      </div>
+    </section>
+
+    @if (healthAlerts.length) {
+      <section class="record-alert-strip" aria-label="Alertas clínicos">
+        <strong>Alertas clínicos</strong>
+        <div>
+          @for (alert of healthAlerts; track alert.label) {
+            <span class="record-alert" [class]="'record-alert record-alert-' + alert.tone" [title]="alert.detail || alert.label">
+              <i aria-hidden="true"></i>{{ alert.label }}@if (alert.detail) {<small> — {{ alert.detail }}</small>}
+            </span>
+          }
+        </div>
+      </section>
+    }
+
+    <nav class="record-tabs" role="tablist" aria-label="Seções do prontuário">
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'summary'" [class.active]="activeTab === 'summary'" (click)="selectTab('summary')">Resumo</button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'evolutions'" [class.active]="activeTab === 'evolutions'" (click)="selectTab('evolutions')">Evoluções <span>{{ timelineRecords.length }}</span></button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'anamnesis'" [class.active]="activeTab === 'anamnesis'" (click)="selectTab('anamnesis')">Anamnese</button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'odontogram'" [class.active]="activeTab === 'odontogram'" (click)="selectTab('odontogram')">Odontograma</button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'plans'" [class.active]="activeTab === 'plans'" (click)="selectTab('plans')">Planos <span>{{ planRecords.length }}</span></button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'documents'" [class.active]="activeTab === 'documents'" (click)="selectTab('documents')">Documentos <span>{{ documentRecords.length }}</span></button>
+    </nav>
+
+    @if (loadingRecords) {
+      <div class="record-loading card"><span class="spinner spinner-dark"></span><span>Carregando histórico clínico...</span></div>
+    } @else {
+      <main class="record-tab-content">
+        @if (activeTab === 'summary') {
+          <div class="record-summary-grid">
+            <section class="record-panel record-summary-clinical">
+              <header class="record-panel-header">
+                <div><span>Visão clínica</span><h3>Resumo do paciente</h3></div>
+                <button type="button" class="record-text-action" (click)="selectTab('anamnesis')">Revisar anamnese</button>
+              </header>
+              @if (latestAnamnesis) {
+                <div class="record-summary-facts">
+                  <div class="record-fact-wide"><span>Queixa principal</span><strong>{{ latestAnamnesis.content.chiefComplaint || 'Não informada' }}</strong></div>
+                  <div><span>Alergias</span><strong>{{ latestAnamnesis.content.hasAllergies ? (latestAnamnesis.content.allergies || 'Sinalizada') : 'Não relatadas' }}</strong></div>
+                  <div><span>Medicamentos</span><strong>{{ latestAnamnesis.content.usesMedications ? (latestAnamnesis.content.medications || 'Em uso') : 'Não relatados' }}</strong></div>
+                  <div><span>Histórico médico</span><strong>{{ latestAnamnesis.content.medicalHistory || 'Não informado' }}</strong></div>
+                  <div><span>Histórico odontológico</span><strong>{{ latestAnamnesis.content.dentalHistory || 'Não informado' }}</strong></div>
+                </div>
+                <p class="record-version-note">Última revisão por {{ latestAnamnesis.createdByName || 'Sistema' }} em {{ latestAnamnesis.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+              } @else {
+                <div class="record-inline-empty">
+                  <div aria-hidden="true">♡</div><h4>Anamnese ainda não registrada</h4>
+                  <p>Registre condições de saúde, alergias, medicamentos e queixa principal.</p>
+                  <button type="button" class="btn btn-outline btn-sm" (click)="selectTab('anamnesis')">Preencher anamnese</button>
+                </div>
+              }
+            </section>
+
+            <section class="record-panel record-summary-odontogram">
+              <header class="record-panel-header">
+                <div><span>Saúde bucal</span><h3>Odontograma</h3></div>
+                <button type="button" class="record-text-action" (click)="selectTab('odontogram')">Abrir odontograma</button>
+              </header>
+              @if (latestOdontogram) {
+                <div class="record-mini-teeth">
+                  @for (entry of latestOdontogram.content.entries.slice(0, 8); track entry.tooth) {
+                    <div [class]="'record-mini-tooth ' + toothClass(entry.tooth)"><strong>{{ entry.tooth }}</strong><span>{{ toothStatusLabel(entry.status) }}</span></div>
+                  }
+                </div>
+                <p class="record-version-note">{{ latestOdontogram.content.entries.length }} dente(s) com registro · atualização em {{ latestOdontogram.createdAt | date:'dd/MM/yyyy' }}</p>
+              } @else {
+                <div class="record-inline-empty compact">
+                  <div aria-hidden="true">◌</div><h4>Sem odontograma</h4><p>Mapeie a condição clínica por dente e superfície.</p>
+                  <button type="button" class="btn btn-outline btn-sm" (click)="selectTab('odontogram')">Iniciar odontograma</button>
+                </div>
+              }
+            </section>
+
+            <section class="record-panel record-summary-history">
+              <header class="record-panel-header">
+                <div><span>Linha do tempo</span><h3>Últimas evoluções</h3></div>
+                <button type="button" class="record-text-action" (click)="selectTab('evolutions')">Ver histórico</button>
+              </header>
+              @if (timelineRecords.length) {
+                <div class="record-compact-timeline">
+                  @for (record of timelineRecords.slice(0, 4); track record.id) {
+                    <article>
+                      <div class="record-timeline-dot"></div>
+                      <div><span>{{ record.createdAt | date:'dd/MM/yyyy HH:mm' }} · {{ labelForType(recordType(record)) }}</span><strong>{{ record.content?.title || labelForType(recordType(record)) }}</strong><p>{{ summaryText(record) }}</p></div>
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="record-inline-empty compact"><h4>Nenhuma evolução registrada</h4><p>Documente o primeiro atendimento clínico deste paciente.</p><button type="button" class="btn btn-primary btn-sm" (click)="openEvolution()">Nova evolução</button></div>
+              }
+            </section>
+
+            <aside class="record-panel record-summary-quick">
+              <header class="record-panel-header"><div><span>Ações rápidas</span><h3>Documentar atendimento</h3></div></header>
+              <button type="button" (click)="openEvolution('EVOLUTION')"><i class="quick-blue">E</i><span><strong>Nova evolução</strong><small>Registro clínico estruturado</small></span><b>›</b></button>
+              <button type="button" (click)="openEvolution('INTERCURRENCE')"><i class="quick-red">!</i><span><strong>Intercorrência</strong><small>Evento ou reação inesperada</small></span><b>›</b></button>
+              <button type="button" (click)="selectTab('plans')"><i class="quick-green">P</i><span><strong>Plano de tratamento</strong><small>Alternativas e procedimentos</small></span><b>›</b></button>
+              <button type="button" (click)="selectTab('documents')"><i class="quick-violet">+</i><span><strong>Anexar documento</strong><small>Radiografia, foto ou termo</small></span><b>›</b></button>
+            </aside>
+          </div>
+        }
+
+        @if (activeTab === 'evolutions') {
+          <section class="record-panel">
+            <header class="record-panel-header record-section-header">
+              <div><span>Histórico imutável</span><h3>Evoluções e registros clínicos</h3><p>Cada entrada fica identificada com profissional, data e hora.</p></div>
+              <button type="button" class="btn btn-primary" (click)="openEvolution()">＋ Nova evolução</button>
+            </header>
+            @if (!timelineRecords.length) {
+              <div class="record-inline-empty"><div aria-hidden="true">≋</div><h4>O histórico começa aqui</h4><p>Use o formato SOAP para registrar achados e conduta com clareza.</p><button type="button" class="btn btn-primary btn-sm" (click)="openEvolution()">Criar primeiro registro</button></div>
+            } @else {
+              <div class="record-timeline">
+                @for (record of pagedEvolutionRecords; track record.id) {
+                  <article class="record-entry">
+                    <div class="record-entry-rail"><span></span></div>
+                    <div class="record-entry-card">
+                      <header>
+                        <div><span class="record-type-badge" [class.record-type-danger]="recordType(record) === 'INTERCURRENCE'">{{ labelForType(recordType(record)) }}</span><h4>{{ record.content?.title || labelForType(recordType(record)) }}</h4></div>
+                        <time>{{ (record.content?.clinicalDate || record.createdAt) | date:'dd/MM/yyyy · HH:mm' }}</time>
+                      </header>
+                      @if (record.content?.teeth?.length) { <div class="record-tooth-tags"><span>Dentes</span>@for (tooth of record.content.teeth; track tooth) { <b>{{ tooth }}</b> }@if (record.content?.surfaces?.length) {<small>Faces {{ record.content.surfaces.join(', ') }}</small>}</div> }
+                      @if (record.content?.subjective || record.content?.objective || record.content?.assessment || record.content?.plan) {
+                        <div class="record-soap-grid">
+                          @if (record.content.subjective) { <div><i>S</i><span><strong>Subjetivo</strong><p>{{ record.content.subjective }}</p></span></div> }
+                          @if (record.content.objective) { <div><i>O</i><span><strong>Objetivo</strong><p>{{ record.content.objective }}</p></span></div> }
+                          @if (record.content.assessment) { <div><i>A</i><span><strong>Avaliação</strong><p>{{ record.content.assessment }}</p></span></div> }
+                          @if (record.content.plan) { <div><i>P</i><span><strong>Plano</strong><p>{{ record.content.plan }}</p></span></div> }
+                        </div>
+                      } @else { <p class="record-legacy-text">{{ summaryText(record) }}</p> }
+                      @if (record.content?.procedure || record.content?.materials || record.content?.anesthetic || record.content?.prescription || record.content?.guidance || record.content?.intercurrences || record.content?.nextVisit) {
+                        <dl class="record-entry-details">
+                          @if (record.content.procedure) { <div><dt>Procedimento</dt><dd>{{ record.content.procedure }}</dd></div> }
+                          @if (record.content.technique) { <div><dt>Técnica</dt><dd>{{ record.content.technique }}</dd></div> }
+                          @if (record.content.materials) { <div><dt>Materiais</dt><dd>{{ record.content.materials }}</dd></div> }
+                          @if (record.content.anesthetic) { <div><dt>Anestesia</dt><dd>{{ record.content.anesthetic }}</dd></div> }
+                          @if (record.content.prescription) { <div><dt>Prescrição</dt><dd>{{ record.content.prescription }}</dd></div> }
+                          @if (record.content.guidance) { <div><dt>Orientações</dt><dd>{{ record.content.guidance }}</dd></div> }
+                          @if (record.content.intercurrences) { <div><dt>Intercorrências</dt><dd>{{ record.content.intercurrences }}</dd></div> }
+                          @if (record.content.nextVisit) { <div><dt>Próxima conduta</dt><dd>{{ record.content.nextVisit }}</dd></div> }
+                        </dl>
+                      }
+                      <footer><span>Registrado por <strong>{{ record.createdByName || 'Sistema' }}</strong></span><span>{{ record.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></footer>
+                    </div>
+                  </article>
+                }
+              </div>
+              <app-pagination [page]="evolutionPage" [pageSize]="evolutionPageSize" [totalItems]="timelineRecords.length" (pageChange)="evolutionPage=$event"></app-pagination>
+            }
+          </section>
+        }
+
+        @if (activeTab === 'anamnesis') {
+          <form class="record-panel record-clinical-form" (ngSubmit)="saveAnamnesis()">
+            <header class="record-panel-header record-section-header">
+              <div><span>Histórico de saúde</span><h3>Anamnese</h3><p>Ao salvar, uma nova versão é adicionada ao histórico sem apagar a anterior.</p></div>
+              @if (latestAnamnesis) { <span class="record-current-version">Revisada em {{ latestAnamnesis.createdAt | date:'dd/MM/yyyy' }}</span> }
+            </header>
+            <div class="record-form-section">
+              <div class="record-form-section-title"><b>01</b><span><strong>Motivo do atendimento</strong><small>Queixa e evolução relatadas pelo paciente</small></span></div>
+              <div class="record-form-grid">
+                <label class="record-field-wide">Queixa principal *<textarea class="textarea" name="chiefComplaint" [(ngModel)]="anamnesisForm.chiefComplaint" rows="3" placeholder="Descreva com as palavras do paciente..."></textarea></label>
+                <label class="record-field-wide">História da condição atual<textarea class="textarea" name="currentHistory" [(ngModel)]="anamnesisForm.currentHistory" rows="3" placeholder="Início, duração, intensidade, fatores de melhora ou piora..."></textarea></label>
+              </div>
+            </div>
+            <div class="record-form-section">
+              <div class="record-form-section-title"><b>02</b><span><strong>Condições e alertas</strong><small>Marque tudo o que se aplica</small></span></div>
+              <div class="record-check-grid">
+                <label><input type="checkbox" name="hasAllergies" [(ngModel)]="anamnesisForm.hasAllergies"><span>Alergias</span></label>
+                <label><input type="checkbox" name="usesMedications" [(ngModel)]="anamnesisForm.usesMedications"><span>Uso de medicamentos</span></label>
+                <label><input type="checkbox" name="hasDiabetes" [(ngModel)]="anamnesisForm.hasDiabetes"><span>Diabetes</span></label>
+                <label><input type="checkbox" name="hasHypertension" [(ngModel)]="anamnesisForm.hasHypertension"><span>Hipertensão</span></label>
+                <label><input type="checkbox" name="hasHeartCondition" [(ngModel)]="anamnesisForm.hasHeartCondition"><span>Condição cardíaca</span></label>
+                <label><input type="checkbox" name="hasBleedingRisk" [(ngModel)]="anamnesisForm.hasBleedingRisk"><span>Sangramento/coagulação</span></label>
+                <label><input type="checkbox" name="hasInfectiousDisease" [(ngModel)]="anamnesisForm.hasInfectiousDisease"><span>Doença infectocontagiosa</span></label>
+                <label><input type="checkbox" name="anesthesiaReaction" [(ngModel)]="anamnesisForm.anesthesiaReaction"><span>Reação a anestésico</span></label>
+                <label><input type="checkbox" name="isPregnant" [(ngModel)]="anamnesisForm.isPregnant"><span>Gestação</span></label>
+                <label><input type="checkbox" name="smoker" [(ngModel)]="anamnesisForm.smoker"><span>Tabagismo</span></label>
+              </div>
+              <div class="record-form-grid record-form-grid-spaced">
+                <label>Alergias e reações<textarea class="textarea" name="allergies" [(ngModel)]="anamnesisForm.allergies" rows="2" placeholder="Substância e tipo de reação"></textarea></label>
+                <label>Medicamentos em uso<textarea class="textarea" name="medications" [(ngModel)]="anamnesisForm.medications" rows="2" placeholder="Nome, dose e frequência"></textarea></label>
+              </div>
+            </div>
+            <div class="record-form-section">
+              <div class="record-form-section-title"><b>03</b><span><strong>Histórico e observações</strong><small>Informações relevantes para a conduta clínica</small></span></div>
+              <div class="record-form-grid">
+                <label>Histórico médico<textarea class="textarea" name="medicalHistory" [(ngModel)]="anamnesisForm.medicalHistory" rows="3" placeholder="Doenças, tratamentos e acompanhamento médico"></textarea></label>
+                <label>Histórico odontológico<textarea class="textarea" name="dentalHistory" [(ngModel)]="anamnesisForm.dentalHistory" rows="3" placeholder="Tratamentos anteriores, hábitos, traumas e experiências"></textarea></label>
+                <label>Cirurgias e hospitalizações<textarea class="textarea" name="surgeries" [(ngModel)]="anamnesisForm.surgeries" rows="3"></textarea></label>
+                <label>Outras observações<textarea class="textarea" name="anamnesisObservations" [(ngModel)]="anamnesisForm.observations" rows="3"></textarea></label>
+              </div>
+            </div>
+            <div class="record-form-attestation">
+              <label><input type="checkbox" name="informationConfirmed" [(ngModel)]="anamnesisForm.informationConfirmed"><span><strong>Informações revisadas com o paciente</strong><small>Esta marcação registra uma conferência clínica; não substitui assinatura digital ou termo de consentimento.</small></span></label>
+              <button class="btn btn-primary" type="submit" [disabled]="saving">@if (saving) {<span class="spinner"></span>} Salvar nova versão</button>
+            </div>
+          </form>
+        }
+
+        @if (activeTab === 'odontogram') {
+          <section class="record-panel record-odontogram">
+            <header class="record-panel-header record-section-header">
+              <div><span>Numeração FDI</span><h3>Odontograma clínico</h3><p>Selecione um dente, informe condição, superfícies e observações.</p></div>
+              <div class="record-segmented"><button type="button" [class.active]="dentition === 'PERMANENT'" (click)="dentition='PERMANENT'">Permanente</button><button type="button" [class.active]="dentition === 'DECIDUOUS'" (click)="dentition='DECIDUOUS'">Decídua</button></div>
+            </header>
+            <div class="record-odontogram-layout">
+              <div class="record-dental-chart">
+                <div class="record-arch-label"><span>Direita do paciente</span><span>Esquerda do paciente</span></div>
+                <div class="record-tooth-row">
+                  @for (tooth of (dentition === 'PERMANENT' ? upperPermanent : upperDeciduous); track tooth) {
+                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTooth === tooth" (click)="selectTooth(tooth)" [attr.aria-label]="'Dente ' + tooth + ', ' + toothStatusLabel(odontogramState[tooth]?.status || 'HEALTHY')"><span></span><b>{{ tooth }}</b></button>
+                  }
+                </div>
+                <div class="record-mouth-divider"><span>Arcada superior</span><i></i><span>Arcada inferior</span></div>
+                <div class="record-tooth-row lower">
+                  @for (tooth of (dentition === 'PERMANENT' ? lowerPermanent : lowerDeciduous); track tooth) {
+                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTooth === tooth" (click)="selectTooth(tooth)" [attr.aria-label]="'Dente ' + tooth + ', ' + toothStatusLabel(odontogramState[tooth]?.status || 'HEALTHY')"><b>{{ tooth }}</b><span></span></button>
+                  }
+                </div>
+                <div class="record-odontogram-legend">
+                  <span><i class="legend-caries"></i>Cárie</span><span><i class="legend-restoration"></i>Restauração</span><span><i class="legend-endo"></i>Endodontia</span><span><i class="legend-missing"></i>Ausente</span><span><i class="legend-watch"></i>Observação</span>
+                </div>
+              </div>
+              <aside class="record-tooth-editor">
+                <div class="record-tooth-editor-head"><span>Dente selecionado</span><strong>{{ selectedTooth }}</strong></div>
+                <label>Condição clínica<select class="select" [ngModel]="selectedToothEntry.status" (ngModelChange)="updateToothStatus($event)">@for (status of toothStatuses; track status.id) {<option [value]="status.id">{{ status.label }}</option>}</select></label>
+                <fieldset><legend>Superfícies</legend><div class="record-surface-picker">@for (surface of surfaces; track surface) {<button type="button" [class.active]="selectedToothEntry.surfaces.includes(surface)" (click)="toggleOdontogramSurface(surface)">{{ surface }}</button>}</div></fieldset>
+                <label>Observação<textarea class="textarea" rows="3" [ngModel]="selectedToothEntry.note" (ngModelChange)="updateToothNote($event)" placeholder="Achados, mobilidade, profundidade, conduta..."></textarea></label>
+              </aside>
+            </div>
+            <div class="record-odontogram-footer">
+              <label>Observações gerais<textarea class="textarea" [(ngModel)]="odontogramNotes" rows="2" placeholder="Condição periodontal, oclusão, achados gerais..."></textarea></label>
+              <div><p>O salvamento cria uma nova fotografia clínica e preserva as versões anteriores.</p><button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveOdontogram()">@if (saving) {<span class="spinner"></span>} Salvar odontograma</button></div>
+            </div>
+          </section>
+        }
+
+        @if (activeTab === 'plans') {
+          <section class="record-panel">
+            <header class="record-panel-header record-section-header">
+              <div><span>Decisão compartilhada</span><h3>Planos de tratamento</h3><p>Registre diagnóstico, alternativas, riscos, benefícios e decisão do paciente.</p></div>
+              <button type="button" class="btn btn-primary" (click)="showPlanForm=!showPlanForm">{{ showPlanForm ? 'Fechar formulário' : '＋ Novo plano' }}</button>
+            </header>
+            @if (showPlanForm) {
+              <form class="record-plan-form" (ngSubmit)="savePlan()">
+                <div class="record-form-grid">
+                  <label>Título do plano *<input class="input" name="planTitle" [(ngModel)]="planForm.title" placeholder="Ex.: Reabilitação do quadrante 1"></label>
+                  <label>Status<select class="select" name="planStatus" [(ngModel)]="planForm.status"><option value="PROPOSED">Proposto</option><option value="APPROVED">Aceito</option><option value="IN_PROGRESS">Em andamento</option><option value="PAUSED">Pausado</option><option value="COMPLETED">Concluído</option></select></label>
+                  <label>Diagnóstico<textarea class="textarea" name="planDiagnosis" [(ngModel)]="planForm.diagnosis" rows="3"></textarea></label>
+                  <label>Objetivos<textarea class="textarea" name="planObjectives" [(ngModel)]="planForm.objectives" rows="3"></textarea></label>
+                  <label class="record-field-wide">Procedimentos e etapas *<textarea class="textarea" name="planProcedures" [(ngModel)]="planForm.procedures" rows="4" placeholder="Sequência clínica, dentes/regiões, materiais e técnicas planejadas"></textarea></label>
+                  <label>Alternativas discutidas<textarea class="textarea" name="planAlternatives" [(ngModel)]="planForm.alternatives" rows="3"></textarea></label>
+                  <label>Riscos e benefícios<textarea class="textarea" name="planRisks" [(ngModel)]="planForm.risksBenefits" rows="3"></textarea></label>
+                  <label>Estimativa/observação financeira<input class="input" name="planEstimate" [(ngModel)]="planForm.estimate" placeholder="Sem substituir o orçamento financeiro"></label>
+                  <label>Decisão do paciente<input class="input" name="planDecision" [(ngModel)]="planForm.patientDecision" placeholder="Aceitou, solicitou tempo, recusou..."></label>
+                  <label class="record-field-wide">Observações<textarea class="textarea" name="planNotes" [(ngModel)]="planForm.notes" rows="2"></textarea></label>
+                </div>
+                <footer><button type="button" class="btn btn-ghost" (click)="showPlanForm=false">Cancelar</button><button class="btn btn-primary" type="submit" [disabled]="saving">@if (saving) {<span class="spinner"></span>} Registrar plano</button></footer>
+              </form>
+            }
+            @if (!planRecords.length) {
+              <div class="record-inline-empty"><div aria-hidden="true">◇</div><h4>Nenhum plano registrado</h4><p>Organize objetivos, alternativas e etapas do tratamento.</p></div>
+            } @else {
+              <div class="record-plan-list">
+                @for (record of pagedPlanRecords; track record.id) {
+                  <article>
+                    <header><div><span [class]="'record-plan-status status-' + record.content.status.toLowerCase()">{{ planStatusLabel(record.content.status) }}</span><h4>{{ record.content.title }}</h4></div><time>{{ record.createdAt | date:'dd/MM/yyyy' }}</time></header>
+                    @if (record.content.diagnosis) {<p><strong>Diagnóstico</strong>{{ record.content.diagnosis }}</p>}
+                    <p><strong>Procedimentos</strong>{{ record.content.procedures }}</p>
+                    @if (record.content.alternatives) {<p><strong>Alternativas discutidas</strong>{{ record.content.alternatives }}</p>}
+                    @if (record.content.patientDecision) {<p><strong>Decisão do paciente</strong>{{ record.content.patientDecision }}</p>}
+                    <footer>Registrado por {{ record.createdByName || 'Sistema' }} · {{ record.createdAt | date:'dd/MM/yyyy HH:mm' }}</footer>
+                  </article>
+                }
+              </div>
+              <app-pagination [page]="planPage" [pageSize]="planPageSize" [totalItems]="planRecords.length" (pageChange)="planPage=$event"></app-pagination>
+            }
+          </section>
+        }
+
+        @if (activeTab === 'documents') {
+          <section class="record-document-layout">
+            <div class="record-panel">
+              <header class="record-panel-header record-section-header"><div><span>Arquivos clínicos</span><h3>Documentos e imagens</h3><p>Radiografias, fotografias, exames, prescrições e termos.</p></div></header>
+              @if (!documentRecords.length) {
+                <div class="record-inline-empty"><div aria-hidden="true">▧</div><h4>Nenhum documento anexado</h4><p>Use o formulário ao lado para organizar os arquivos do paciente.</p></div>
+              } @else {
+                <div class="record-document-grid">
+                  @for (record of pagedDocumentRecords; track record.id) {
+                    <article>
+                      <div [class]="'record-document-icon ' + (record.content.file?.contentType?.startsWith('image/') ? 'is-image' : 'is-pdf')">{{ record.content.file?.contentType?.startsWith('image/') ? 'IMG' : 'PDF' }}</div>
+                      <div class="record-document-copy"><span>{{ documentCategoryLabel(record.content.category) }}</span><h4>{{ record.content.title }}</h4><p>{{ record.content.notes || record.content.file?.name }}</p><small>{{ formatBytes(record.content.file?.size) }} · {{ record.createdAt | date:'dd/MM/yyyy' }}</small></div>
+                      <button type="button" class="btn btn-outline btn-sm" (click)="downloadDocument(record)">Abrir</button>
+                    </article>
+                  }
+                </div>
+                <app-pagination [page]="documentPage" [pageSize]="documentPageSize" [totalItems]="documentRecords.length" (pageChange)="documentPage=$event"></app-pagination>
+              }
+            </div>
+            <aside class="record-panel record-upload-panel">
+              <header><span>Novo anexo</span><h3>Adicionar documento</h3></header>
+              <div class="record-upload-drop" [class.dragging]="draggingFile" (dragover)="$event.preventDefault(); draggingFile=true" (dragleave)="draggingFile=false" (drop)="onFileDrop($event)" (click)="fileInput.click()">
+                <div aria-hidden="true">↑</div>
+                @if (selectedFile) {<strong>{{ selectedFile.name }}</strong><p>{{ formatBytes(selectedFile.size) }}</p>} @else {<strong>Arraste ou selecione um arquivo</strong><p>PDF, JPG, PNG ou WEBP · até 20 MB</p>}
+                <input #fileInput type="file" hidden accept=".pdf,.jpg,.jpeg,.png,.webp" (change)="onFileInput($event)">
+              </div>
+              <label>Título do documento *<input class="input" [(ngModel)]="documentTitle" placeholder="Ex.: Radiografia panorâmica inicial"></label>
+              <label>Categoria<select class="select" [(ngModel)]="documentCategory">@for (category of documentCategories; track category.id) {<option [value]="category.id">{{ category.label }}</option>}</select></label>
+              <label>Observações<textarea class="textarea" [(ngModel)]="documentNotes" rows="3" placeholder="Data do exame, região, finalidade ou achados..."></textarea></label>
+              @if (uploadProgress) {<div class="record-upload-progress"><span class="spinner spinner-dark"></span>{{ uploadProgress }}</div>}
+              <button type="button" class="btn btn-primary btn-block" [disabled]="saving || !selectedFile" (click)="uploadDocument()">Anexar ao prontuário</button>
+            </aside>
+          </section>
+        }
+      </main>
+    }
+  }
+</div>
+
+@if (showEvolutionModal) {
+  <div class="modal-backdrop record-modal-backdrop" (click)="showEvolutionModal=false">
+    <div class="modal record-evolution-modal" role="dialog" aria-modal="true" aria-labelledby="evolution-title" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div><span class="record-eyebrow">Registro clínico</span><h3 id="evolution-title">Nova evolução</h3><p>{{ selectedPatient?.name }} · estrutura SOAP e detalhes do procedimento</p></div>
+        <button class="btn btn-icon" type="button" (click)="showEvolutionModal=false" aria-label="Fechar">×</button>
+      </header>
+      <form (ngSubmit)="saveEvolution()">
+        <div class="record-form-grid">
+          <label>Tipo de registro<select class="select" name="evolutionType" [(ngModel)]="evolutionForm.type">@for (type of recordTypes; track type.id) {<option [value]="type.id">{{ type.label }}</option>}</select></label>
+          <label>Data e hora clínica<input class="input" type="datetime-local" name="clinicalDate" [(ngModel)]="evolutionForm.clinicalDate"></label>
+          <label class="record-field-wide">Título<input class="input" name="evolutionTitle" [(ngModel)]="evolutionForm.title" [placeholder]="labelForType(evolutionForm.type)"></label>
+        </div>
+        <section class="record-modal-section">
+          <header><span>SOAP</span><p>Descreva apenas os campos relevantes ao atendimento.</p></header>
+          <div class="record-soap-form">
+            <label><i>S</i><span><strong>Subjetivo</strong><small>Queixa, sintomas e percepção do paciente</small><textarea class="textarea" name="subjective" [(ngModel)]="evolutionForm.subjective" rows="3"></textarea></span></label>
+            <label><i>O</i><span><strong>Objetivo</strong><small>Exame clínico, sinais, medidas e achados de imagem</small><textarea class="textarea" name="objective" [(ngModel)]="evolutionForm.objective" rows="3"></textarea></span></label>
+            <label><i>A</i><span><strong>Avaliação</strong><small>Hipótese, diagnóstico e interpretação profissional</small><textarea class="textarea" name="assessment" [(ngModel)]="evolutionForm.assessment" rows="3"></textarea></span></label>
+            <label><i>P</i><span><strong>Plano</strong><small>Conduta, alternativas, encaminhamentos e acompanhamento</small><textarea class="textarea" name="soapPlan" [(ngModel)]="evolutionForm.plan" rows="3"></textarea></span></label>
+          </div>
+        </section>
+        <section class="record-modal-section">
+          <header><span>Região tratada</span><p>Numeração FDI para localização precisa.</p></header>
+          <div class="record-modal-teeth">@for (tooth of upperPermanent.concat(lowerPermanent); track tooth) {<button type="button" [class.active]="evolutionForm.teeth.includes(tooth)" (click)="toggleEvolutionTooth(tooth)">{{ tooth }}</button>}</div>
+          <div class="record-modal-surfaces"><span>Faces</span>@for (surface of surfaces; track surface) {<button type="button" [class.active]="evolutionForm.surfaces.includes(surface)" (click)="toggleEvolutionSurface(surface)">{{ surface }}</button>}</div>
+        </section>
+        <section class="record-modal-section">
+          <header><span>Procedimento e conduta</span><p>Materiais, técnica e orientações tornam o registro mais completo.</p></header>
+          <div class="record-form-grid">
+            <label class="record-field-wide">Procedimento realizado<textarea class="textarea" name="procedure" [(ngModel)]="evolutionForm.procedure" rows="3" placeholder="Procedimento, região e resultado imediato"></textarea></label>
+            <label>Técnica utilizada<input class="input" name="technique" [(ngModel)]="evolutionForm.technique"></label>
+            <label>Materiais/lotes relevantes<input class="input" name="materials" [(ngModel)]="evolutionForm.materials"></label>
+            <label>Anestesia<input class="input" name="anesthetic" [(ngModel)]="evolutionForm.anesthetic" placeholder="Fármaco, concentração, volume e intercorrências"></label>
+            <label>Prescrição/medicação<input class="input" name="prescription" [(ngModel)]="evolutionForm.prescription"></label>
+            <label>Orientações pós-operatórias<textarea class="textarea" name="guidance" [(ngModel)]="evolutionForm.guidance" rows="2"></textarea></label>
+            <label>Intercorrências<textarea class="textarea" name="intercurrences" [(ngModel)]="evolutionForm.intercurrences" rows="2"></textarea></label>
+            <label>Próxima consulta/conduta<input class="input" name="nextVisit" [(ngModel)]="evolutionForm.nextVisit"></label>
+            <label>Comunicação/ciência do paciente<input class="input" name="patientCommunication" [(ngModel)]="evolutionForm.patientCommunication" placeholder="Orientações compreendidas, dúvidas ou recusa"></label>
+          </div>
+        </section>
+        <footer class="record-modal-footer"><p>O registro será identificado pelo seu usuário, com data e hora do sistema.</p><div><button class="btn btn-ghost" type="button" (click)="showEvolutionModal=false">Cancelar</button><button class="btn btn-primary" type="submit" [disabled]="saving">@if (saving) {<span class="spinner"></span>} Salvar registro</button></div></footer>
+      </form>
+    </div>
+  </div>
+}

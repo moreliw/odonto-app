@@ -1060,7 +1060,9 @@ export class AppointmentsComponent implements OnInit {
     const patientId = this.editingAppointment?.patientId
     if (!patientId) return
     this.showModal = false
-    this.router.navigate(['/app/records'], { queryParams: { patientId, new: 1 } })
+    this.router.navigate(['/app/records'], {
+      queryParams: { patientId, appointmentId: this.editingAppointment?.id, new: 'evolution' }
+    })
   }
 
   private toLocal(iso: string) {
