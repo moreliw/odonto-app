@@ -152,8 +152,8 @@ export class AppointmentsService {
     const clinicName = ctx.name || 'sua clínica'
     const when = formatDateTime(appointment.startTime)
     const message =
-      `Olá, ${appointment.patient.name}! Sua consulta na ${clinicName}` +
-      `${dentistName ? ` com ${dentistName}` : ''} está marcada para ${when}.\n\n` +
+      `Olá, *${appointment.patient.name}*! Sua consulta na ${clinicName}` +
+      `${dentistName ? ` com *${dentistName}*` : ''} está marcada para *${when}*.\n\n` +
       `Confirme sua presença ou avise se não puder comparecer pelo link:\n${shareLink}`
 
     const updated = await prisma.appointment.update({
