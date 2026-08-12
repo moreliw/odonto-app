@@ -26,12 +26,12 @@ class PatientDto {
 export class PatientsController {
   constructor(private readonly patients: PatientsService) {}
   @Get()
-  list() {
-    return this.patients.list()
+  list(@Req() req: Request) {
+    return this.patients.list((req as any).user)
   }
   @Get(':id')
-  get(@Param('id') id: string) {
-    return this.patients.get(id)
+  get(@Req() req: Request, @Param('id') id: string) {
+    return this.patients.get((req as any).user, id)
   }
   @Post()
   create(@Req() req: Request, @Body() dto: PatientDto) {
@@ -40,7 +40,7 @@ export class PatientsController {
     if (dto.phone) data.phone = dto.phone
     if (dto.birthDate) data.birthDate = new Date(dto.birthDate)
     if (dto.document) data.document = dto.document
-    return this.patients.create(data, (req as any).user?.email)
+    return this.patients.create((req as any).user, data)
   }
   @Put(':id')
   update(@Req() req: Request, @Param('id') id: string, @Body() dto: PatientDto) {
@@ -50,10 +50,10 @@ export class PatientsController {
     if (dto.phone) data.phone = dto.phone
     if (dto.birthDate) data.birthDate = new Date(dto.birthDate)
     if (dto.document) data.document = dto.document
-    return this.patients.update(id, data, (req as any).user?.email)
+    return this.patients.update((req as any).user, id, data)
   }
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.patients.remove(id)
+  remove(@Req() req: Request, @Param('id') id: string) {
+    return this.patients.remove((req as any).user, id)
   }
 }

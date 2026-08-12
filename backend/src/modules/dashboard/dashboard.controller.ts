@@ -94,6 +94,9 @@ export class DashboardController {
   /** Painel do dentista: só a própria agenda e os próprios pacientes atendidos. */
   @Get('my-metrics')
   async myMetrics(@Req() req: Request) {
+    if ((req as any).user?.role !== 'DENTIST') {
+      throw new ForbiddenException('Esta visão é exclusiva do dentista.')
+    }
     const prisma: any = this.prismaTenant.getClient()
     const dentistId = (req as any).user?.userId
     const now = new Date()
@@ -108,12 +111,12 @@ export class DashboardController {
     const where = { dentistId }
 
     const [appointmentsToday, appointmentsThisWeek, completedThisMonth, distinctPatients, todayAppointments] = await Promise.all([
-      prisma.appointment.count({ where: { ...where, startTime: { gte: startOfToday, lt: endOfToday } } }),
-      prisma.appointment.count({ where: { ...where, startTime: { gte: startOfWeek, lt: endOfWeek } } }),
+      prisma.appointment.count({ where: { ...where, status: 'SCHEDULED', startTime: { gte: startOfToday, lt: endOfToday } } }),
+      prisma.appointment.count({ where: { ...where, status: 'SCHEDULED', startTime: { gte: startOfWeek, lt: endOfWeek } } }),
       prisma.appointment.count({ where: { ...where, status: 'COMPLETED', startTime: { gte: startOfMonth } } }),
       prisma.appointment.findMany({ where, distinct: ['patientId'], select: { patientId: true } }),
       prisma.appointment.findMany({
-        where: { ...where, startTime: { gte: startOfToday, lt: endOfToday } },
+        where: { ...where, status: { not: 'CANCELLED' }, startTime: { gte: startOfToday, lt: endOfToday } },
         include: { patient: { select: { id: true, name: true } } },
         orderBy: { startTime: 'asc' }
       })

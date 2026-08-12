@@ -75,8 +75,8 @@ export class AppointmentsController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
-    return this.appointments.get(id)
+  get(@Req() req: Request, @Param('id') id: string) {
+    return this.appointments.get((req as any).user, id)
   }
 
   @Post()

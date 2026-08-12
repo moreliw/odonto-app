@@ -1,8 +1,9 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Post, Req, UseGuards } from '@nestjs/common'
 import { S3Service } from './s3.service'
 import { AuthGuard } from '@nestjs/passport'
 import { IsString } from 'class-validator'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
+import { Request } from 'express'
 
 class PresignDto {
   @IsString()
@@ -18,8 +19,17 @@ export class FilesController {
     return this.s3.presignPut(dto.contentType)
   }
   @Post('finalize')
-  async finalize(@Body() dto: { key: string; url: string; contentType: string; size?: number; patientId?: string }) {
+  async finalize(@Req() req: Request, @Body() dto: { key: string; url: string; contentType: string; size?: number; patientId?: string }) {
     const prisma = this.prismaTenant.getClient()
+    const requester = (req as any).user
+    if (requester?.role === 'DENTIST') {
+      if (!dto.patientId) throw new ForbiddenException('Selecione um paciente vinculado à sua agenda.')
+      const appointment = await prisma.appointment.findFirst({
+        where: { patientId: dto.patientId, dentistId: requester.userId },
+        select: { id: true }
+      })
+      if (!appointment) throw new ForbiddenException('Você só pode anexar arquivos aos pacientes vinculados à sua agenda.')
+    }
     const data: any = { key: dto.key, url: dto.url, contentType: dto.contentType, size: dto.size || 0 }
     if (dto.patientId) data.patientId = dto.patientId
     return prisma.file.create({ data })

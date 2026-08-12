@@ -68,11 +68,18 @@ const teamAccessGuard = () => {
   return auth.isAdmin() || auth.isUser() ? true : router.parseUrl('/app')
 }
 
-/** Financeiro da clínica: administrador ou dentista responsável pela própria produção. */
+/** O cadastro geral de pacientes é operacional: administrador e equipe de apoio. */
+const patientManagementGuard = () => {
+  const router = inject(Router)
+  const auth = inject(AuthService)
+  return auth.isAdmin() || auth.isUser() ? true : router.parseUrl('/app/records')
+}
+
+/** Dados financeiros são exclusivos do administrador da clínica. */
 const financeGuard = () => {
   const router = inject(Router)
   const auth = inject(AuthService)
-  return auth.isAdmin() || auth.isDentist() ? true : router.parseUrl('/app')
+  return auth.isAdmin() ? true : router.parseUrl('/app')
 }
 
 export const routes: Routes = [
@@ -107,7 +114,7 @@ export const routes: Routes = [
     children: [
       { path: '', component: DashboardComponent },
       { path: 'profile', component: ProfileComponent },
-      { path: 'patients', component: PatientsComponent },
+      { path: 'patients', component: PatientsComponent, canActivate: [patientManagementGuard] },
       { path: 'appointments', component: AppointmentsComponent },
       { path: 'records', component: RecordsComponent },
       { path: 'finance', component: FinanceComponent, canActivate: [financeGuard] },

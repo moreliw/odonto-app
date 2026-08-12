@@ -53,8 +53,8 @@ export class FinancialService {
   }
 
   private assertFinancialAccess(requester: FinancialRequester) {
-    if (!requester || !['ADMIN', 'DENTIST'].includes(requester.role)) {
-      throw new ForbiddenException('Seu perfil não possui acesso ao financeiro.')
+    if (!requester || requester.role !== 'ADMIN') {
+      throw new ForbiddenException('Apenas o administrador da clínica possui acesso ao financeiro.')
     }
   }
 
@@ -66,7 +66,7 @@ export class FinancialService {
 
   private invoiceScope(requester: FinancialRequester) {
     this.assertFinancialAccess(requester)
-    return requester.role === 'DENTIST' ? { dentistId: requester.userId } : {}
+    return {}
   }
 
   private startOfToday() {

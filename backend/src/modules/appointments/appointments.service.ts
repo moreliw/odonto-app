@@ -9,6 +9,8 @@ type Requester = { userId: string; email?: string; role: string }
 
 const DENTIST_SELECT = { id: true, name: true }
 const INCLUDE = { patient: true, dentist: { select: DENTIST_SELECT } }
+const DENTIST_INCLUDE = { patient: { select: { id: true, name: true } }, dentist: { select: DENTIST_SELECT } }
+const WHATSAPP_INCLUDE = { patient: { select: { id: true, name: true, phone: true } }, dentist: { select: DENTIST_SELECT } }
 
 function formatDateTime(d: Date) {
   return d.toLocaleString('pt-BR', {
@@ -40,6 +42,10 @@ export class AppointmentsService {
     return 'http://localhost:4200'
   }
 
+  private includeFor(requester: Requester) {
+    return requester.role === 'DENTIST' ? DENTIST_INCLUDE : INCLUDE
+  }
+
   list(opts: { requester: Requester; dentistId?: string; from?: string; to?: string }) {
     const where: Record<string, unknown> = {}
     const dentistId = this.scopedDentistId(opts.requester, opts.dentistId)
@@ -50,18 +56,22 @@ export class AppointmentsService {
         ...(opts.to ? { lt: new Date(opts.to) } : {})
       }
     }
-    return this.prismaTenant.getClient().appointment.findMany({ where, include: INCLUDE, orderBy: { startTime: 'asc' } })
+    return this.prismaTenant.getClient().appointment.findMany({ where, include: this.includeFor(opts.requester), orderBy: { startTime: 'asc' } })
   }
 
-  get(id: string) {
-    return this.prismaTenant.getClient().appointment.findUnique({ where: { id }, include: INCLUDE })
+  async get(requester: Requester, id: string) {
+    await this.assertOwnedByDentistOrAdmin(requester, id)
+    return this.prismaTenant.getClient().appointment.findUnique({ where: { id }, include: this.includeFor(requester) })
   }
 
   create(
     requester: Requester,
     data: { patientId: string; dentistId?: string; dentistName?: string; startTime: Date; endTime: Date; status: AppointmentStatus; notes?: string }
   ) {
-    const dentistId = requester.role === 'DENTIST' ? requester.userId : data.dentistId || null
+    if (requester.role === 'DENTIST') {
+      throw new ForbiddenException('A clínica deve atribuir as consultas ao dentista.')
+    }
+    const dentistId = data.dentistId || null
     // Nome livre só faz sentido quando não há conta vinculada — evita ambiguidade entre os dois.
     const dentistName = dentistId ? null : data.dentistName?.trim() || null
     return this.prismaTenant.getClient().appointment.create({
@@ -84,6 +94,7 @@ export class AppointmentsService {
     if (requester.role === 'DENTIST') {
       delete data.dentistId
       delete data.dentistName
+      delete data.patientId
     } else {
       // Conta vinculada e nome livre são mutuamente exclusivos.
       if (data.dentistId) data.dentistName = null
@@ -103,7 +114,7 @@ export class AppointmentsService {
       data.confirmationSentAt = null
       data.confirmationRespondedAt = null
     }
-    return this.prismaTenant.getClient().appointment.update({ where: { id }, data, include: INCLUDE })
+    return this.prismaTenant.getClient().appointment.update({ where: { id }, data, include: this.includeFor(requester) })
   }
 
   private async didTimeChange(id: string, data: Record<string, unknown>) {
@@ -134,7 +145,7 @@ export class AppointmentsService {
   async prepareWhatsappConfirmation(requester: Requester, id: string) {
     await this.assertOwnedByDentistOrAdmin(requester, id)
     const prisma = this.prismaTenant.getClient()
-    const appointment = await prisma.appointment.findUnique({ where: { id }, include: INCLUDE })
+    const appointment = await prisma.appointment.findUnique({ where: { id }, include: WHATSAPP_INCLUDE })
     if (!appointment) throw new NotFoundException('Consulta não encontrada')
     if (appointment.status === 'CANCELLED') throw new BadRequestException('Não é possível confirmar uma consulta cancelada.')
     if (!appointment.patient.phone) throw new BadRequestException('O paciente não possui telefone cadastrado.')
@@ -165,7 +176,7 @@ export class AppointmentsService {
         confirmationStatus: appointment.confirmationStatus === 'DECLINED' ? 'PENDING' : appointment.confirmationStatus,
         updatedByName: requester.email?.trim() || 'Sistema'
       },
-      include: INCLUDE
+      include: this.includeFor(requester)
     })
 
     return { ok: true, whatsappUrl: buildWhatsappUrl(phone, message), message, link: shareLink, confirmationLink, appointment: updated }

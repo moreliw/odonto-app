@@ -297,7 +297,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     if (metric.id === 'patients') {
-      void this.router.navigate(['/app/patients'])
+      void this.router.navigate([this.isDentist ? '/app/records' : '/app/patients'])
       return
     }
     if (metric.id === 'revenue') {
@@ -384,7 +384,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { id: 'today', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Agendadas para hoje' },
       { id: 'week', title: 'Esta semana', value: String(m.appointmentsThisWeek), delta: 'No total da semana' },
       { id: 'completed', title: 'Concluídas no mês', value: String(m.completedThisMonth), delta: 'Atendimentos finalizados' },
-      { id: 'patients', title: 'Meus pacientes', value: String(m.totalPatients), delta: 'Pacientes atendidos' }
+      { id: 'patients', title: 'Meus pacientes', value: String(m.totalPatients), delta: 'Vinculados à minha agenda' }
     ]
     this.appointmentTrend = m.monthlyAppointments.map(p => ({ label: p.label, value: p.count }))
     const trendTotal = m.monthlyAppointments.reduce((acc, p) => acc + p.count, 0)

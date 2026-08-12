@@ -18,10 +18,10 @@ export class RecordsController {
   constructor(private readonly records: RecordsService) {}
   @Post()
   create(@Req() req: Request, @Body() dto: RecordDto) {
-    return this.records.create(dto.patientId, dto.content, (req as any).user?.email)
+    return this.records.create((req as any).user, dto.patientId, dto.content)
   }
   @Get('patient/:patientId')
-  list(@Param('patientId') patientId: string) {
-    return this.records.list(patientId)
+  list(@Req() req: Request, @Param('patientId') patientId: string) {
+    return this.records.list((req as any).user, patientId)
   }
 }

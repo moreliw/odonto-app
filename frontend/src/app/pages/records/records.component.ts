@@ -28,7 +28,7 @@ type PatientRecord = {
       <div class="page-header">
         <div class="page-header-left">
           <h1>Prontuário</h1>
-          <p>Registros clínicos e arquivos dos pacientes</p>
+          <p>{{ isDentist ? 'Prontuários dos pacientes vinculados à sua agenda' : 'Registros clínicos e arquivos dos pacientes' }}</p>
         </div>
       </div>
 
@@ -183,6 +183,7 @@ export class RecordsComponent implements OnInit {
   page = 1
   readonly pageSize = 12
   isAdmin = false
+  isDentist = false
 
   constructor(
     private http: HttpClient,
@@ -193,6 +194,7 @@ export class RecordsComponent implements OnInit {
 
   ngOnInit() {
     this.isAdmin = this.auth.isAdmin()
+    this.isDentist = this.auth.isDentist()
     this.http.get<Patient[]>('/api/patients').subscribe({
       next: (res: Patient[]) => {
         this.patients = res

@@ -89,10 +89,12 @@ function colorIndexFor(id: string | null | undefined) {
           <p>{{ isDentist ? 'Seus atendimentos agendados' : 'Consultas e procedimentos agendados' }}</p>
         </div>
         <div class="page-header-actions">
-          <button class="btn btn-primary" (click)="openCreate()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nova consulta
-          </button>
+          @if (!isDentist) {
+            <button class="btn btn-primary" (click)="openCreate()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nova consulta
+            </button>
+          }
         </div>
       </div>
 
@@ -324,18 +326,22 @@ function colorIndexFor(id: string | null | undefined) {
           <form class="form" (ngSubmit)="save()">
             <div class="form-group">
               <label>Paciente *</label>
-              <app-searchable-select
-                [items]="patientItems"
-                placeholder="Selecione o paciente"
-                searchPlaceholder="Buscar paciente..."
-                ariaLabel="Paciente"
-                [(ngModel)]="form.patientId"
-                name="patientId"
-                required
-                [allowCreate]="true"
-                createLabel="Cadastrar novo paciente"
-                (createRequested)="openQuickCreatePatient($event)"
-              ></app-searchable-select>
+              @if (isDentist) {
+                <input class="input" [value]="editingAppointment?.patient?.name || 'Paciente'" readonly aria-label="Paciente da consulta" />
+              } @else {
+                <app-searchable-select
+                  [items]="patientItems"
+                  placeholder="Selecione o paciente"
+                  searchPlaceholder="Buscar paciente..."
+                  ariaLabel="Paciente"
+                  [(ngModel)]="form.patientId"
+                  name="patientId"
+                  required
+                  [allowCreate]="true"
+                  createLabel="Cadastrar novo paciente"
+                  (createRequested)="openQuickCreatePatient($event)"
+                ></app-searchable-select>
+              }
             </div>
             @if (!isDentist) {
               <div class="form-group">
@@ -971,6 +977,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   onSlotClick(ev: MouseEvent, day: Date) {
+    if (this.isDentist) return
     if ((ev.target as HTMLElement).closest('.agenda-block')) return
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
     const y = ev.clientY - rect.top
