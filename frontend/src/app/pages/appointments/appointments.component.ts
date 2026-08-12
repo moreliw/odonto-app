@@ -889,6 +889,10 @@ export class AppointmentsComponent implements OnInit {
   openWhatsappConfirmation(a: Appointment) {
     if (this.sendingConfirmationId) return
 
+    const saveCurrentChanges = this.showModal && this.editingId === a.id
+    const body = saveCurrentChanges ? this.buildAppointmentBody() : null
+    if (saveCurrentChanges && !body) return
+
     // Abrir a aba dentro do clique evita que navegadores bloqueiem o pop-up depois da chamada HTTP.
     const whatsappWindow = window.open('', '_blank')
     if (whatsappWindow) {
@@ -898,17 +902,44 @@ export class AppointmentsComponent implements OnInit {
     }
 
     this.sendingConfirmationId = a.id
+    if (saveCurrentChanges && body) {
+      this.saving = true
+      this.http.put<Appointment>(`/api/appointments/${a.id}`, body).subscribe({
+        next: updated => {
+          this.saving = false
+          this.editingAppointment = updated
+          this.prepareWhatsappMessage(updated, whatsappWindow, true)
+        },
+        error: (err: any) => {
+          this.saving = false
+          this.sendingConfirmationId = null
+          whatsappWindow?.close()
+          this.toast.error('Não foi possível salvar a consulta', err.error?.message)
+        }
+      })
+      return
+    }
+
+    this.prepareWhatsappMessage(a, whatsappWindow, false)
+  }
+
+  private prepareWhatsappMessage(a: Appointment, whatsappWindow: Window | null, changesSaved: boolean) {
     this.http.post<{
       ok: boolean
       whatsappUrl: string
       message: string
       link: string
+      appointment: Appointment
     }>(`/api/appointments/${a.id}/prepare-whatsapp`, {}).subscribe({
       next: res => {
         this.sendingConfirmationId = null
+        this.editingAppointment = res.appointment
         if (whatsappWindow) whatsappWindow.location.href = res.whatsappUrl
         else window.location.href = res.whatsappUrl
-        this.toast.success('Mensagem pronta no WhatsApp', 'Revise o texto e clique em Enviar.')
+        this.toast.success(
+          changesSaved ? 'Consulta atualizada e mensagem pronta' : 'Mensagem pronta no WhatsApp',
+          'Revise o texto e clique em Enviar.'
+        )
         this.load()
       },
       error: (err: any) => {
@@ -1037,19 +1068,9 @@ export class AppointmentsComponent implements OnInit {
   }
 
   save() {
+    const body = this.buildAppointmentBody()
+    if (!body) return
     this.saving = true
-    const body: Record<string, unknown> = {
-      patientId: this.form.patientId,
-      startTime: new Date(this.form.startTime!).toISOString(),
-      endTime: new Date(this.form.endTime!).toISOString(),
-      status: this.form.status || 'SCHEDULED',
-      notes: this.form.notes || undefined,
-    }
-    if (!this.isDentist) {
-      body.dentistId = this.form.dentistId || null
-      body.dentistName = this.form.dentistName || null
-    }
-    if (this.editingId) body.confirmationStatus = this.form.confirmationStatus || 'PENDING'
     const req = this.editingId
       ? this.http.put(`/api/appointments/${this.editingId}`, body)
       : this.http.post('/api/appointments', body)
@@ -1061,6 +1082,32 @@ export class AppointmentsComponent implements OnInit {
       },
       error: (err: any) => { this.saving = false; this.toast.error('Erro ao salvar', err.error?.message) }
     })
+  }
+
+  private buildAppointmentBody() {
+    if (!this.form.patientId || !this.form.startTime || !this.form.endTime) {
+      this.toast.error('Preencha paciente, início e término da consulta.')
+      return null
+    }
+    const startTime = new Date(this.form.startTime)
+    const endTime = new Date(this.form.endTime)
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime()) || endTime <= startTime) {
+      this.toast.error('Confira os horários da consulta.')
+      return null
+    }
+    const body: Record<string, unknown> = {
+      patientId: this.form.patientId,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      status: this.form.status || 'SCHEDULED',
+      notes: this.form.notes || undefined,
+    }
+    if (!this.isDentist) {
+      body.dentistId = this.form.dentistId || null
+      body.dentistName = this.form.dentistName || null
+    }
+    if (this.editingId) body.confirmationStatus = this.form.confirmationStatus || 'PENDING'
+    return body
   }
 
   confirmDelete(a: Appointment, returnToEdit = false) {
