@@ -138,7 +138,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                 <article class="card dashboard-attention-card" aria-labelledby="dashboard-attention-title">
                   <div class="dashboard-attention-head">
                     <div><span>Central de atenção</span><h3 id="dashboard-attention-title">Pendências operacionais</h3></div>
-                    <span class="dashboard-attention-count">{{ attentionCount }}</span>
+                    <span class="dashboard-attention-count" [class.dashboard-attention-count--clear]="attentionCount === 0">{{ attentionCount || 'Tudo em dia' }}</span>
                   </div>
                   <div class="dashboard-attention-list">
                     <button type="button" (click)="openMetricById('confirmations')">

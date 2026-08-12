@@ -7,7 +7,7 @@
 .dashboard-command-section { gap: 10px; }
 .dashboard-command-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .72fr); align-items: stretch; gap: 12px; }
 .dashboard-command-grid > * { min-width: 0; }
-.dashboard-command-grid .dashboard-today { min-height: 304px; max-height: 338px; padding: 16px 18px; overflow: hidden; }
+.dashboard-command-grid .dashboard-today { min-height: 304px; max-height: 338px; align-content: start; padding: 16px 18px; overflow: hidden; }
 .dashboard-command-grid .dashboard-upcoming-list { max-height: 254px; overflow-y: auto; padding-right: 3px; }
 .dashboard-command-grid .dashboard-upcoming-list li { min-height: 49px; padding: 8px 2px; }
 
@@ -17,6 +17,7 @@
 .dashboard-attention-head > div > span, .dashboard-month-head > div > span { color: var(--primary); font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .dashboard-attention-head h3, .dashboard-month-head h3 { color: var(--text); font-family: var(--font-display); font-size: 14px; }
 .dashboard-attention-count { min-width: 29px; height: 29px; display: grid; place-items: center; padding: 0 7px; border-radius: 9px; background: var(--warning-bg); color: var(--warning-text); font-size: 11px; font-weight: 800; }
+.dashboard-attention-count--clear { min-width: 68px; background: var(--success-bg); color: var(--success-text); font-size: 8.5px; }
 .dashboard-attention-list { display: grid; align-content: center; padding: 5px 12px; }
 .dashboard-attention-list button { width: 100%; min-width: 0; display: grid; grid-template-columns: 31px minmax(0, 1fr) auto 12px; align-items: center; gap: 9px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
 .dashboard-attention-list button:last-child { border-bottom: 0; }
