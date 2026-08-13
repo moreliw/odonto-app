@@ -9,6 +9,7 @@ import { SearchableSelectComponent } from '../../components/searchable-select/se
 import { PaginationComponent } from '../../components/pagination/pagination.component'
 import { paginate } from '../../utils/pagination'
 import { AuthService } from '../../services/auth.service'
+import { OdontogramToothComponent } from './odontogram-tooth.component'
 
 type Patient = {
   id: string
@@ -30,7 +31,9 @@ type PatientRecord = {
 }
 
 type RecordTab = 'summary' | 'evolutions' | 'anamnesis' | 'odontogram' | 'plans' | 'documents'
-type ToothEntry = { tooth: string; status: string; surfaces: string[]; note: string }
+type ToothEntry = { tooth: string; status: string; statuses?: string[]; surfaces: string[]; note: string }
+type OdontogramFinding = { id: string; teeth: string[]; status: string; surfaces: string[]; note: string }
+type OdontogramFindingForm = Omit<OdontogramFinding, 'id' | 'teeth'>
 
 const EMPTY_ANAMNESIS = {
   chiefComplaint: '', currentHistory: '', medicalHistory: '', dentalHistory: '', allergies: '', medications: '',
@@ -41,7 +44,7 @@ const EMPTY_ANAMNESIS = {
 
 @Component({
   selector: 'app-records',
-  imports: [CommonModule, FormsModule, SearchableSelectComponent, PaginationComponent],
+  imports: [CommonModule, FormsModule, SearchableSelectComponent, PaginationComponent, OdontogramToothComponent],
   templateUrl: './records.component.html',
   styleUrl: './records.component.css'
 })
@@ -70,8 +73,11 @@ export class RecordsComponent implements OnInit {
   planForm = this.newPlanForm()
   showPlanForm = false
 
-  odontogramState: Record<string, ToothEntry> = {}
-  selectedTooth = '11'
+  odontogramFindings: OdontogramFinding[] = []
+  selectedTeeth: string[] = []
+  odontogramFindingForm: OdontogramFindingForm = this.newOdontogramFindingForm()
+  editingOdontogramFindingId = ''
+  viewingOdontogramId = ''
   dentition: 'PERMANENT' | 'DECIDUOUS' = 'PERMANENT'
   odontogramNotes = ''
   odontogramDirty = false
@@ -99,6 +105,7 @@ export class RecordsComponent implements OnInit {
     { id: 'EXTRACTION', label: 'Extração indicada' },
     { id: 'WATCH', label: 'Em observação' }
   ]
+  readonly clinicalStatusPriority = ['EXTRACTION', 'CARIES', 'ENDO', 'MISSING', 'CROWN', 'IMPLANT', 'RESTORATION', 'WATCH', 'HEALTHY']
   readonly recordTypes = [
     { id: 'EVOLUTION', label: 'Evolução clínica' },
     { id: 'INTERCURRENCE', label: 'Intercorrência' },
@@ -167,12 +174,22 @@ export class RecordsComponent implements OnInit {
     return this.records.find(record => this.recordType(record) === 'ODONTOGRAM') || null
   }
 
+  get odontogramRecords() {
+    return this.records.filter(record => this.recordType(record) === 'ODONTOGRAM')
+  }
+
   get pagedEvolutionRecords() { return paginate(this.timelineRecords, this.evolutionPage, this.evolutionPageSize) }
   get pagedPlanRecords() { return paginate(this.planRecords, this.planPage, this.planPageSize) }
   get pagedDocumentRecords() { return paginate(this.documentRecords, this.documentPage, this.documentPageSize) }
 
-  get selectedToothEntry(): ToothEntry {
-    return this.odontogramState[this.selectedTooth] || { tooth: this.selectedTooth, status: 'HEALTHY', surfaces: [], note: '' }
+  get selectedTeethLabel() {
+    if (!this.selectedTeeth.length) return 'Nenhum'
+    if (this.selectedTeeth.length <= 4) return this.selectedTeeth.join(', ')
+    return `${this.selectedTeeth.length} dentes`
+  }
+
+  get isViewingHistoricalOdontogram() {
+    return Boolean(this.latestOdontogram && this.viewingOdontogramId && this.latestOdontogram.id !== this.viewingOdontogramId)
   }
 
   get healthAlerts() {
@@ -205,7 +222,11 @@ export class RecordsComponent implements OnInit {
     this.records = []
     this.activeTab = 'summary'
     this.evolutionPage = this.planPage = this.documentPage = 1
-    this.odontogramState = {}
+    this.odontogramFindings = []
+    this.selectedTeeth = []
+    this.odontogramFindingForm = this.newOdontogramFindingForm()
+    this.editingOdontogramFindingId = ''
+    this.viewingOdontogramId = ''
     this.odontogramDirty = false
     if (id) this.loadRecords(id)
   }
@@ -275,40 +296,148 @@ export class RecordsComponent implements OnInit {
   }
 
   async saveOdontogram() {
-    const entries = Object.values(this.odontogramState).filter(entry => entry.status !== 'HEALTHY' || entry.note || entry.surfaces.length)
-    if (!entries.length) {
-      this.toast.error('Marque ao menos uma condição no odontograma')
+    if (!this.odontogramFindings.length) {
+      this.toast.error('Adicione ao menos um achado clínico ao odontograma')
       return
     }
-    await this.createRecord({
+    const findings = this.odontogramFindings.map(finding => ({
+      ...finding,
+      teeth: [...finding.teeth],
+      surfaces: [...finding.surfaces]
+    }))
+    const created = await this.createRecord({
       type: 'ODONTOGRAM', title: 'Odontograma clínico', dentition: this.dentition,
-      entries, notes: this.odontogramNotes
+      findings,
+      entries: this.buildLegacyToothEntries(findings),
+      notes: this.odontogramNotes.trim()
     }, 'Odontograma salvo no histórico')
     this.odontogramDirty = false
+    this.viewingOdontogramId = created?.id || this.viewingOdontogramId
     this.activeTab = 'odontogram'
   }
 
-  selectTooth(tooth: string) {
-    this.selectedTooth = tooth
-    if (!this.odontogramState[tooth]) this.odontogramState[tooth] = { tooth, status: 'HEALTHY', surfaces: [], note: '' }
+  setDentition(dentition: 'PERMANENT' | 'DECIDUOUS') {
+    if (this.dentition === dentition) return
+    this.dentition = dentition
+    this.selectedTeeth = []
   }
 
-  updateToothStatus(status: string) {
-    this.ensureSelectedTooth().status = status
-    this.odontogramDirty = true
+  toggleOdontogramTooth(tooth: string) {
+    this.selectedTeeth = this.selectedTeeth.includes(tooth)
+      ? this.selectedTeeth.filter(item => item !== tooth)
+      : [...this.selectedTeeth, tooth]
   }
 
-  updateToothNote(note: string) {
-    this.ensureSelectedTooth().note = note
-    this.odontogramDirty = true
+  clearSelectedTeeth() {
+    this.selectedTeeth = []
   }
 
   toggleOdontogramSurface(surface: string) {
-    const entry = this.ensureSelectedTooth()
-    entry.surfaces = entry.surfaces.includes(surface)
-      ? entry.surfaces.filter(item => item !== surface)
-      : [...entry.surfaces, surface]
+    const surfaces = this.odontogramFindingForm.surfaces
+    this.odontogramFindingForm.surfaces = surfaces.includes(surface)
+      ? surfaces.filter(item => item !== surface)
+      : [...surfaces, surface]
+  }
+
+  saveOdontogramFinding() {
+    if (!this.selectedTeeth.length) {
+      this.toast.error('Selecione um ou mais dentes para este achado')
+      return
+    }
+    const finding: OdontogramFinding = {
+      id: this.editingOdontogramFindingId || this.newFindingId(),
+      teeth: [...this.selectedTeeth],
+      status: this.odontogramFindingForm.status,
+      surfaces: [...this.odontogramFindingForm.surfaces],
+      note: this.odontogramFindingForm.note.trim()
+    }
+    if (this.editingOdontogramFindingId) {
+      this.odontogramFindings = this.odontogramFindings.map(item => item.id === finding.id ? finding : item)
+    } else {
+      this.odontogramFindings = [...this.odontogramFindings, finding]
+    }
     this.odontogramDirty = true
+    this.cancelOdontogramFindingEdit()
+  }
+
+  editOdontogramFinding(finding: OdontogramFinding) {
+    this.editingOdontogramFindingId = finding.id
+    this.selectedTeeth = [...finding.teeth]
+    this.odontogramFindingForm = {
+      status: finding.status,
+      surfaces: [...finding.surfaces],
+      note: finding.note
+    }
+    this.dentition = Number(finding.teeth[0]?.[0]) >= 5 ? 'DECIDUOUS' : 'PERMANENT'
+  }
+
+  removeOdontogramFinding(id: string) {
+    this.odontogramFindings = this.odontogramFindings.filter(finding => finding.id !== id)
+    if (this.editingOdontogramFindingId === id) this.cancelOdontogramFindingEdit()
+    this.odontogramDirty = true
+  }
+
+  cancelOdontogramFindingEdit() {
+    this.editingOdontogramFindingId = ''
+    this.selectedTeeth = []
+    this.odontogramFindingForm = this.newOdontogramFindingForm()
+  }
+
+  viewOdontogramVersion(record: PatientRecord) {
+    if (this.odontogramDirty && record.id !== this.viewingOdontogramId) {
+      this.toast.error('Salve ou descarte as alterações antes de abrir outra versão')
+      return
+    }
+    this.restoreOdontogramRecord(record)
+  }
+
+  viewLatestOdontogram() {
+    if (this.latestOdontogram) this.restoreOdontogramRecord(this.latestOdontogram)
+  }
+
+  discardOdontogramChanges() {
+    const current = this.odontogramRecords.find(record => record.id === this.viewingOdontogramId) || this.latestOdontogram
+    if (current) this.restoreOdontogramRecord(current)
+  }
+
+  toothFindings(tooth: string) {
+    return this.odontogramFindings.filter(finding => finding.teeth.includes(tooth))
+  }
+
+  toothStatusesFor(tooth: string) {
+    return [...new Set(this.toothFindings(tooth).map(finding => finding.status))]
+  }
+
+  primaryToothStatus(tooth: string) {
+    const statuses = this.toothStatusesFor(tooth)
+    return this.clinicalStatusPriority.find(status => statuses.includes(status)) || 'HEALTHY'
+  }
+
+  toothAriaLabel(tooth: string) {
+    const statuses = this.toothStatusesFor(tooth)
+    const conditions = statuses.length ? statuses.map(status => this.toothStatusLabel(status)).join(', ') : 'Hígido'
+    const selection = this.selectedTeeth.includes(tooth) ? ', selecionado' : ''
+    return `Dente ${tooth}, ${this.toothAnatomicalName(tooth)}, ${conditions}${selection}`
+  }
+
+  toothAnatomicalName(tooth: string) {
+    const quadrant = Number(tooth[0])
+    const position = Number(tooth[1])
+    const primary = quadrant >= 5
+    const upper = [1, 2, 5, 6].includes(quadrant)
+    const right = [1, 4, 5, 8].includes(quadrant)
+    const permanentNames = ['', 'incisivo central', 'incisivo lateral', 'canino', 'primeiro pré-molar', 'segundo pré-molar', 'primeiro molar', 'segundo molar', 'terceiro molar']
+    const primaryNames = ['', 'incisivo central', 'incisivo lateral', 'canino', 'primeiro molar', 'segundo molar']
+    const name = (primary ? primaryNames : permanentNames)[position] || 'dente'
+    return `${name} ${upper ? 'superior' : 'inferior'} ${right ? 'direito' : 'esquerdo'} ${primary ? 'decíduo' : 'permanente'}`
+  }
+
+  odontogramRecordFindingCount(record: PatientRecord) {
+    return this.findingsFromContent(record.content).length
+  }
+
+  odontogramRecordToothCount(record: PatientRecord) {
+    return new Set(this.findingsFromContent(record.content).flatMap(finding => finding.teeth)).size
   }
 
   toggleEvolutionTooth(tooth: string) {
@@ -324,7 +453,7 @@ export class RecordsComponent implements OnInit {
   }
 
   toothClass(tooth: string) {
-    const status = this.odontogramState[tooth]?.status || 'HEALTHY'
+    const status = this.primaryToothStatus(tooth)
     return `tooth-${status.toLowerCase()}`
   }
 
@@ -462,9 +591,10 @@ export class RecordsComponent implements OnInit {
     if (!this.selectedPatientId || this.saving) return
     this.saving = true
     try {
-      await firstValueFrom(this.http.post('/api/records', { patientId: this.selectedPatientId, content }))
+      const created = await firstValueFrom(this.http.post<PatientRecord>('/api/records', { patientId: this.selectedPatientId, content }))
+      this.records = [created, ...this.records]
       this.toast.success(successMessage)
-      this.loadRecords(this.selectedPatientId)
+      return created
     } catch (error: any) {
       this.toast.error('Erro ao salvar registro', error?.error?.message)
       throw error
@@ -477,18 +607,56 @@ export class RecordsComponent implements OnInit {
     const latestAnamnesis = this.latestAnamnesis?.content
     this.anamnesisForm = latestAnamnesis ? { ...EMPTY_ANAMNESIS, ...latestAnamnesis } : { ...EMPTY_ANAMNESIS }
 
-    if (!this.odontogramDirty) {
-      const entries: ToothEntry[] = this.latestOdontogram?.content?.entries || []
-      this.odontogramState = Object.fromEntries(entries.map(entry => [entry.tooth, { ...entry, surfaces: [...(entry.surfaces || [])] }]))
-      this.odontogramNotes = this.latestOdontogram?.content?.notes || ''
-    }
+    if (!this.odontogramDirty && this.latestOdontogram) this.restoreOdontogramRecord(this.latestOdontogram)
   }
 
-  private ensureSelectedTooth() {
-    if (!this.odontogramState[this.selectedTooth]) {
-      this.odontogramState[this.selectedTooth] = { tooth: this.selectedTooth, status: 'HEALTHY', surfaces: [], note: '' }
+  private restoreOdontogramRecord(record: PatientRecord) {
+    this.odontogramFindings = this.findingsFromContent(record.content)
+    this.dentition = record.content?.dentition === 'DECIDUOUS' ? 'DECIDUOUS' : 'PERMANENT'
+    this.odontogramNotes = record.content?.notes || ''
+    this.viewingOdontogramId = record.id
+    this.odontogramDirty = false
+    this.cancelOdontogramFindingEdit()
+  }
+
+  private findingsFromContent(content: any): OdontogramFinding[] {
+    if (Array.isArray(content?.findings)) {
+      return content.findings.map((finding: Partial<OdontogramFinding>, index: number) => ({
+        id: finding.id || `finding-${index}`,
+        teeth: Array.isArray(finding.teeth) ? [...finding.teeth] : [],
+        status: finding.status || 'HEALTHY',
+        surfaces: Array.isArray(finding.surfaces) ? [...finding.surfaces] : [],
+        note: finding.note || ''
+      })).filter((finding: OdontogramFinding) => finding.teeth.length)
     }
-    return this.odontogramState[this.selectedTooth]
+    const entries: ToothEntry[] = Array.isArray(content?.entries) ? content.entries : []
+    return entries.map((entry, index) => ({
+      id: `legacy-${entry.tooth}-${index}`,
+      teeth: [entry.tooth],
+      status: entry.status || 'HEALTHY',
+      surfaces: [...(entry.surfaces || [])],
+      note: entry.note || ''
+    }))
+  }
+
+  private buildLegacyToothEntries(findings: OdontogramFinding[]): ToothEntry[] {
+    const teeth = [...new Set(findings.flatMap(finding => finding.teeth))]
+    return teeth.map(tooth => {
+      const toothFindings = findings.filter(finding => finding.teeth.includes(tooth))
+      const statuses = [...new Set(toothFindings.map(finding => finding.status))]
+      const status = this.clinicalStatusPriority.find(item => statuses.includes(item)) || 'HEALTHY'
+      const surfaces = [...new Set(toothFindings.flatMap(finding => finding.surfaces))]
+      const note = toothFindings.map(finding => finding.note).filter(Boolean).join(' • ')
+      return { tooth, status, statuses, surfaces, note }
+    })
+  }
+
+  private newOdontogramFindingForm(): OdontogramFindingForm {
+    return { status: 'CARIES', surfaces: [], note: '' }
+  }
+
+  private newFindingId() {
+    return `finding-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   }
 
   private newEvolutionForm() {

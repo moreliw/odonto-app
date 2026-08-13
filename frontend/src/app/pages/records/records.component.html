@@ -262,21 +262,32 @@
         @if (activeTab === 'odontogram') {
           <section class="record-panel record-odontogram">
             <header class="record-panel-header record-section-header">
-              <div><span>Numeração FDI</span><h3>Odontograma clínico</h3><p>Selecione um dente, informe condição, superfícies e observações.</p></div>
-              <div class="record-segmented"><button type="button" [class.active]="dentition === 'PERMANENT'" (click)="dentition='PERMANENT'">Permanente</button><button type="button" [class.active]="dentition === 'DECIDUOUS'" (click)="dentition='DECIDUOUS'">Decídua</button></div>
+              <div><span>Numeração FDI</span><h3>Odontograma clínico</h3><p>Selecione vários dentes, descreva o achado uma vez e adicione quantas condições forem necessárias.</p></div>
+              <div class="record-segmented"><button type="button" [class.active]="dentition === 'PERMANENT'" (click)="setDentition('PERMANENT')">Permanente</button><button type="button" [class.active]="dentition === 'DECIDUOUS'" (click)="setDentition('DECIDUOUS')">Decídua</button></div>
             </header>
+            @if (isViewingHistoricalOdontogram) {
+              <div class="record-history-mode"><div><strong>Versão histórica em modo de leitura</strong><span>Os achados desta fotografia estão preservados e não podem ser alterados.</span></div><button type="button" class="btn btn-outline btn-sm" (click)="viewLatestOdontogram()">Voltar à versão atual</button></div>
+            }
             <div class="record-odontogram-layout">
-              <div class="record-dental-chart">
+              <div class="record-dental-chart" [class.is-deciduous]="dentition === 'DECIDUOUS'">
                 <div class="record-arch-label"><span>Direita do paciente</span><span>Esquerda do paciente</span></div>
                 <div class="record-tooth-row">
                   @for (tooth of (dentition === 'PERMANENT' ? upperPermanent : upperDeciduous); track tooth) {
-                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTooth === tooth" (click)="selectTooth(tooth)" [attr.aria-label]="'Dente ' + tooth + ', ' + toothStatusLabel(odontogramState[tooth]?.status || 'HEALTHY')"><span></span><b>{{ tooth }}</b></button>
+                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
+                      <app-odontogram-tooth [tooth]="tooth" [status]="primaryToothStatus(tooth)" />
+                      <b>{{ tooth }}</b>
+                      @if (toothStatusesFor(tooth).length) {<span class="record-tooth-conditions" aria-hidden="true">@for (status of toothStatusesFor(tooth); track status) {<i [class]="'tooth-' + status.toLowerCase()"></i>}</span>}
+                    </button>
                   }
                 </div>
                 <div class="record-mouth-divider"><span>Arcada superior</span><i></i><span>Arcada inferior</span></div>
                 <div class="record-tooth-row lower">
                   @for (tooth of (dentition === 'PERMANENT' ? lowerPermanent : lowerDeciduous); track tooth) {
-                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTooth === tooth" (click)="selectTooth(tooth)" [attr.aria-label]="'Dente ' + tooth + ', ' + toothStatusLabel(odontogramState[tooth]?.status || 'HEALTHY')"><b>{{ tooth }}</b><span></span></button>
+                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
+                      <b>{{ tooth }}</b>
+                      <app-odontogram-tooth [tooth]="tooth" [status]="primaryToothStatus(tooth)" />
+                      @if (toothStatusesFor(tooth).length) {<span class="record-tooth-conditions" aria-hidden="true">@for (status of toothStatusesFor(tooth); track status) {<i [class]="'tooth-' + status.toLowerCase()"></i>}</span>}
+                    </button>
                   }
                 </div>
                 <div class="record-odontogram-legend">
@@ -284,16 +295,52 @@
                 </div>
               </div>
               <aside class="record-tooth-editor">
-                <div class="record-tooth-editor-head"><span>Dente selecionado</span><strong>{{ selectedTooth }}</strong></div>
-                <label>Condição clínica<select class="select" [ngModel]="selectedToothEntry.status" (ngModelChange)="updateToothStatus($event)">@for (status of toothStatuses; track status.id) {<option [value]="status.id">{{ status.label }}</option>}</select></label>
-                <fieldset><legend>Superfícies</legend><div class="record-surface-picker">@for (surface of surfaces; track surface) {<button type="button" [class.active]="selectedToothEntry.surfaces.includes(surface)" (click)="toggleOdontogramSurface(surface)">{{ surface }}</button>}</div></fieldset>
-                <label>Observação<textarea class="textarea" rows="3" [ngModel]="selectedToothEntry.note" (ngModelChange)="updateToothNote($event)" placeholder="Achados, mobilidade, profundidade, conduta..."></textarea></label>
+                <div class="record-tooth-editor-head"><span>{{ selectedTeeth.length === 1 ? 'Dente selecionado' : 'Dentes selecionados' }}</span><strong>{{ selectedTeethLabel }}</strong></div>
+                @if (selectedTeeth.length) {
+                  <div class="record-selected-teeth">@for (tooth of selectedTeeth; track tooth) {<button type="button" (click)="toggleOdontogramTooth(tooth)" [attr.aria-label]="'Remover dente ' + tooth">{{ tooth }} ×</button>}<button type="button" class="clear" (click)="clearSelectedTeeth()">Limpar</button></div>
+                } @else {
+                  <p class="record-selection-hint">Clique nos dentes do diagrama. Você pode selecionar quantos precisar para o mesmo achado.</p>
+                }
+                <label>Condição clínica<select class="select" [(ngModel)]="odontogramFindingForm.status" [disabled]="isViewingHistoricalOdontogram">@for (status of toothStatuses; track status.id) {<option [value]="status.id">{{ status.label }}</option>}</select></label>
+                <fieldset><legend>Superfícies</legend><div class="record-surface-picker">@for (surface of surfaces; track surface) {<button type="button" [class.active]="odontogramFindingForm.surfaces.includes(surface)" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramSurface(surface)">{{ surface }}</button>}</div></fieldset>
+                <label>Observação<textarea class="textarea" rows="3" [(ngModel)]="odontogramFindingForm.note" [disabled]="isViewingHistoricalOdontogram" placeholder="Achados, mobilidade, profundidade, conduta..."></textarea></label>
+                <button type="button" class="btn btn-primary record-add-finding" [disabled]="isViewingHistoricalOdontogram" (click)="saveOdontogramFinding()">{{ editingOdontogramFindingId ? 'Atualizar achado' : 'Adicionar achado' }}{{ selectedTeeth.length ? ' em ' + selectedTeeth.length + (selectedTeeth.length === 1 ? ' dente' : ' dentes') : '' }}</button>
+                @if (editingOdontogramFindingId) {<button type="button" class="record-text-action" (click)="cancelOdontogramFindingEdit()">Cancelar edição</button>}
               </aside>
             </div>
+            <section class="record-odontogram-findings">
+              <header><div><span>Achados desta fotografia</span><h4>{{ odontogramFindings.length }} {{ odontogramFindings.length === 1 ? 'registro clínico' : 'registros clínicos' }}</h4></div><p>Um mesmo dente pode ter várias condições.</p></header>
+              @if (odontogramFindings.length) {
+                <div class="record-finding-list">
+                  @for (finding of odontogramFindings; track finding.id) {
+                    <article>
+                      <i [class]="'tooth-' + finding.status.toLowerCase()"></i>
+                      <div><strong>{{ toothStatusLabel(finding.status) }}</strong><span>Dentes {{ finding.teeth.join(', ') }}@if (finding.surfaces.length) { · Faces {{ finding.surfaces.join(', ') }}}</span>@if (finding.note) {<p>{{ finding.note }}</p>}</div>
+                      <div class="record-finding-actions"><button type="button" [disabled]="isViewingHistoricalOdontogram" (click)="editOdontogramFinding(finding)">Editar</button><button type="button" class="danger" [disabled]="isViewingHistoricalOdontogram" (click)="removeOdontogramFinding(finding.id)">Remover</button></div>
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="record-finding-empty"><strong>Nenhum achado adicionado</strong><span>Selecione os dentes no diagrama e use o formulário ao lado.</span></div>
+              }
+            </section>
             <div class="record-odontogram-footer">
-              <label>Observações gerais<textarea class="textarea" [(ngModel)]="odontogramNotes" rows="2" placeholder="Condição periodontal, oclusão, achados gerais..."></textarea></label>
-              <div><p>O salvamento cria uma nova fotografia clínica e preserva as versões anteriores.</p><button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveOdontogram()">@if (saving) {<span class="spinner"></span>} Salvar odontograma</button></div>
+              <label>Observações gerais<textarea class="textarea" [ngModel]="odontogramNotes" (ngModelChange)="odontogramNotes=$event; odontogramDirty=true" [readonly]="isViewingHistoricalOdontogram" rows="2" placeholder="Condição periodontal, oclusão, achados gerais..."></textarea></label>
+              <div><p>Cada salvamento cria uma nova fotografia clínica sem apagar as versões anteriores.</p><div class="record-save-actions">@if (odontogramDirty && viewingOdontogramId) {<button type="button" class="btn btn-outline" (click)="discardOdontogramChanges()">Descartar alterações</button>}<button type="button" class="btn btn-primary" [disabled]="saving || isViewingHistoricalOdontogram" (click)="saveOdontogram()">@if (saving) {<span class="spinner"></span>} Salvar nova versão</button></div></div>
             </div>
+            @if (odontogramRecords.length) {
+              <section class="record-odontogram-history">
+                <header><div><span>Histórico preservado</span><h4>Versões do odontograma</h4></div><b>{{ odontogramRecords.length }}</b></header>
+                <div class="record-odontogram-history-list">
+                  @for (record of odontogramRecords; track record.id) {
+                    <article [class.active]="record.id === viewingOdontogramId">
+                      <div><strong>{{ record.createdAt | date:'dd/MM/yyyy · HH:mm' }}</strong><span>{{ odontogramRecordFindingCount(record) }} achado(s) em {{ odontogramRecordToothCount(record) }} dente(s)</span><small>Registrado por {{ record.createdByName || 'Sistema' }}</small></div>
+                      <button type="button" class="btn btn-outline btn-sm" [disabled]="record.id === viewingOdontogramId" (click)="viewOdontogramVersion(record)">{{ record.id === viewingOdontogramId ? 'Em exibição' : 'Visualizar' }}</button>
+                    </article>
+                  }
+                </div>
+              </section>
+            }
           </section>
         }
 
