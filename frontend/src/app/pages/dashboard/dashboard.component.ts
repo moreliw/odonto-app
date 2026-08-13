@@ -253,31 +253,23 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
 
     <!-- Agenda de hoje: sempre visível na home, mesmo sem atendimentos -->
     <ng-template #todayAgenda let-items let-showDentist="showDentist" let-compact="compact">
+      @let scheduledItems = scheduledAppointments(items);
+      @let highlightedId = highlightedAppointmentId(scheduledItems);
       <article class="card chart-card dashboard-today" [class.dashboard-today--support]="compact">
         <div class="chart-title-row dashboard-timeline-head">
           <div>
             <h2>Agenda de hoje</h2>
-            <p><span aria-hidden="true"></span>Agora, {{ currentTime | date:'HH:mm' }} · {{ timelineSummary(items) }}</p>
           </div>
           <div class="dashboard-timeline-head-actions">
+            <span class="dashboard-timeline-total">{{ scheduledItems.length }} {{ scheduledItems.length === 1 ? 'agendada' : 'agendadas' }}</span>
             <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
           </div>
         </div>
-        @if (items.length) {
-          @let timeline = timelineWindow(items);
+        @if (scheduledItems.length) {
           <div class="dashboard-timeline-window">
-            <div class="dashboard-status-help" role="note">
-              <span class="dashboard-status-help-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              </span>
-              <span><strong>Atualização rápida</strong> Clique em um status para atualizar a consulta sem sair da dashboard.</span>
-            </div>
-            @if (timeline.before) {
-              <div class="dashboard-timeline-overflow">{{ timeline.before }} {{ timeline.before === 1 ? 'horário anterior' : 'horários anteriores' }}</div>
-            }
             <ol class="dashboard-timeline-list">
-              @for (u of timeline.items; track u.id) {
-                <li [class]="'dashboard-timeline-item is-' + appointmentPhase(u)" [attr.aria-current]="appointmentPhase(u) === 'current' ? 'time' : null">
+              @for (u of scheduledItems; track u.id) {
+                <li [class]="'dashboard-timeline-item is-' + appointmentPhase(u) + (u.id === highlightedId ? ' is-highlighted' : '')" [attr.aria-current]="u.id === highlightedId ? 'time' : null">
                   <span class="dashboard-timeline-rail" aria-hidden="true"><i></i></span>
                   <time>
                     <strong>{{ u.startTime | date:'HH:mm' }}</strong>
@@ -321,12 +313,9 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                 </li>
               }
             </ol>
-            @if (timeline.after) {
-              <div class="dashboard-timeline-overflow is-after">Mais {{ timeline.after }} {{ timeline.after === 1 ? 'horário depois' : 'horários depois' }}</div>
-            }
           </div>
         } @else {
-          <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma consulta agendada para hoje.</p>
+          <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma consulta com status agendada para hoje.</p>
         }
       </article>
     </ng-template>
@@ -388,18 +377,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.clockTimer) clearInterval(this.clockTimer)
   }
 
-  timelineWindow(items: TodayAppointment[]) {
-    const sorted = [...items].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-    const limit = 5
-    if (sorted.length <= limit) return { items: sorted, before: 0, after: 0 }
+  scheduledAppointments(items: TodayAppointment[]) {
+    return items
+      .filter(item => item.status === 'SCHEDULED')
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+  }
+
+  highlightedAppointmentId(items: TodayAppointment[]) {
+    if (!items.length) return null
 
     const now = this.currentTime.getTime()
-    let focus = sorted.findIndex(item => this.appointmentPhase(item) === 'current')
-    if (focus < 0) focus = sorted.findIndex(item => item.status !== 'CANCELLED' && new Date(item.startTime).getTime() >= now)
-    if (focus < 0) focus = sorted.length - 1
+    const inProgress = items.find(item => {
+      const start = new Date(item.startTime).getTime()
+      const end = new Date(item.endTime).getTime()
+      return now >= start && now < end
+    })
+    if (inProgress) return inProgress.id
 
-    const start = Math.max(0, Math.min(focus - 2, sorted.length - limit))
-    return { items: sorted.slice(start, start + limit), before: start, after: sorted.length - start - limit }
+    return items.reduce((closest, item) => {
+      const distance = this.appointmentDistanceFromNow(item, now)
+      const closestDistance = this.appointmentDistanceFromNow(closest, now)
+      return distance < closestDistance ? item : closest
+    }).id
+  }
+
+  private appointmentDistanceFromNow(item: TodayAppointment, now: number) {
+    const start = new Date(item.startTime).getTime()
+    const end = new Date(item.endTime).getTime()
+    if (now < start) return start - now
+    if (now >= end) return now - end
+    return 0
   }
 
   appointmentPhase(item: TodayAppointment): TimelinePhase {
@@ -431,16 +438,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (item.confirmationStatus === 'CONFIRMED') return 'Presença confirmada'
     if (item.confirmationStatus === 'DECLINED') return 'Paciente não poderá comparecer'
     return 'Aguardando confirmação'
-  }
-
-  timelineSummary(items: TodayAppointment[]) {
-    const current = items.filter(item => this.appointmentPhase(item) === 'current').length
-    if (current) return `${current} em atendimento agora`
-    const overdue = items.filter(item => this.appointmentPhase(item) === 'overdue').length
-    if (overdue) return `${overdue} ${overdue === 1 ? 'horário precisa' : 'horários precisam'} de atualização`
-    const upcoming = items.filter(item => this.appointmentPhase(item) === 'upcoming').length
-    if (upcoming) return `${upcoming} ${upcoming === 1 ? 'consulta restante' : 'consultas restantes'}`
-    return 'agenda do dia finalizada'
   }
 
   updateAppointmentStatus(item: TodayAppointment, nextStatus: AppointmentStatus) {
