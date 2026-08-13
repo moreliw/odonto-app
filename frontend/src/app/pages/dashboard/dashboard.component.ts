@@ -168,7 +168,7 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
               </div>
             </section>
           } @else {
-            <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: metrics.todayAppointments, showDentist: true }"></ng-container>
+            <ng-container [ngTemplateOutlet]="todayAgenda" [ngTemplateOutletContext]="{ $implicit: metrics.todayAppointments, showDentist: true, compact: true }"></ng-container>
           }
 
           @if (hasActivity) {
@@ -252,8 +252,8 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
     </div>
 
     <!-- Agenda de hoje: sempre visível na home, mesmo sem atendimentos -->
-    <ng-template #todayAgenda let-items let-showDentist="showDentist">
-      <article class="card chart-card dashboard-today">
+    <ng-template #todayAgenda let-items let-showDentist="showDentist" let-compact="compact">
+      <article class="card chart-card dashboard-today" [class.dashboard-today--support]="compact">
         <div class="chart-title-row dashboard-timeline-head">
           <div>
             <h2>Agenda de hoje</h2>
@@ -292,12 +292,16 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                     }
                   </div>
                   <div class="dashboard-timeline-status" [class.is-updating]="updatingAppointmentId === u.id">
+                    @if (!compact || updatingAppointmentId === u.id) {
                     <div class="dashboard-status-actions-head">
-                      <strong>Atualizar status</strong>
+                      @if (!compact) {
+                        <strong>Atualizar status</strong>
+                      }
                       @if (updatingAppointmentId === u.id) {
                         <span><i class="dashboard-status-spinner" aria-hidden="true"></i> Salvando...</span>
                       }
                     </div>
+                    }
                     <div class="dashboard-status-actions" role="group" [attr.aria-label]="'Atualizar status da consulta de ' + u.patientName">
                       <button type="button" class="is-scheduled" [class.is-active]="u.status === 'SCHEDULED'" [attr.aria-pressed]="u.status === 'SCHEDULED'" [disabled]="updatingAppointmentId === u.id" (click)="updateAppointmentStatus(u, 'SCHEDULED')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>

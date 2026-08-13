@@ -66,6 +66,29 @@
 .dashboard-timeline-item.is-cancelled .dashboard-timeline-copy { opacity: .66; }
 .dashboard-timeline-item.is-cancelled .dashboard-status-context strong { color: var(--danger-text); }
 
+/* Equipe de apoio: leitura horizontal e ações compactas para aproveitar telas largas. */
+.dashboard-today--support { gap: 10px; padding: 16px 18px; overflow: hidden; }
+.dashboard-today--support .dashboard-timeline-window { max-width: none; margin-top: 2px; }
+.dashboard-today--support .dashboard-status-help { margin: 0 0 8px; padding: 7px 10px; }
+.dashboard-today--support .dashboard-timeline-overflow { padding: 2px 4px 5px; }
+.dashboard-today--support .dashboard-timeline-list { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
+.dashboard-today--support .dashboard-timeline-item { grid-template-columns: 14px 52px minmax(0, 1fr); align-items: start; gap: 6px; min-height: 106px; margin: 0; padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: 0 1px 3px rgb(15 23 42 / .035); }
+.dashboard-today--support .dashboard-timeline-item:hover { border-color: var(--primary-100); box-shadow: 0 4px 12px rgb(15 23 42 / .055); }
+.dashboard-today--support .dashboard-timeline-rail::before,
+.dashboard-today--support .dashboard-timeline-rail::after { display: none; }
+.dashboard-today--support .dashboard-timeline-rail { grid-row: 1; min-height: 28px; align-self: start; }
+.dashboard-today--support .dashboard-timeline-item time { grid-row: 1; padding-top: 1px; }
+.dashboard-today--support .dashboard-timeline-copy { grid-column: 3; align-self: center; }
+.dashboard-today--support .dashboard-timeline-status { grid-column: 2 / -1; width: 100%; max-width: none; gap: 4px; padding: 3px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+.dashboard-today--support .dashboard-status-actions-head { justify-content: flex-end; padding-top: 2px; }
+.dashboard-today--support .dashboard-status-actions button { min-height: 31px; padding-inline: 4px; }
+.dashboard-today--support .dashboard-status-context { padding-inline: 2px; }
+.dashboard-today--support .dashboard-timeline-item.is-current { border-color: var(--primary-100); background: var(--primary-50); }
+.dashboard-today--support .dashboard-timeline-item.is-current .dashboard-timeline-status { border-color: var(--primary-100); box-shadow: none; }
+.dashboard-today--support .dashboard-timeline-item.is-overdue { background: linear-gradient(180deg, var(--surface), var(--warning-bg)); }
+.dashboard-today--support .dashboard-timeline-item.is-completed { background: linear-gradient(180deg, var(--surface), var(--success-bg)); }
+.dashboard-today--support .dashboard-timeline-item.is-cancelled { background: linear-gradient(180deg, var(--surface), var(--danger-bg)); }
+
 .dashboard-attention-card { min-height: 264px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 0; overflow: hidden; }
 .dashboard-attention-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 16px 12px; border-bottom: 1px solid var(--border); }
 .dashboard-attention-head > div { min-width: 0; display: grid; gap: 1px; }
@@ -144,6 +167,11 @@
   .dashboard-status-actions button { min-height: 38px; padding-inline: 4px; font-size: 9px; }
   .dashboard-status-actions button svg { width: 13px; height: 13px; }
   .dashboard-status-context { font-size: 8px; }
+  .dashboard-today--support { padding: 14px; }
+  .dashboard-today--support .dashboard-timeline-list { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .dashboard-today--support .dashboard-timeline-item { grid-template-columns: 18px 50px minmax(0, 1fr); min-height: 0; padding: 8px; }
+  .dashboard-today--support .dashboard-timeline-status { grid-column: 2 / -1; margin-top: 2px; padding: 7px 0 0; }
+  .dashboard-today--support .dashboard-status-actions button { min-height: 42px; }
   .dashboard-attention-card { order: 2; min-height: auto; border-radius: 15px; }
   .dashboard-attention-head { padding: 13px 14px 10px; }
   .dashboard-attention-list { padding-inline: 10px; }
