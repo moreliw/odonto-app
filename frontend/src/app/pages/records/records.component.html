@@ -274,8 +274,8 @@
                 <div class="record-tooth-row">
                   @for (tooth of (dentition === 'PERMANENT' ? upperPermanent : upperDeciduous); track tooth) {
                     <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
-                      <app-odontogram-tooth [tooth]="tooth" [status]="primaryToothStatus(tooth)" />
                       <b>{{ tooth }}</b>
+                      <app-odontogram-tooth [tooth]="tooth" [status]="primaryToothStatus(tooth)" />
                       @if (toothStatusesFor(tooth).length) {<span class="record-tooth-conditions" aria-hidden="true">@for (status of toothStatusesFor(tooth); track status) {<i [class]="'tooth-' + status.toLowerCase()"></i>}</span>}
                     </button>
                   }
@@ -284,8 +284,8 @@
                 <div class="record-tooth-row lower">
                   @for (tooth of (dentition === 'PERMANENT' ? lowerPermanent : lowerDeciduous); track tooth) {
                     <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
-                      <b>{{ tooth }}</b>
                       <app-odontogram-tooth [tooth]="tooth" [status]="primaryToothStatus(tooth)" />
+                      <b>{{ tooth }}</b>
                       @if (toothStatusesFor(tooth).length) {<span class="record-tooth-conditions" aria-hidden="true">@for (status of toothStatusesFor(tooth); track status) {<i [class]="'tooth-' + status.toLowerCase()"></i>}</span>}
                     </button>
                   }

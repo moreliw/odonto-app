@@ -3,139 +3,163 @@ import { Component, Input } from '@angular/core'
 type ToothShape = {
   crown: string
   roots: string[]
-  details: string[]
+  crownDetails?: string[]
+  rootDetails?: string[]
 }
 
+/*
+ * Silhuetas vetoriais redesenhadas a partir da prancha odontológica enviada.
+ * Todas usam a orientação mandibular como base; maxila e lado esquerdo são
+ * espelhados por transformação para manter a anatomia posicional FDI.
+ */
 const TOOTH_SHAPES: Record<string, ToothShape> = {
   PERMANENT_MAXILLARY_1: {
-    crown: 'M18 12 Q19 7 25 6 L40 6 Q46 8 47 14 L46 35 Q45 43 39 46 L25 46 Q18 43 17 35 Z',
-    roots: ['M24 43 Q25 59 28 82 Q29 91 32 93 Q36 90 37 82 Q40 60 40 43 Z'],
-    details: ['M23 15 Q32 11 42 15', 'M23 35 Q32 39 42 35']
+    crown: 'M14 10 C14 6 18 4 24 5 C31 6 40 5 49 5 C55 5 59 9 58 16 L55 39 C54 49 48 55 39 57 C29 59 21 54 18 45 C16 36 15 22 14 10 Z',
+    roots: ['M27 54 C28 68 30 86 33 104 C34 110 37 112 40 107 C44 89 47 69 47 54 C41 49 33 49 27 54 Z'],
+    crownDetails: ['M20 16 C27 12 42 11 52 15', 'M22 43 C28 49 43 51 51 42'],
+    rootDetails: ['M33 58 C34 73 35 88 36 101']
   },
   PERMANENT_MAXILLARY_2: {
-    crown: 'M20 14 Q21 9 26 8 L38 8 Q43 10 44 15 L43 36 Q42 43 37 46 L26 46 Q20 42 19 35 Z',
-    roots: ['M26 43 Q27 62 29 84 Q30 91 33 93 Q36 89 37 82 Q39 62 38 43 Z'],
-    details: ['M24 17 Q32 13 40 17', 'M24 35 Q32 39 40 35']
+    crown: 'M19 11 C19 7 23 5 28 6 C34 7 40 5 46 6 C51 7 54 11 53 17 L51 40 C50 49 45 54 37 56 C29 57 22 52 21 44 C20 34 20 22 19 11 Z',
+    roots: ['M28 53 C29 70 30 88 33 104 C34 110 37 111 40 106 C44 88 45 70 44 53 C39 49 33 49 28 53 Z'],
+    crownDetails: ['M24 16 C31 13 42 12 49 16', 'M25 42 C31 47 42 48 48 41'],
+    rootDetails: ['M34 58 C34 74 35 88 36 101']
   },
   PERMANENT_MAXILLARY_3: {
-    crown: 'M16 35 Q19 25 29 12 Q32 7 35 12 Q44 25 48 35 Q47 42 40 46 L25 46 Q18 43 16 35 Z',
-    roots: ['M25 44 Q25 62 28 84 Q29 94 33 96 Q37 92 39 82 Q41 61 39 44 Z'],
-    details: ['M21 35 L32 17 L43 35', 'M24 38 Q32 42 41 38']
+    crown: 'M35 5 C38 4 40 9 43 15 C47 23 51 31 52 39 C53 47 47 54 39 57 C30 59 21 54 20 46 C19 38 24 30 28 22 C31 16 32 7 35 5 Z',
+    roots: ['M27 53 C27 67 29 86 32 105 C33 112 37 113 40 107 C44 89 47 68 46 53 C40 48 33 48 27 53 Z'],
+    crownDetails: ['M24 43 C29 48 42 51 48 42'],
+    rootDetails: ['M34 57 C35 74 35 91 36 103']
   },
   PERMANENT_MAXILLARY_4: {
-    crown: 'M13 30 Q16 19 25 14 Q31 9 36 14 Q46 18 51 30 L48 41 Q44 47 33 47 Q21 47 16 41 Z',
-    roots: ['M21 43 Q18 60 18 84 Q19 92 23 92 Q27 88 29 61 L30 44 Z', 'M34 44 Q36 61 39 86 Q41 92 45 89 Q48 84 45 61 Q43 49 42 43 Z'],
-    details: ['M17 30 Q24 24 31 16 Q38 24 47 30', 'M20 38 Q31 42 45 38']
+    crown: 'M13 17 C15 11 21 9 27 12 C31 8 37 7 43 11 C49 14 53 19 54 27 L52 42 C50 50 43 55 34 56 C24 57 16 52 14 44 C12 35 11 25 13 17 Z',
+    roots: ['M24 52 C21 65 18 83 17 102 C17 108 20 111 23 107 C29 94 31 76 33 55 Z', 'M36 54 C39 72 42 91 47 104 C49 109 53 108 54 103 C53 84 49 65 46 51 Z'],
+    crownDetails: ['M17 25 C23 21 28 22 33 27 C39 21 46 21 50 26', 'M18 42 C27 47 42 48 49 41'],
+    rootDetails: ['M27 58 C25 74 22 91 21 102', 'M43 58 C45 74 49 90 50 102']
   },
   PERMANENT_MAXILLARY_5: {
-    crown: 'M13 30 Q16 20 25 15 Q31 11 37 15 Q47 20 51 30 L48 41 Q43 47 32 47 Q21 47 16 41 Z',
-    roots: ['M24 44 Q24 61 27 84 Q29 92 33 93 Q37 89 39 82 Q41 61 40 44 Z'],
-    details: ['M17 30 Q24 25 31 17 Q39 25 47 30', 'M20 38 Q31 42 45 38']
+    crown: 'M14 18 C16 12 22 10 28 13 C33 9 40 9 46 13 C51 16 54 22 54 29 L52 43 C49 51 43 55 34 56 C25 57 17 52 15 44 C13 36 12 26 14 18 Z',
+    roots: ['M27 53 C27 69 29 87 32 104 C33 110 37 112 40 107 C45 88 47 68 45 53 C39 49 33 49 27 53 Z'],
+    crownDetails: ['M18 26 C24 21 29 23 34 28 C40 22 47 22 51 27', 'M19 42 C27 47 42 48 49 41'],
+    rootDetails: ['M34 58 C35 75 35 90 36 102']
   },
   PERMANENT_MAXILLARY_6: {
-    crown: 'M8 26 Q12 16 22 14 Q31 9 42 14 Q52 16 56 27 L53 41 Q48 48 32 48 Q16 48 10 41 Z',
-    roots: ['M17 44 Q13 61 11 82 Q11 90 15 91 Q20 89 24 79 L29 45 Z', 'M29 45 Q30 66 31 91 Q33 96 36 91 Q39 67 38 45 Z', 'M39 45 L45 80 Q48 91 53 88 Q55 83 50 61 Q47 50 46 43 Z'],
-    details: ['M13 28 Q20 19 30 24 Q38 16 51 27', 'M19 20 L23 40', 'M43 19 L39 40', 'M14 39 Q31 44 50 39']
+    crown: 'M7 19 C8 13 13 10 20 11 C25 7 31 8 36 12 C41 8 49 9 54 13 C60 17 62 24 61 31 L59 43 C56 51 48 56 36 57 C23 58 12 54 9 46 C7 38 6 27 7 19 Z',
+    roots: ['M20 52 C16 65 11 83 8 101 C7 108 10 111 14 107 C22 96 27 75 31 55 Z', 'M31 54 C32 71 33 91 35 106 C36 111 39 111 41 106 C43 89 44 70 43 54 Z', 'M43 55 C48 76 53 95 59 105 C62 109 65 106 64 101 C62 82 56 64 52 51 Z'],
+    crownDetails: ['M12 27 C18 20 25 21 31 27 C36 20 44 20 50 26 C54 23 58 25 59 29', 'M13 42 C25 48 47 49 56 41', 'M31 27 C31 34 32 39 35 45'],
+    rootDetails: ['M23 58 C19 75 14 92 12 103', 'M37 59 L37 103', 'M49 58 C54 76 57 91 60 102']
   },
   PERMANENT_MAXILLARY_7: {
-    crown: 'M9 27 Q12 18 22 15 Q32 11 42 15 Q51 18 55 27 L52 41 Q47 47 32 48 Q17 48 11 41 Z',
-    roots: ['M18 44 Q14 62 14 83 Q15 90 19 91 Q24 88 27 78 L30 45 Z', 'M35 45 Q38 62 40 84 Q42 91 47 88 Q50 83 47 64 Q45 52 44 43 Z'],
-    details: ['M14 28 Q22 20 31 25 Q40 19 50 28', 'M18 39 Q31 43 48 39']
+    crown: 'M8 20 C9 14 14 11 20 12 C25 8 31 9 36 13 C42 9 49 10 55 14 C60 18 62 25 61 32 L59 44 C56 52 48 56 36 57 C24 58 13 54 10 46 C8 39 7 27 8 20 Z',
+    roots: ['M22 52 C17 68 13 88 12 102 C12 108 15 110 19 106 C26 94 29 75 32 54 Z', 'M39 54 C43 73 48 93 53 104 C55 109 59 108 60 102 C59 83 54 65 50 52 Z'],
+    crownDetails: ['M13 28 C20 21 27 22 33 28 C39 21 48 21 56 28', 'M14 43 C26 48 47 49 56 42', 'M33 28 C33 34 34 40 36 45'],
+    rootDetails: ['M25 58 C21 75 17 91 16 103', 'M46 58 C50 75 54 91 56 102']
   },
   PERMANENT_MAXILLARY_8: {
-    crown: 'M11 29 Q14 20 23 17 Q32 12 42 17 Q50 20 53 30 L50 41 Q45 47 33 47 Q19 47 13 41 Z',
-    roots: ['M21 44 Q18 61 20 79 Q22 88 27 88 Q31 85 32 72 Q34 86 39 89 Q44 88 45 80 Q45 62 41 44 Z'],
-    details: ['M16 29 Q23 22 31 27 Q39 20 48 29', 'M18 39 Q32 43 47 39']
+    crown: 'M10 21 C11 15 16 12 22 13 C27 9 33 10 38 14 C43 11 50 12 55 16 C59 21 61 27 59 34 L57 45 C54 52 47 56 36 57 C25 58 16 54 12 47 C10 40 9 28 10 21 Z',
+    roots: ['M23 53 C18 69 16 86 17 100 C18 106 22 108 26 103 C31 94 34 82 36 72 C38 84 42 98 47 104 C51 108 55 105 55 100 C54 83 49 67 46 53 C39 49 30 49 23 53 Z'],
+    crownDetails: ['M15 29 C22 23 28 23 34 29 C40 23 48 23 55 29', 'M16 43 C26 48 45 49 54 42'],
+    rootDetails: ['M29 58 C28 74 25 89 22 100', 'M43 58 C46 74 49 88 51 100']
   },
+
   PERMANENT_MANDIBULAR_1: {
-    crown: 'M22 15 Q23 11 27 10 L37 10 Q41 11 42 15 L42 36 Q41 43 36 46 L28 46 Q23 43 22 36 Z',
-    roots: ['M27 43 Q28 63 29 85 Q30 92 32 94 Q35 91 36 84 Q38 63 37 43 Z'],
-    details: ['M25 18 Q32 15 39 18', 'M26 36 Q32 39 39 36']
+    crown: 'M23 9 C23 6 27 5 31 6 C35 7 40 5 44 7 C48 9 49 13 48 18 L47 39 C46 48 42 53 36 55 C29 55 25 51 24 43 C23 34 23 20 23 9 Z',
+    roots: ['M29 52 C29 68 31 88 33 104 C34 110 37 111 40 106 C43 88 44 69 43 52 C39 49 33 49 29 52 Z'],
+    crownDetails: ['M28 14 C33 12 40 12 45 14', 'M28 41 C32 45 40 46 44 41'],
+    rootDetails: ['M35 57 C35 73 36 90 36 102']
   },
   PERMANENT_MANDIBULAR_2: {
-    crown: 'M20 14 Q21 10 26 9 L38 9 Q43 11 44 15 L44 36 Q42 43 37 46 L27 46 Q21 43 20 36 Z',
-    roots: ['M26 43 Q27 63 29 85 Q30 93 33 94 Q36 90 37 84 Q39 63 38 43 Z'],
-    details: ['M24 17 Q32 14 40 17', 'M24 36 Q32 40 40 36']
+    crown: 'M21 9 C21 6 25 4 30 5 C35 6 41 5 46 7 C50 9 51 13 50 19 L49 40 C48 48 43 54 36 55 C28 56 23 51 22 43 C21 34 21 20 21 9 Z',
+    roots: ['M28 52 C28 69 30 88 33 104 C34 110 37 111 40 106 C44 88 45 68 44 52 C39 49 33 49 28 52 Z'],
+    crownDetails: ['M26 14 C32 11 42 11 47 14', 'M26 41 C31 46 42 47 47 41'],
+    rootDetails: ['M34 57 C35 75 35 90 36 102']
   },
   PERMANENT_MANDIBULAR_3: {
-    crown: 'M17 35 Q20 25 29 14 Q32 9 35 14 Q43 25 47 35 Q46 42 40 46 L25 46 Q19 43 17 35 Z',
-    roots: ['M25 44 Q26 64 28 85 Q29 93 33 95 Q37 91 39 82 Q40 63 39 44 Z'],
-    details: ['M22 35 L32 19 L42 35', 'M24 39 Q32 42 41 39']
+    crown: 'M35 5 C38 4 40 9 43 15 C47 23 51 32 51 40 C51 48 46 54 38 56 C30 58 22 53 21 45 C21 37 25 30 29 22 C32 16 32 7 35 5 Z',
+    roots: ['M28 53 C28 69 30 87 33 104 C34 111 37 112 40 106 C44 87 46 68 45 52 C39 48 33 49 28 53 Z'],
+    crownDetails: ['M25 42 C30 48 42 49 47 42'],
+    rootDetails: ['M34 58 C35 75 35 91 36 102']
   },
   PERMANENT_MANDIBULAR_4: {
-    crown: 'M14 31 Q17 21 27 15 Q31 12 36 16 Q46 22 50 31 L47 41 Q42 47 32 47 Q21 47 16 41 Z',
-    roots: ['M25 44 Q25 63 28 85 Q29 92 33 94 Q37 90 39 82 Q41 62 39 44 Z'],
-    details: ['M18 31 Q25 24 31 18 Q38 27 46 31', 'M20 39 Q32 43 45 39']
+    crown: 'M15 17 C17 11 23 9 29 13 C34 9 40 10 46 14 C51 17 54 23 53 30 L51 43 C48 51 42 55 34 56 C25 57 18 52 16 44 C14 36 13 25 15 17 Z',
+    roots: ['M27 52 C27 69 29 87 32 104 C33 110 37 112 40 107 C45 88 47 68 45 52 C40 49 33 49 27 52 Z'],
+    crownDetails: ['M19 26 C25 21 30 23 34 28 C40 23 47 23 50 27', 'M20 42 C28 47 41 48 48 41'],
+    rootDetails: ['M34 57 C35 74 35 90 36 102']
   },
   PERMANENT_MANDIBULAR_5: {
-    crown: 'M12 30 Q15 20 25 15 Q31 11 38 15 Q48 20 52 30 L49 41 Q44 47 32 48 Q20 47 15 41 Z',
-    roots: ['M24 44 Q24 62 27 84 Q29 92 33 94 Q37 90 39 82 Q41 62 40 44 Z'],
-    details: ['M16 30 Q23 24 31 17 Q39 24 48 30', 'M19 39 Q31 43 47 39']
+    crown: 'M13 18 C15 12 21 10 28 13 C33 9 40 10 47 14 C52 18 55 24 54 31 L52 44 C49 52 43 56 34 57 C24 57 17 52 15 44 C13 36 12 25 13 18 Z',
+    roots: ['M27 53 C27 69 29 87 32 104 C33 111 37 112 40 107 C45 88 47 68 45 53 C40 49 33 49 27 53 Z'],
+    crownDetails: ['M18 27 C24 21 30 23 35 29 C41 23 48 23 51 28', 'M19 43 C27 48 42 49 49 42'],
+    rootDetails: ['M34 58 C35 74 35 90 36 102']
   },
   PERMANENT_MANDIBULAR_6: {
-    crown: 'M7 27 Q10 18 20 15 Q31 10 43 14 Q54 17 58 27 L54 41 Q49 48 32 49 Q15 48 9 41 Z',
-    roots: ['M18 44 Q14 62 14 84 Q15 92 20 92 Q25 89 28 78 L31 45 Z', 'M36 45 L41 82 Q43 92 48 90 Q52 86 49 66 Q47 53 45 43 Z'],
-    details: ['M12 28 Q19 20 27 25 Q34 18 41 24 Q49 20 54 29', 'M18 19 L22 41', 'M45 18 L42 41', 'M13 39 Q31 44 52 39']
+    crown: 'M6 18 C7 12 13 9 20 11 C25 7 31 8 36 12 C42 8 49 9 55 13 C61 17 64 24 63 31 L61 44 C58 52 49 57 36 58 C22 59 11 55 8 47 C6 39 5 26 6 18 Z',
+    roots: ['M21 53 C17 68 12 87 11 102 C11 109 15 111 19 106 C26 95 30 76 32 55 Z', 'M40 54 C44 74 49 94 55 105 C58 110 62 108 62 102 C61 83 55 65 51 52 Z'],
+    crownDetails: ['M11 27 C17 20 24 21 30 27 C36 20 43 21 49 27 C54 22 59 25 61 29', 'M12 43 C25 49 48 50 58 42', 'M31 27 C32 34 33 40 36 46'],
+    rootDetails: ['M25 59 C21 76 16 92 15 103', 'M47 59 C51 76 56 92 58 102']
   },
   PERMANENT_MANDIBULAR_7: {
-    crown: 'M9 28 Q12 19 22 15 Q32 11 43 15 Q52 19 55 28 L52 41 Q47 48 32 48 Q17 48 11 41 Z',
-    roots: ['M19 44 Q15 63 16 83 Q17 91 21 91 Q26 88 29 78 L31 45 Z', 'M36 45 Q39 63 42 84 Q44 91 48 88 Q51 83 48 64 Q46 52 45 43 Z'],
-    details: ['M14 28 Q22 20 31 25 Q40 20 50 28', 'M19 19 L22 40', 'M44 19 L41 40', 'M15 39 Q31 43 50 39']
+    crown: 'M8 19 C9 13 14 10 21 12 C26 8 32 9 37 13 C43 9 50 10 56 14 C61 18 63 25 62 32 L60 45 C57 53 49 57 36 58 C23 59 13 55 10 47 C8 39 7 27 8 19 Z',
+    roots: ['M22 53 C18 68 14 87 14 102 C14 108 18 110 22 105 C28 94 31 75 33 55 Z', 'M40 55 C44 74 49 93 54 104 C57 109 61 107 61 101 C60 82 55 65 51 53 Z'],
+    crownDetails: ['M13 28 C20 21 27 22 33 28 C39 21 48 21 57 28', 'M14 44 C26 49 48 50 57 43', 'M34 28 C34 35 35 41 37 46'],
+    rootDetails: ['M26 59 C22 76 18 92 18 102', 'M47 59 C51 76 56 91 57 101']
   },
   PERMANENT_MANDIBULAR_8: {
-    crown: 'M11 29 Q14 20 23 17 Q32 13 42 17 Q50 20 53 30 L50 41 Q45 47 33 47 Q19 47 13 41 Z',
-    roots: ['M21 44 Q18 62 20 80 Q22 89 27 88 Q31 84 32 72 Q34 86 39 89 Q44 88 45 80 Q45 62 41 44 Z'],
-    details: ['M16 29 Q23 22 31 27 Q39 21 48 29', 'M18 39 Q32 43 47 39']
+    crown: 'M10 21 C11 15 16 12 22 13 C27 9 33 10 38 14 C44 10 51 12 56 16 C60 21 62 27 60 34 L58 46 C55 53 47 57 36 58 C25 59 16 55 12 48 C10 41 9 28 10 21 Z',
+    roots: ['M23 54 C19 70 17 86 18 100 C19 106 23 108 27 103 C32 94 34 82 36 72 C39 85 43 98 48 104 C52 108 56 105 56 100 C55 82 50 66 47 54 C40 50 30 50 23 54 Z'],
+    crownDetails: ['M15 29 C22 23 29 23 35 29 C41 23 49 23 56 29', 'M16 44 C27 49 46 50 55 43'],
+    rootDetails: ['M29 59 C28 75 25 89 23 99', 'M44 59 C47 75 50 89 52 100']
   },
+
   PRIMARY_MAXILLARY_1: {
-    crown: 'M18 17 Q19 11 25 10 L40 10 Q46 12 47 18 L46 37 Q44 44 38 47 L26 47 Q19 44 18 37 Z',
-    roots: ['M26 44 Q27 61 29 80 Q30 88 33 90 Q36 86 38 79 Q40 60 39 44 Z'],
-    details: ['M23 20 Q32 16 42 20', 'M23 37 Q32 41 42 37']
+    crown: 'M17 13 C17 8 21 6 27 7 C33 8 40 7 46 8 C51 9 55 13 54 19 L52 42 C50 51 44 56 36 57 C27 57 20 52 19 44 C18 35 17 23 17 13 Z',
+    roots: ['M28 53 C29 71 31 88 33 101 C34 107 37 108 40 102 C43 86 45 69 44 53 C39 49 33 49 28 53 Z'],
+    crownDetails: ['M23 19 C30 16 42 16 49 19']
   },
   PRIMARY_MAXILLARY_2: {
-    crown: 'M21 18 Q22 13 27 12 L38 12 Q43 14 44 19 L43 37 Q42 44 37 47 L28 47 Q22 44 21 37 Z',
-    roots: ['M28 44 Q29 62 30 80 Q31 87 33 89 Q36 85 37 79 Q39 61 37 44 Z'],
-    details: ['M25 21 Q32 18 40 21', 'M25 37 Q32 41 40 37']
+    crown: 'M21 14 C21 10 25 8 30 9 C35 10 40 8 45 10 C49 12 51 16 50 21 L49 42 C47 50 43 54 36 56 C29 56 24 52 23 44 C22 35 21 23 21 14 Z',
+    roots: ['M29 53 C30 70 31 86 33 100 C34 106 37 107 39 102 C42 86 44 68 43 53 C39 50 33 50 29 53 Z'],
+    crownDetails: ['M26 20 C31 17 41 17 47 20']
   },
   PRIMARY_MAXILLARY_3: {
-    crown: 'M18 37 Q21 28 29 18 Q32 13 35 18 Q43 28 47 37 Q45 44 39 47 L26 47 Q20 44 18 37 Z',
-    roots: ['M26 45 Q27 62 29 82 Q30 91 33 93 Q37 89 39 80 Q40 61 38 45 Z'],
-    details: ['M23 37 L32 22 L42 37', 'M25 40 Q32 43 40 40']
+    crown: 'M35 8 C38 7 40 12 43 18 C47 26 50 34 50 41 C50 49 45 54 38 56 C30 57 23 53 22 46 C21 39 25 32 29 24 C32 18 32 10 35 8 Z',
+    roots: ['M29 53 C29 69 31 87 33 102 C34 108 37 109 40 103 C43 86 45 68 44 53 C39 49 34 49 29 53 Z'],
+    crownDetails: ['M26 43 C31 48 41 49 46 42']
   },
   PRIMARY_MAXILLARY_4: {
-    crown: 'M12 31 Q15 21 24 17 Q32 12 40 17 Q49 21 52 31 L49 42 Q44 49 32 49 Q19 49 14 42 Z',
-    roots: ['M20 45 Q14 60 12 82 Q12 90 17 90 Q22 87 26 77 L29 46 Z', 'M29 46 Q31 65 32 89 Q34 94 37 89 Q39 66 38 46 Z', 'M39 46 L45 80 Q48 90 52 87 Q54 82 49 62 Q46 51 45 44 Z'],
-    details: ['M16 31 Q23 23 31 27 Q39 21 48 31', 'M18 41 Q31 45 47 41']
+    crown: 'M12 20 C13 14 19 11 25 13 C30 9 36 10 41 14 C47 11 54 15 57 21 C60 27 59 36 57 43 C54 51 47 56 36 57 C24 58 15 54 12 46 C10 39 10 27 12 20 Z',
+    roots: ['M21 53 C15 67 10 84 8 100 C8 106 11 109 15 105 C23 95 28 75 31 55 Z', 'M32 54 C33 71 34 89 36 103 C37 108 40 108 41 102 C43 86 44 70 43 54 Z', 'M44 55 C49 74 55 92 61 101 C64 105 67 102 65 97 C62 80 56 64 52 52 Z'],
+    crownDetails: ['M17 29 C23 22 29 23 34 29 C40 22 48 22 54 29', 'M16 43 C27 49 46 49 55 42']
   },
   PRIMARY_MAXILLARY_5: {
-    crown: 'M9 29 Q12 19 22 16 Q32 11 43 16 Q52 19 55 29 L52 42 Q47 49 32 49 Q17 49 11 42 Z',
-    roots: ['M18 45 Q12 62 10 83 Q10 91 15 92 Q21 89 25 78 L29 46 Z', 'M29 46 Q30 67 32 91 Q34 96 37 91 Q39 67 38 46 Z', 'M40 46 L46 81 Q49 92 54 89 Q56 83 51 62 Q48 50 46 44 Z'],
-    details: ['M14 29 Q22 21 31 26 Q40 20 50 29', 'M18 21 L22 42', 'M45 21 L41 42', 'M14 41 Q32 46 50 41']
+    crown: 'M8 20 C9 14 14 11 21 12 C26 8 32 9 37 13 C43 9 51 10 57 15 C62 19 64 26 62 34 L60 45 C57 53 49 57 36 58 C23 59 13 55 10 47 C8 39 7 27 8 20 Z',
+    roots: ['M20 53 C14 68 9 85 7 101 C6 108 10 110 14 106 C22 95 27 75 31 55 Z', 'M32 54 C33 72 34 91 36 105 C37 110 40 110 42 104 C44 87 45 70 44 54 Z', 'M45 55 C50 75 56 94 62 103 C65 107 68 104 66 99 C63 81 57 64 53 52 Z'],
+    crownDetails: ['M13 29 C20 22 27 22 33 28 C39 21 48 21 58 29', 'M14 44 C26 49 48 50 58 43']
   },
   PRIMARY_MANDIBULAR_1: {
-    crown: 'M23 18 Q24 14 28 13 L36 13 Q40 14 41 18 L41 37 Q40 44 36 47 L29 47 Q24 44 23 37 Z',
-    roots: ['M28 44 Q29 63 30 82 Q31 89 33 91 Q35 87 36 81 Q38 62 36 44 Z'],
-    details: ['M26 21 Q32 18 38 21', 'M27 37 Q32 40 38 37']
+    crown: 'M24 12 C24 8 27 7 31 8 C35 9 39 7 43 9 C46 11 47 14 46 19 L45 40 C44 48 41 52 36 54 C30 54 27 50 26 43 C25 34 24 22 24 12 Z',
+    roots: ['M30 51 C30 67 32 85 34 100 C35 106 37 106 39 101 C42 85 43 67 42 51 C38 49 33 49 30 51 Z'],
+    crownDetails: ['M28 17 C33 15 39 15 43 17']
   },
   PRIMARY_MANDIBULAR_2: {
-    crown: 'M21 17 Q22 13 27 12 L38 12 Q42 14 43 18 L43 37 Q42 44 37 47 L28 47 Q22 44 21 37 Z',
-    roots: ['M27 44 Q28 63 30 82 Q31 90 33 91 Q36 87 37 80 Q39 62 37 44 Z'],
-    details: ['M25 20 Q32 17 40 20', 'M25 37 Q32 41 40 37']
+    crown: 'M22 12 C22 8 26 6 30 7 C35 8 40 7 44 9 C48 11 49 15 48 20 L47 40 C46 48 42 53 36 55 C29 55 25 51 24 43 C23 34 22 22 22 12 Z',
+    roots: ['M29 52 C29 68 31 86 33 101 C34 107 37 108 40 102 C43 85 44 67 43 52 C39 49 33 49 29 52 Z'],
+    crownDetails: ['M27 17 C32 14 41 14 46 17']
   },
   PRIMARY_MANDIBULAR_3: {
-    crown: 'M18 37 Q21 28 29 18 Q32 13 35 18 Q43 28 47 37 Q45 44 39 47 L26 47 Q20 44 18 37 Z',
-    roots: ['M26 45 Q27 64 29 83 Q30 91 33 93 Q37 89 39 80 Q40 63 38 45 Z'],
-    details: ['M23 37 L32 22 L42 37', 'M25 40 Q32 43 40 40']
+    crown: 'M35 8 C38 7 40 12 43 18 C47 26 50 34 50 41 C50 49 45 54 38 56 C30 57 23 53 22 46 C21 39 25 32 29 24 C32 18 32 10 35 8 Z',
+    roots: ['M29 53 C29 69 31 87 33 102 C34 108 37 109 40 103 C43 86 45 68 44 53 C39 49 34 49 29 53 Z'],
+    crownDetails: ['M26 43 C31 48 41 49 46 42']
   },
   PRIMARY_MANDIBULAR_4: {
-    crown: 'M11 31 Q14 21 24 17 Q32 13 41 17 Q50 21 53 31 L50 42 Q45 49 32 49 Q18 49 13 42 Z',
-    roots: ['M20 45 Q15 62 14 83 Q15 91 20 91 Q25 88 29 77 L31 46 Z', 'M35 46 Q39 62 42 83 Q44 91 49 88 Q52 83 48 63 Q46 51 45 44 Z'],
-    details: ['M16 31 Q23 23 31 27 Q39 22 48 31', 'M18 41 Q31 45 48 41']
+    crown: 'M11 20 C12 14 18 11 25 13 C30 9 36 10 41 14 C47 11 54 15 57 21 C60 27 59 36 57 43 C54 51 47 56 36 57 C24 58 15 54 12 46 C10 39 9 27 11 20 Z',
+    roots: ['M21 53 C16 68 12 86 11 101 C11 107 15 109 19 104 C26 93 29 75 32 55 Z', 'M41 55 C45 74 50 93 56 103 C59 108 63 106 62 100 C60 82 55 65 51 53 Z'],
+    crownDetails: ['M16 29 C23 22 29 23 35 29 C41 22 49 23 55 29', 'M15 43 C27 49 47 50 56 42']
   },
   PRIMARY_MANDIBULAR_5: {
-    crown: 'M8 29 Q11 19 21 16 Q32 11 44 16 Q54 19 57 29 L53 42 Q48 49 32 49 Q15 49 10 42 Z',
-    roots: ['M18 45 Q12 63 12 84 Q13 92 18 92 Q24 89 28 78 L31 46 Z', 'M36 46 Q40 63 44 84 Q46 92 51 89 Q54 84 50 63 Q47 51 46 44 Z'],
-    details: ['M13 29 Q20 21 28 26 Q35 19 43 25 Q50 21 53 30', 'M18 20 L22 42', 'M46 20 L42 42', 'M14 41 Q32 46 51 41']
+    crown: 'M8 20 C9 14 14 11 21 12 C26 8 32 9 37 13 C43 9 51 10 57 15 C62 19 64 26 62 34 L60 45 C57 53 49 57 36 58 C23 59 13 55 10 47 C8 39 7 27 8 20 Z',
+    roots: ['M20 53 C15 68 11 86 10 102 C10 108 14 110 18 105 C25 94 29 75 32 55 Z', 'M41 55 C45 75 51 94 57 104 C60 109 64 106 63 100 C61 82 56 65 52 53 Z'],
+    crownDetails: ['M13 29 C20 22 27 22 33 28 C39 21 48 21 58 29', 'M14 44 C26 49 48 50 58 43']
   }
 }
 
@@ -143,29 +167,50 @@ const TOOTH_SHAPES: Record<string, ToothShape> = {
   selector: 'app-odontogram-tooth',
   standalone: true,
   template: `
-    <svg [class]="'odontogram-tooth tooth-' + status.toLowerCase()" viewBox="0 0 64 96" aria-hidden="true">
+    <svg [class]="'odontogram-tooth tooth-' + status.toLowerCase()" viewBox="0 0 72 112" aria-hidden="true">
+      <defs>
+        <linearGradient [attr.id]="rootGradientId" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#f2c98f" />
+          <stop offset="0.48" stop-color="#ffe3b4" />
+          <stop offset="1" stop-color="#edbf80" />
+        </linearGradient>
+        <linearGradient [attr.id]="crownGradientId" x1="0" y1="0" x2="0.9" y2="1">
+          <stop offset="0" stop-color="#ffffff" />
+          <stop offset="0.7" stop-color="#fbfdfd" />
+          <stop offset="1" stop-color="#eaf5f2" />
+        </linearGradient>
+      </defs>
       <g [attr.transform]="shapeTransform">
         @for (root of shape.roots; track root) {
-          <path class="tooth-part tooth-root" [attr.d]="root" />
+          <path class="tooth-part tooth-root" [attr.d]="root" [attr.fill]="'url(#' + rootGradientId + ')'" />
         }
-        <path class="tooth-part tooth-crown" [attr.d]="shape.crown" />
-        @for (detail of shape.details; track detail) {
-          <path class="tooth-detail" [attr.d]="detail" />
+        @for (detail of shape.rootDetails || []; track detail) {
+          <path class="root-detail" [attr.d]="detail" />
         }
+        <path class="tooth-part tooth-crown" [attr.d]="shape.crown" [attr.fill]="'url(#' + crownGradientId + ')'" />
+        <path class="clinical-accent" [attr.d]="shape.crown" />
+        @for (detail of shape.crownDetails || []; track detail) {
+          <path class="crown-detail" [attr.d]="detail" />
+        }
+        <path class="enamel-highlight" d="M24 17 C22 26 23 35 26 40" />
       </g>
     </svg>
   `,
   styles: [`
-    :host { display: block; width: 100%; height: 68px; }
-    .odontogram-tooth { width: 100%; height: 100%; overflow: visible; color: #94a3b8; filter: drop-shadow(0 1px 0 rgb(255 255 255 / .8)); }
-    .tooth-part { fill: var(--tooth-fill, #fff); stroke: var(--tooth-stroke, currentColor); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-    .tooth-root { fill: color-mix(in srgb, var(--tooth-fill, #fff) 88%, #fff); }
-    .tooth-detail { fill: none; stroke: var(--tooth-stroke, currentColor); stroke-width: 1.2; stroke-linecap: round; opacity: .48; vector-effect: non-scaling-stroke; }
-    .tooth-caries, .tooth-extraction { --tooth-fill: #fee2e2; --tooth-stroke: #ef4444; }
-    .tooth-restoration, .tooth-crown, .tooth-implant { --tooth-fill: #dbeafe; --tooth-stroke: #2563eb; }
-    .tooth-endo { --tooth-fill: #ede9fe; --tooth-stroke: #8b5cf6; }
-    .tooth-missing { --tooth-fill: #f8fafc; --tooth-stroke: #94a3b8; opacity: .32; }
-    .tooth-watch { --tooth-fill: #fef3c7; --tooth-stroke: #f59e0b; }
+    :host { display: block; width: 100%; height: 82px; }
+    .odontogram-tooth { width: 100%; height: 100%; overflow: visible; --clinical-color: transparent; filter: drop-shadow(0 1px 1px rgb(80 69 51 / .10)); }
+    .tooth-part { stroke: #6f706c; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+    .tooth-root { fill: #f7d6a4; }
+    .tooth-crown { fill: #fff; }
+    .crown-detail { fill: none; stroke: #a8b2ad; stroke-width: 1.15; stroke-linecap: round; opacity: .62; vector-effect: non-scaling-stroke; }
+    .root-detail { fill: none; stroke: #d5a66e; stroke-width: 1; stroke-linecap: round; opacity: .46; vector-effect: non-scaling-stroke; }
+    .enamel-highlight { fill: none; stroke: #dceee9; stroke-width: 2.2; stroke-linecap: round; opacity: .8; vector-effect: non-scaling-stroke; }
+    .clinical-accent { fill: var(--clinical-fill, transparent); stroke: var(--clinical-color); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; opacity: .9; vector-effect: non-scaling-stroke; }
+    .tooth-caries, .tooth-extraction { --clinical-color: #ef4444; --clinical-fill: rgb(254 226 226 / .20); }
+    .tooth-restoration, .tooth-crown, .tooth-implant { --clinical-color: #2563eb; --clinical-fill: rgb(219 234 254 / .34); }
+    .tooth-endo { --clinical-color: #8b5cf6; --clinical-fill: rgb(237 233 254 / .30); }
+    .tooth-missing { opacity: .30; }
+    .tooth-watch { --clinical-color: #f59e0b; --clinical-fill: rgb(254 243 199 / .34); }
   `]
 })
 export class OdontogramToothComponent {
@@ -176,10 +221,13 @@ export class OdontogramToothComponent {
     return TOOTH_SHAPES[this.shapeKey] || TOOTH_SHAPES['PERMANENT_MAXILLARY_1']
   }
 
+  get rootGradientId() { return `tooth-root-${this.tooth}` }
+  get crownGradientId() { return `tooth-crown-${this.tooth}` }
+
   get shapeTransform() {
     const scaleX = this.isLeft ? -1 : 1
     const scaleY = this.isUpper ? -1 : 1
-    return `matrix(${scaleX} 0 0 ${scaleY} ${scaleX === -1 ? 64 : 0} ${scaleY === -1 ? 96 : 0})`
+    return `matrix(${scaleX} 0 0 ${scaleY} ${scaleX === -1 ? 72 : 0} ${scaleY === -1 ? 112 : 0})`
   }
 
   private get shapeKey() {
