@@ -260,13 +260,18 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
             <p><span aria-hidden="true"></span>Agora, {{ currentTime | date:'HH:mm' }} · {{ timelineSummary(items) }}</p>
           </div>
           <div class="dashboard-timeline-head-actions">
-            <span>Altere pelo status</span>
             <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
           </div>
         </div>
         @if (items.length) {
           @let timeline = timelineWindow(items);
           <div class="dashboard-timeline-window">
+            <div class="dashboard-status-help" role="note">
+              <span class="dashboard-status-help-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              </span>
+              <span><strong>Atualização rápida</strong> Clique em um status para atualizar a consulta sem sair da dashboard.</span>
+            </div>
             @if (timeline.before) {
               <div class="dashboard-timeline-overflow">{{ timeline.before }} {{ timeline.before === 1 ? 'horário anterior' : 'horários anteriores' }}</div>
             }
@@ -287,20 +292,27 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                     }
                   </div>
                   <div class="dashboard-timeline-status" [class.is-updating]="updatingAppointmentId === u.id">
-                    <label class="dashboard-status-control">
-                      <span class="sr-only">Alterar status da consulta de {{ u.patientName }}</span>
-                      <select [value]="u.status" [disabled]="updatingAppointmentId === u.id" (change)="updateAppointmentStatus(u, $event)" [attr.aria-label]="'Alterar status da consulta de ' + u.patientName">
-                        <option value="SCHEDULED">Agendada</option>
-                        <option value="COMPLETED">Concluída</option>
-                        <option value="CANCELLED">Cancelada</option>
-                      </select>
+                    <div class="dashboard-status-actions-head">
+                      <strong>Atualizar status</strong>
                       @if (updatingAppointmentId === u.id) {
-                        <i class="dashboard-status-spinner" aria-hidden="true"></i>
-                      } @else {
-                        <i class="dashboard-status-chevron" aria-hidden="true">⌄</i>
+                        <span><i class="dashboard-status-spinner" aria-hidden="true"></i> Salvando...</span>
                       }
-                    </label>
-                    <span>{{ appointmentPhaseLabel(u) }} · {{ appointmentStatusDetail(u) }}</span>
+                    </div>
+                    <div class="dashboard-status-actions" role="group" [attr.aria-label]="'Atualizar status da consulta de ' + u.patientName">
+                      <button type="button" class="is-scheduled" [class.is-active]="u.status === 'SCHEDULED'" [attr.aria-pressed]="u.status === 'SCHEDULED'" [disabled]="updatingAppointmentId === u.id" (click)="updateAppointmentStatus(u, 'SCHEDULED')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                        <span>Agendada</span>
+                      </button>
+                      <button type="button" class="is-completed" [class.is-active]="u.status === 'COMPLETED'" [attr.aria-pressed]="u.status === 'COMPLETED'" [disabled]="updatingAppointmentId === u.id" (click)="updateAppointmentStatus(u, 'COMPLETED')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg>
+                        <span>Concluída</span>
+                      </button>
+                      <button type="button" class="is-cancelled" [class.is-active]="u.status === 'CANCELLED'" [attr.aria-pressed]="u.status === 'CANCELLED'" [disabled]="updatingAppointmentId === u.id" (click)="updateAppointmentStatus(u, 'CANCELLED')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6m0-6l-6 6"/></svg>
+                        <span>Cancelada</span>
+                      </button>
+                    </div>
+                    <p class="dashboard-status-context"><strong>{{ appointmentPhaseLabel(u) }}</strong><span>·</span>{{ appointmentStatusDetail(u) }}</p>
                   </div>
                 </li>
               }
@@ -427,9 +439,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return 'agenda do dia finalizada'
   }
 
-  updateAppointmentStatus(item: TodayAppointment, event: Event) {
-    const select = event.target as HTMLSelectElement
-    const nextStatus = select.value as AppointmentStatus
+  updateAppointmentStatus(item: TodayAppointment, nextStatus: AppointmentStatus) {
     const previousStatus = item.status
     if (nextStatus === previousStatus || this.updatingAppointmentId) return
 
@@ -443,7 +453,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.load()
       },
       error: error => {
-        select.value = previousStatus
         this.updatingAppointmentId = null
         this.toast.error('Não foi possível atualizar o status', error.error?.message || 'Tente novamente em instantes.')
       }
