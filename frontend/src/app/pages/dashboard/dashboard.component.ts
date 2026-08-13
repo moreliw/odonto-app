@@ -10,7 +10,8 @@ import { AuthService } from '../../services/auth.service'
 import { PrivacyService } from '../../services/privacy.service'
 import { ChartPoint, DonutSlice, KpiMetric } from '../../models/analytics.model'
 
-type TodayAppointment = { id: string; patientName: string; dentistName?: string | null; startTime: string; endTime: string; status: string }
+type TodayAppointment = { id: string; patientName: string; dentistName?: string | null; startTime: string; endTime: string; status: string; confirmationStatus?: string | null }
+type TimelinePhase = 'completed' | 'cancelled' | 'current' | 'overdue' | 'upcoming'
 
 type DashboardMetrics = {
   patientCount: number
@@ -251,26 +252,46 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
     <!-- Agenda de hoje: sempre visível na home, mesmo sem atendimentos -->
     <ng-template #todayAgenda let-items let-showDentist="showDentist">
       <article class="card chart-card dashboard-today">
-        <div class="chart-title-row">
-          <h2>Agenda de hoje</h2>
+        <div class="chart-title-row dashboard-timeline-head">
+          <div>
+            <h2>Agenda de hoje</h2>
+            <p><span aria-hidden="true"></span>Agora, {{ currentTime | date:'HH:mm' }} · {{ timelineSummary(items) }}</p>
+          </div>
           <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
         </div>
         @if (items.length) {
-          <ul class="dashboard-upcoming-list">
-            @for (u of items; track u.id) {
-              <li>
-                <div class="dashboard-upcoming-date">
-                  <strong>{{ u.startTime | date:'HH:mm' }}</strong>
-                  <span>{{ u.endTime | date:'HH:mm' }}</span>
-                </div>
-                <span class="dashboard-upcoming-name">{{ u.patientName }}</span>
-                @if (showDentist) {
-                  <span class="muted text-sm" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ u.dentistName || 'Sem dentista' }}</span>
-                }
-                <span class="status-chip" [class]="STATUS_CLASS[u.status]">{{ STATUS_LABELS[u.status] || u.status }}</span>
-              </li>
+          @let timeline = timelineWindow(items);
+          <div class="dashboard-timeline-window">
+            @if (timeline.before) {
+              <div class="dashboard-timeline-overflow">{{ timeline.before }} {{ timeline.before === 1 ? 'horário anterior' : 'horários anteriores' }}</div>
             }
-          </ul>
+            <ol class="dashboard-timeline-list">
+              @for (u of timeline.items; track u.id) {
+                <li [class]="'dashboard-timeline-item is-' + appointmentPhase(u)" [attr.aria-current]="appointmentPhase(u) === 'current' ? 'time' : null">
+                  <span class="dashboard-timeline-rail" aria-hidden="true"><i></i></span>
+                  <time>
+                    <strong>{{ u.startTime | date:'HH:mm' }}</strong>
+                    <span>até {{ u.endTime | date:'HH:mm' }}</span>
+                  </time>
+                  <div class="dashboard-timeline-copy">
+                    <strong>{{ u.patientName }}</strong>
+                    @if (showDentist) {
+                      <span>{{ u.dentistName || 'Sem dentista definido' }}</span>
+                    } @else {
+                      <span>Consulta odontológica</span>
+                    }
+                  </div>
+                  <div class="dashboard-timeline-status">
+                    <strong>{{ appointmentPhaseLabel(u) }}</strong>
+                    <span>{{ appointmentStatusDetail(u) }}</span>
+                  </div>
+                </li>
+              }
+            </ol>
+            @if (timeline.after) {
+              <div class="dashboard-timeline-overflow is-after">Mais {{ timeline.after }} {{ timeline.after === 1 ? 'horário depois' : 'horários depois' }}</div>
+            }
+          </div>
         } @else {
           <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma consulta agendada para hoje.</p>
         }
@@ -298,11 +319,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   invoiceTotal = 0
   attentionCount = 0
   hasActivity = false
+  currentTime = new Date()
 
   readonly STATUS_LABELS = STATUS_LABELS
   readonly STATUS_CLASS = STATUS_CLASS
 
   private privacySub: Subscription | null = null
+  private clockTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(
     private readonly http: HttpClient,
@@ -318,6 +341,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.load()
+    this.clockTimer = setInterval(() => { this.currentTime = new Date() }, 30_000)
     this.privacySub = this.privacy.hidden.subscribe(hidden => {
       this.hideValues = hidden
       if (this.metrics) this.buildViewModel(this.metrics)
@@ -326,6 +350,62 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.privacySub?.unsubscribe()
+    if (this.clockTimer) clearInterval(this.clockTimer)
+  }
+
+  timelineWindow(items: TodayAppointment[]) {
+    const sorted = [...items].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    const limit = 5
+    if (sorted.length <= limit) return { items: sorted, before: 0, after: 0 }
+
+    const now = this.currentTime.getTime()
+    let focus = sorted.findIndex(item => this.appointmentPhase(item) === 'current')
+    if (focus < 0) focus = sorted.findIndex(item => item.status !== 'CANCELLED' && new Date(item.startTime).getTime() >= now)
+    if (focus < 0) focus = sorted.length - 1
+
+    const start = Math.max(0, Math.min(focus - 2, sorted.length - limit))
+    return { items: sorted.slice(start, start + limit), before: start, after: sorted.length - start - limit }
+  }
+
+  appointmentPhase(item: TodayAppointment): TimelinePhase {
+    if (item.status === 'COMPLETED') return 'completed'
+    if (item.status === 'CANCELLED') return 'cancelled'
+    const now = this.currentTime.getTime()
+    const start = new Date(item.startTime).getTime()
+    const end = new Date(item.endTime).getTime()
+    if (now >= start && now < end) return 'current'
+    return now >= end ? 'overdue' : 'upcoming'
+  }
+
+  appointmentPhaseLabel(item: TodayAppointment) {
+    const labels: Record<TimelinePhase, string> = {
+      completed: 'Concluída',
+      cancelled: 'Cancelada',
+      current: 'Em atendimento',
+      overdue: 'Horário passou',
+      upcoming: 'Próxima'
+    }
+    return labels[this.appointmentPhase(item)]
+  }
+
+  appointmentStatusDetail(item: TodayAppointment) {
+    const phase = this.appointmentPhase(item)
+    if (phase === 'completed') return 'Atendimento finalizado'
+    if (phase === 'cancelled') return 'Não haverá atendimento'
+    if (phase === 'overdue') return 'Ainda consta como agendada'
+    if (item.confirmationStatus === 'CONFIRMED') return 'Presença confirmada'
+    if (item.confirmationStatus === 'DECLINED') return 'Paciente não poderá comparecer'
+    return 'Aguardando confirmação'
+  }
+
+  timelineSummary(items: TodayAppointment[]) {
+    const current = items.filter(item => this.appointmentPhase(item) === 'current').length
+    if (current) return `${current} em atendimento agora`
+    const overdue = items.filter(item => this.appointmentPhase(item) === 'overdue').length
+    if (overdue) return `${overdue} ${overdue === 1 ? 'horário precisa' : 'horários precisam'} de atualização`
+    const upcoming = items.filter(item => this.appointmentPhase(item) === 'upcoming').length
+    if (upcoming) return `${upcoming} ${upcoming === 1 ? 'consulta restante' : 'consultas restantes'}`
+    return 'agenda do dia finalizada'
   }
 
   openMetric(metric: KpiMetric) {

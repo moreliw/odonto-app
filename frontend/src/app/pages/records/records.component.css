@@ -175,16 +175,17 @@
 .record-history-mode > div { display: grid; gap: 1px; }
 .record-history-mode strong { color: #92400e; font-size: 10.5px; }
 .record-history-mode span { color: #a16207; font-size: 9px; }
-.record-odontogram-layout { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 18px; }
+.record-odontogram-layout { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 250px); align-items: start; gap: 18px; }
+.record-odontogram-layout > * { min-width: 0; }
 .record-dental-chart { min-width: 0; padding: 16px; overflow-x: auto; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); }
 .record-arch-label { min-width: 860px; display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--muted); font-size: 8.5px; text-transform: uppercase; }
 .record-tooth-row { min-width: 860px; display: grid; grid-template-columns: repeat(16, minmax(50px, 1fr)); gap: 2px; }
 .record-tooth-row:has(.record-tooth:nth-child(10):last-child) { grid-template-columns: repeat(10, minmax(58px, 1fr)); }
 .record-dental-chart.is-deciduous .record-arch-label, .record-dental-chart.is-deciduous .record-tooth-row, .record-dental-chart.is-deciduous .record-mouth-divider, .record-dental-chart.is-deciduous .record-odontogram-legend { min-width: 600px; }
-.record-tooth { position: relative; min-width: 0; min-height: 104px; display: grid; grid-template-rows: 12px 84px; justify-items: center; align-items: center; gap: 1px; padding: 3px 1px; border: 1px solid transparent; border-radius: 9px; background: transparent; cursor: pointer; transition: border-color .15s, background-color .15s, transform .15s; }
-.record-tooth-row.lower .record-tooth { grid-template-rows: 84px 12px; }
+.record-tooth { position: relative; min-width: 0; min-height: 104px; display: grid; grid-template-rows: 84px 12px; justify-items: center; align-items: center; gap: 1px; padding: 3px 1px; border: 1px solid transparent; border-radius: 9px; background: transparent; cursor: pointer; transition: border-color .15s, background-color .15s, transform .15s; }
+.record-tooth-row.lower .record-tooth { grid-template-rows: 12px 84px; }
 .record-tooth:hover { border-color: var(--primary-100); background: var(--surface); transform: translateY(-1px); }
-.record-tooth.active { border-color: var(--primary); background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-100); }
+.record-tooth.active { border-color: #a7f3d0; background: #ecfdf5; box-shadow: none; }
 .record-tooth:focus-visible { outline: 3px solid var(--primary-100); }
 .record-tooth:disabled { cursor: default; }
 .record-tooth:disabled:hover { border-color: transparent; background: transparent; transform: none; }
@@ -199,12 +200,13 @@
 .record-tooth-conditions .tooth-missing, .record-odontogram-findings article > i.tooth-missing { background: #94a3b8; }
 .record-tooth-conditions .tooth-healthy, .record-odontogram-findings article > i.tooth-healthy { background: #22c55e; }
 .record-mouth-divider { min-width: 860px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; margin: 8px 0; color: var(--muted); font-size: 8px; text-transform: uppercase; }
-.record-mouth-divider i { height: 1px; background: var(--border); }
+.record-mouth-divider i { height: 1px; background: repeating-linear-gradient(90deg, var(--muted-light) 0 5px, transparent 5px 9px); }
 .record-odontogram-legend { min-width: 860px; display: flex; flex-wrap: wrap; gap: 9px 16px; margin-top: 15px; padding-top: 11px; border-top: 1px solid var(--border); }
 .record-odontogram-legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 8.5px; }
 .record-odontogram-legend i { width: 8px; height: 8px; border-radius: 2px; background: var(--muted-light); }
 .record-odontogram-legend .legend-caries { background: var(--danger); }.record-odontogram-legend .legend-restoration { background: var(--primary); }.record-odontogram-legend .legend-endo { background: #8b5cf6; }.record-odontogram-legend .legend-missing { background: #cbd5e1; }.record-odontogram-legend .legend-watch { background: var(--warning); }
 .record-tooth-editor { display: grid; align-content: start; gap: 13px; padding: 15px; border: 1px solid var(--border); border-radius: 11px; }
+.record-tooth-editor > * { min-width: 0; }
 .record-tooth-editor-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
 .record-tooth-editor-head span { color: var(--muted); font-size: 9.5px; }
 .record-tooth-editor-head strong { max-width: 145px; overflow: hidden; color: var(--primary); font-size: 15px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
@@ -304,6 +306,13 @@
 .record-modal-footer > p { color: var(--muted); font-size: 9px; }
 .record-modal-footer > div { display: flex; gap: 8px; }
 
+@media (max-width: 1400px) {
+  .record-odontogram-layout { grid-template-columns: 1fr; }
+  .record-tooth-editor { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .record-tooth-editor-head, .record-selected-teeth, .record-selection-hint, .record-observation-field, .record-add-finding, .record-tooth-editor > .record-text-action { grid-column: 1 / -1; }
+  .record-observation-field textarea { min-height: 90px; }
+}
+
 @media (max-width: 1180px) {
   .record-summary-grid { grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); }
   .record-check-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -317,10 +326,6 @@
   .record-summary-grid { grid-template-columns: 1fr; }
   .record-summary-history, .record-summary-quick { grid-column: 1; grid-row: auto; }
   .record-form-section { grid-template-columns: 1fr; gap: 14px; }
-  .record-odontogram-layout { grid-template-columns: 1fr; }
-  .record-tooth-editor { grid-template-columns: 1fr 1fr; }
-  .record-tooth-editor-head { grid-column: 1 / -1; }
-  .record-add-finding, .record-tooth-editor > .record-text-action { grid-column: 1 / -1; }
   .record-document-layout { grid-template-columns: 1fr; }
   .record-upload-panel { position: static; grid-row: 1; }
   .record-plan-list { grid-template-columns: 1fr; }
@@ -355,8 +360,7 @@
   .record-segmented { width: 100%; }
   .record-segmented button { flex: 1; }
   .record-tooth-editor { grid-template-columns: 1fr; }
-  .record-tooth-editor-head { grid-column: 1; }
-  .record-add-finding, .record-tooth-editor > .record-text-action { grid-column: 1; }
+  .record-tooth-editor-head, .record-selected-teeth, .record-selection-hint, .record-condition-field, .record-surface-field, .record-observation-field, .record-add-finding, .record-tooth-editor > .record-text-action { grid-column: 1; }
   .record-finding-list { grid-template-columns: 1fr; }
   .record-odontogram-findings > header { align-items: flex-start; flex-direction: column; }
   .record-odontogram-footer { grid-template-columns: 1fr; }

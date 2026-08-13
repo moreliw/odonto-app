@@ -158,7 +158,7 @@ export class AuthService {
         ? await prisma.user.findFirst({ where: { id: userId, active: true } })
         : await prisma.user.findFirst({ where: { role: 'ADMIN', active: true }, orderBy: { createdAt: 'asc' } })
       if (!user) throw new UnauthorizedException('Nenhum administrador ativo encontrado nesta clínica.')
-      const payload = { sub: user.id, email: user.email, role: String(user.role), support: true }
+      const payload = { sub: user.id, email: user.email, name: user.name, role: String(user.role), support: true }
       const accessToken = await this.jwt.signAsync(payload, { expiresIn: '20m' })
       return {
         accessToken,
@@ -177,6 +177,7 @@ export class AuthService {
     const payload = {
       sub: user.id,
       email: user.email,
+      name: user.name,
       role: typeof user.role === 'string' ? user.role : String(user.role)
     }
     const accessToken = await this.jwt.signAsync(payload, { expiresIn: '15m' })
@@ -193,7 +194,7 @@ export class AuthService {
     if (!saved || !saved.user.active || saved.expiresAt.getTime() < Date.now()) throw new UnauthorizedException()
     const refreshSecret = process.env.JWT_REFRESH_SECRET || 'refresh'
     const decoded = await this.jwt.verifyAsync(token, { secret: refreshSecret })
-    const payload = { sub: decoded.sub, email: decoded.email, role: decoded.role }
+    const payload = { sub: decoded.sub, email: decoded.email, name: saved.user.name, role: decoded.role }
     const accessToken = await this.jwt.signAsync(payload, { expiresIn: '15m' })
     return { accessToken }
   }

@@ -235,8 +235,8 @@ function colorIndexFor(id: string | null | undefined) {
                   <th>Status</th>
                   <th>Confirmação</th>
                   @if (isAdmin) {
-                    <th>Criado por</th>
-                    <th>Atualizado por</th>
+                    <th class="text-center">Criado por</th>
+                    <th class="text-center">Atualizado por</th>
                   }
                   <th>Obs.</th>
                   <th style="width:110px;"></th>

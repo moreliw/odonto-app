@@ -57,7 +57,7 @@ const TOOTH_SHAPES: Record<string, ToothShape> = {
   },
   PERMANENT_MAXILLARY_8: {
     crown: 'M10 21 C11 15 16 12 22 13 C27 9 33 10 38 14 C43 11 50 12 55 16 C59 21 61 27 59 34 L57 45 C54 52 47 56 36 57 C25 58 16 54 12 47 C10 40 9 28 10 21 Z',
-    roots: ['M23 53 C18 69 16 86 17 100 C18 106 22 108 26 103 C31 94 34 82 36 72 C38 84 42 98 47 104 C51 108 55 105 55 100 C54 83 49 67 46 53 C39 49 30 49 23 53 Z'],
+    roots: ['M23 53 C25 67 29 83 33 101 C34 108 38 110 41 103 C45 85 48 67 47 53 C40 49 30 49 23 53 Z'],
     crownDetails: ['M15 29 C22 23 28 23 34 29 C40 23 48 23 55 29', 'M16 43 C26 48 45 49 54 42'],
     rootDetails: ['M29 58 C28 74 25 89 22 100', 'M43 58 C46 74 49 88 51 100']
   },
@@ -167,45 +167,22 @@ const TOOTH_SHAPES: Record<string, ToothShape> = {
   selector: 'app-odontogram-tooth',
   standalone: true,
   template: `
-    <svg [class]="'odontogram-tooth tooth-' + status.toLowerCase()" viewBox="0 0 72 112" aria-hidden="true">
-      <defs>
-        <linearGradient [attr.id]="rootGradientId" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#f2c98f" />
-          <stop offset="0.48" stop-color="#ffe3b4" />
-          <stop offset="1" stop-color="#edbf80" />
-        </linearGradient>
-        <linearGradient [attr.id]="crownGradientId" x1="0" y1="0" x2="0.9" y2="1">
-          <stop offset="0" stop-color="#ffffff" />
-          <stop offset="0.7" stop-color="#fbfdfd" />
-          <stop offset="1" stop-color="#eaf5f2" />
-        </linearGradient>
-      </defs>
+    <svg [class]="'odontogram-tooth tooth-' + status.toLowerCase()" [class.is-selected]="selected" viewBox="0 0 72 112" aria-hidden="true">
       <g [attr.transform]="shapeTransform">
         @for (root of shape.roots; track root) {
-          <path class="tooth-part tooth-root" [attr.d]="root" [attr.fill]="'url(#' + rootGradientId + ')'" />
+          <path class="tooth-part tooth-root" [attr.d]="root" />
         }
-        @for (detail of shape.rootDetails || []; track detail) {
-          <path class="root-detail" [attr.d]="detail" />
-        }
-        <path class="tooth-part tooth-crown" [attr.d]="shape.crown" [attr.fill]="'url(#' + crownGradientId + ')'" />
+        <path class="tooth-part tooth-crown" [attr.d]="shape.crown" />
         <path class="clinical-accent" [attr.d]="shape.crown" />
-        @for (detail of shape.crownDetails || []; track detail) {
-          <path class="crown-detail" [attr.d]="detail" />
-        }
-        <path class="enamel-highlight" d="M24 17 C22 26 23 35 26 40" />
       </g>
     </svg>
   `,
   styles: [`
     :host { display: block; width: 100%; height: 82px; }
-    .odontogram-tooth { width: 100%; height: 100%; overflow: visible; --clinical-color: transparent; filter: drop-shadow(0 1px 1px rgb(80 69 51 / .10)); }
-    .tooth-part { stroke: #6f706c; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-    .tooth-root { fill: #f7d6a4; }
-    .tooth-crown { fill: #fff; }
-    .crown-detail { fill: none; stroke: #a8b2ad; stroke-width: 1.15; stroke-linecap: round; opacity: .62; vector-effect: non-scaling-stroke; }
-    .root-detail { fill: none; stroke: #d5a66e; stroke-width: 1; stroke-linecap: round; opacity: .46; vector-effect: non-scaling-stroke; }
-    .enamel-highlight { fill: none; stroke: #dceee9; stroke-width: 2.2; stroke-linecap: round; opacity: .8; vector-effect: non-scaling-stroke; }
-    .clinical-accent { fill: var(--clinical-fill, transparent); stroke: var(--clinical-color); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; opacity: .9; vector-effect: non-scaling-stroke; }
+    .odontogram-tooth { width: 100%; height: 100%; overflow: visible; --tooth-outline: #9aa3af; --clinical-color: transparent; }
+    .odontogram-tooth.is-selected { --tooth-outline: #6fdcaf; }
+    .tooth-part { fill: #fff; stroke: var(--tooth-outline); stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; transition: stroke .15s ease; }
+    .clinical-accent { fill: var(--clinical-fill, transparent); stroke: var(--clinical-color); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .9; vector-effect: non-scaling-stroke; }
     .tooth-caries, .tooth-extraction { --clinical-color: #ef4444; --clinical-fill: rgb(254 226 226 / .20); }
     .tooth-restoration, .tooth-crown, .tooth-implant { --clinical-color: #2563eb; --clinical-fill: rgb(219 234 254 / .34); }
     .tooth-endo { --clinical-color: #8b5cf6; --clinical-fill: rgb(237 233 254 / .30); }
@@ -216,13 +193,11 @@ const TOOTH_SHAPES: Record<string, ToothShape> = {
 export class OdontogramToothComponent {
   @Input({ required: true }) tooth = '11'
   @Input() status = 'HEALTHY'
+  @Input() selected = false
 
   get shape(): ToothShape {
     return TOOTH_SHAPES[this.shapeKey] || TOOTH_SHAPES['PERMANENT_MAXILLARY_1']
   }
-
-  get rootGradientId() { return `tooth-root-${this.tooth}` }
-  get crownGradientId() { return `tooth-crown-${this.tooth}` }
 
   get shapeTransform() {
     const scaleX = this.isLeft ? -1 : 1

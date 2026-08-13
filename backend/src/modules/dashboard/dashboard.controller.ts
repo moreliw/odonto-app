@@ -86,7 +86,8 @@ export class DashboardController {
         dentistName: a.dentist?.name || a.dentistName || null,
         startTime: a.startTime,
         endTime: a.endTime,
-        status: a.status
+        status: a.status,
+        confirmationStatus: a.confirmationStatus
       }))
     }
   }
@@ -142,7 +143,8 @@ export class DashboardController {
         patientName: a.patient?.name || 'Paciente',
         startTime: a.startTime,
         endTime: a.endTime,
-        status: a.status
+        status: a.status,
+        confirmationStatus: a.confirmationStatus
       })),
       monthlyAppointments
     }

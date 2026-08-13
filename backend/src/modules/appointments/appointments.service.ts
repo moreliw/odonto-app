@@ -5,7 +5,7 @@ import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 import { RequestContext } from '../tenancy/request-context'
 import { buildWhatsappUrl, normalizeWhatsappPhone } from './whatsapp-link'
 
-type Requester = { userId: string; email?: string; role: string }
+type Requester = { userId: string; email?: string; name?: string; role: string }
 
 const DENTIST_SELECT = { id: true, name: true }
 const INCLUDE = { patient: true, dentist: { select: DENTIST_SELECT } }
@@ -46,7 +46,30 @@ export class AppointmentsService {
     return requester.role === 'DENTIST' ? DENTIST_INCLUDE : INCLUDE
   }
 
-  list(opts: { requester: Requester; dentistId?: string; from?: string; to?: string }) {
+  private async actorName(requester: Requester) {
+    const prisma = this.prismaTenant.getClient()
+    const user = await prisma.user.findUnique({ where: { id: requester.userId }, select: { name: true } })
+    return user?.name?.trim() || requester.name?.trim() || 'Sistema'
+  }
+
+  private async hydrateAuditNames<T extends { createdByName?: string | null; updatedByName?: string | null }>(records: T[]) {
+    const emails = Array.from(new Set(records.flatMap(record => [record.createdByName, record.updatedByName])
+      .filter((value): value is string => Boolean(value && value.includes('@')))))
+    if (!emails.length) return records
+
+    const users = await this.prismaTenant.getClient().user.findMany({
+      where: { email: { in: emails } },
+      select: { email: true, name: true }
+    })
+    const namesByEmail = new Map(users.filter(user => user.email).map(user => [user.email!.toLowerCase(), user.name]))
+    const resolve = (value?: string | null) => {
+      if (!value?.includes('@')) return value
+      return namesByEmail.get(value.toLowerCase()) || 'Usuário removido'
+    }
+    return records.map(record => ({ ...record, createdByName: resolve(record.createdByName), updatedByName: resolve(record.updatedByName) }))
+  }
+
+  async list(opts: { requester: Requester; dentistId?: string; from?: string; to?: string }) {
     const where: Record<string, unknown> = {}
     const dentistId = this.scopedDentistId(opts.requester, opts.dentistId)
     if (dentistId) where.dentistId = dentistId
@@ -56,15 +79,18 @@ export class AppointmentsService {
         ...(opts.to ? { lt: new Date(opts.to) } : {})
       }
     }
-    return this.prismaTenant.getClient().appointment.findMany({ where, include: this.includeFor(opts.requester), orderBy: { startTime: 'asc' } })
+    const appointments = await this.prismaTenant.getClient().appointment.findMany({ where, include: this.includeFor(opts.requester), orderBy: { startTime: 'asc' } })
+    return this.hydrateAuditNames(appointments)
   }
 
   async get(requester: Requester, id: string) {
     await this.assertOwnedByDentistOrAdmin(requester, id)
-    return this.prismaTenant.getClient().appointment.findUnique({ where: { id }, include: this.includeFor(requester) })
+    const appointment = await this.prismaTenant.getClient().appointment.findUnique({ where: { id }, include: this.includeFor(requester) })
+    if (!appointment) return null
+    return (await this.hydrateAuditNames([appointment]))[0]
   }
 
-  create(
+  async create(
     requester: Requester,
     data: { patientId: string; dentistId?: string; dentistName?: string; startTime: Date; endTime: Date; status: AppointmentStatus; notes?: string }
   ) {
@@ -72,6 +98,7 @@ export class AppointmentsService {
       throw new ForbiddenException('A clínica deve atribuir as consultas ao dentista.')
     }
     const dentistId = data.dentistId || null
+    const actorName = await this.actorName(requester)
     // Nome livre só faz sentido quando não há conta vinculada — evita ambiguidade entre os dois.
     const dentistName = dentistId ? null : data.dentistName?.trim() || null
     return this.prismaTenant.getClient().appointment.create({
@@ -80,8 +107,8 @@ export class AppointmentsService {
         dentistId,
         dentistName,
         confirmationToken: randomUUID(),
-        createdByName: requester.email?.trim() || 'Sistema',
-        updatedByName: requester.email?.trim() || 'Sistema'
+        createdByName: actorName,
+        updatedByName: actorName
       },
       include: INCLUDE
     })
@@ -89,7 +116,7 @@ export class AppointmentsService {
 
   async update(requester: Requester, id: string, data: Record<string, unknown>) {
     await this.assertOwnedByDentistOrAdmin(requester, id)
-    data.updatedByName = requester.email?.trim() || 'Sistema'
+    data.updatedByName = await this.actorName(requester)
     // Dentista não pode reatribuir a própria consulta para outro colega.
     if (requester.role === 'DENTIST') {
       delete data.dentistId
@@ -174,7 +201,7 @@ export class AppointmentsService {
         // Não existe callback quando o envio é manual; registramos o momento em que a conversa foi preparada.
         confirmationSentAt: new Date(),
         confirmationStatus: appointment.confirmationStatus === 'DECLINED' ? 'PENDING' : appointment.confirmationStatus,
-        updatedByName: requester.email?.trim() || 'Sistema'
+        updatedByName: await this.actorName(requester)
       },
       include: this.includeFor(requester)
     })
