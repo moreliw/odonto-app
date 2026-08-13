@@ -8,10 +8,12 @@ import { LineChartComponent } from '../../components/analytics/line-chart.compon
 import { DonutChartComponent } from '../../components/analytics/donut-chart.component'
 import { AuthService } from '../../services/auth.service'
 import { PrivacyService } from '../../services/privacy.service'
+import { ToastService } from '../../services/toast.service'
 import { ChartPoint, DonutSlice, KpiMetric } from '../../models/analytics.model'
 
 type TodayAppointment = { id: string; patientName: string; dentistName?: string | null; startTime: string; endTime: string; status: string; confirmationStatus?: string | null }
 type TimelinePhase = 'completed' | 'cancelled' | 'current' | 'overdue' | 'upcoming'
+type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
 
 type DashboardMetrics = {
   patientCount: number
@@ -257,7 +259,10 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
             <h2>Agenda de hoje</h2>
             <p><span aria-hidden="true"></span>Agora, {{ currentTime | date:'HH:mm' }} · {{ timelineSummary(items) }}</p>
           </div>
-          <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
+          <div class="dashboard-timeline-head-actions">
+            <span>Altere pelo status</span>
+            <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
+          </div>
         </div>
         @if (items.length) {
           @let timeline = timelineWindow(items);
@@ -281,9 +286,21 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                       <span>Consulta odontológica</span>
                     }
                   </div>
-                  <div class="dashboard-timeline-status">
-                    <strong>{{ appointmentPhaseLabel(u) }}</strong>
-                    <span>{{ appointmentStatusDetail(u) }}</span>
+                  <div class="dashboard-timeline-status" [class.is-updating]="updatingAppointmentId === u.id">
+                    <label class="dashboard-status-control">
+                      <span class="sr-only">Alterar status da consulta de {{ u.patientName }}</span>
+                      <select [value]="u.status" [disabled]="updatingAppointmentId === u.id" (change)="updateAppointmentStatus(u, $event)" [attr.aria-label]="'Alterar status da consulta de ' + u.patientName">
+                        <option value="SCHEDULED">Agendada</option>
+                        <option value="COMPLETED">Concluída</option>
+                        <option value="CANCELLED">Cancelada</option>
+                      </select>
+                      @if (updatingAppointmentId === u.id) {
+                        <i class="dashboard-status-spinner" aria-hidden="true"></i>
+                      } @else {
+                        <i class="dashboard-status-chevron" aria-hidden="true">⌄</i>
+                      }
+                    </label>
+                    <span>{{ appointmentPhaseLabel(u) }} · {{ appointmentStatusDetail(u) }}</span>
                   </div>
                 </li>
               }
@@ -320,6 +337,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   attentionCount = 0
   hasActivity = false
   currentTime = new Date()
+  updatingAppointmentId: string | null = null
 
   readonly STATUS_LABELS = STATUS_LABELS
   readonly STATUS_CLASS = STATUS_CLASS
@@ -331,7 +349,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly http: HttpClient,
     private readonly auth: AuthService,
     readonly privacy: PrivacyService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly toast: ToastService
   ) {
     this.isDentist = this.auth.isDentist()
     this.isAdmin = this.auth.isAdmin()
@@ -406,6 +425,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const upcoming = items.filter(item => this.appointmentPhase(item) === 'upcoming').length
     if (upcoming) return `${upcoming} ${upcoming === 1 ? 'consulta restante' : 'consultas restantes'}`
     return 'agenda do dia finalizada'
+  }
+
+  updateAppointmentStatus(item: TodayAppointment, event: Event) {
+    const select = event.target as HTMLSelectElement
+    const nextStatus = select.value as AppointmentStatus
+    const previousStatus = item.status
+    if (nextStatus === previousStatus || this.updatingAppointmentId) return
+
+    this.updatingAppointmentId = item.id
+    this.http.put<TodayAppointment>(`/api/appointments/${item.id}`, { status: nextStatus }).subscribe({
+      next: () => {
+        item.status = nextStatus
+        this.updatingAppointmentId = null
+        const label = STATUS_LABELS[nextStatus] || nextStatus
+        this.toast.success('Status atualizado', `${item.patientName}: ${label.toLowerCase()}.`)
+        this.load()
+      },
+      error: error => {
+        select.value = previousStatus
+        this.updatingAppointmentId = null
+        this.toast.error('Não foi possível atualizar o status', error.error?.message || 'Tente novamente em instantes.')
+      }
+    })
   }
 
   openMetric(metric: KpiMetric) {
