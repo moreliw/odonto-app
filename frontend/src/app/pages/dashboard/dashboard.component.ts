@@ -39,8 +39,7 @@ type MyMetrics = {
   monthlyAppointments: { label: string; count: number }[]
 }
 
-const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendado', COMPLETED: 'Concluído', CANCELLED: 'Cancelado' }
-const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '', CANCELLED: 'neutral' }
+const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendada', COMPLETED: 'Concluída', CANCELLED: 'Cancelada' }
 
 @Component({
     selector: 'app-dashboard',
@@ -253,23 +252,36 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
 
     <!-- Agenda de hoje: sempre visível na home, mesmo sem atendimentos -->
     <ng-template #todayAgenda let-items let-showDentist="showDentist" let-compact="compact">
-      @let scheduledItems = scheduledAppointments(items);
-      @let highlightedId = highlightedAppointmentId(scheduledItems);
+      @let allTodayItems = todayAppointments(items);
+      @let visibleItems = filteredTodayAppointments(allTodayItems, showDentist);
+      @let highlightedId = highlightedAppointmentId(visibleItems);
       <article class="card chart-card dashboard-today" [class.dashboard-today--support]="compact">
         <div class="chart-title-row dashboard-timeline-head">
           <div>
             <h2>Agenda de hoje</h2>
           </div>
           <div class="dashboard-timeline-head-actions">
-            <span class="dashboard-timeline-total">{{ scheduledItems.length }} {{ scheduledItems.length === 1 ? 'agendada' : 'agendadas' }}</span>
+            @if (showDentist) {
+              <label class="dashboard-dentist-filter">
+                <span class="sr-only">Filtrar agenda por dentista</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a6 6 0 0 1 6-6h2M17 11v6m-3-3h6"/></svg>
+                <select [value]="selectedDentist" (change)="changeDentistFilter($event)" aria-label="Filtrar agenda por dentista">
+                  <option value="ALL">Todos os dentistas</option>
+                  @for (dentist of dentistOptions(allTodayItems); track dentist.value) {
+                    <option [value]="dentist.value">{{ dentist.label }}</option>
+                  }
+                </select>
+              </label>
+            }
+            <span class="dashboard-timeline-total">{{ visibleItems.length }} {{ visibleItems.length === 1 ? 'consulta' : 'consultas' }}</span>
             <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" class="dashboard-today-link">Ver todos <span aria-hidden="true">→</span></a>
           </div>
         </div>
-        @if (scheduledItems.length) {
+        @if (visibleItems.length) {
           <div class="dashboard-timeline-window">
             <ol class="dashboard-timeline-list">
-              @for (u of scheduledItems; track u.id) {
-                <li [class]="'dashboard-timeline-item is-' + appointmentPhase(u) + (u.id === highlightedId ? ' is-highlighted' : '')" [attr.aria-current]="u.id === highlightedId ? 'time' : null">
+              @for (u of visibleItems; track u.id) {
+                <li [class]="'dashboard-timeline-item is-' + appointmentPhase(u) + ' status-' + u.status.toLowerCase() + (u.id === highlightedId ? ' is-highlighted' : '')" [attr.aria-current]="u.id === highlightedId ? 'time' : null">
                   <span class="dashboard-timeline-rail" aria-hidden="true"><i></i></span>
                   <time>
                     <strong>{{ u.startTime | date:'HH:mm' }}</strong>
@@ -295,30 +307,67 @@ const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '',
                     </div>
                     }
                     <div class="dashboard-status-actions" role="group" [attr.aria-label]="'Atualizar status da consulta de ' + u.patientName">
-                      <button type="button" class="is-scheduled" [class.is-active]="u.status === 'SCHEDULED'" [attr.aria-pressed]="u.status === 'SCHEDULED'" [disabled]="updatingAppointmentId === u.id" (click)="updateAppointmentStatus(u, 'SCHEDULED')">
+                      <button type="button" class="is-scheduled" [class.is-active]="u.status === 'SCHEDULED'" [attr.aria-pressed]="u.status === 'SCHEDULED'" [disabled]="updatingAppointmentId === u.id" (click)="requestAppointmentStatusChange(u, 'SCHEDULED')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
                         <span>Agendada</span>
                       </button>
-                      <button type="button" class="is-completed" [class.is-active]="u.status === 'COMPLETED'" [attr.aria-pressed]="u.status === 'COMPLETED'" [disabled]="updatingAppointmentId === u.id" (click)="updateAppointmentStatus(u, 'COMPLETED')">
+                      <button type="button" class="is-completed" [class.is-active]="u.status === 'COMPLETED'" [attr.aria-pressed]="u.status === 'COMPLETED'" [disabled]="updatingAppointmentId === u.id" (click)="requestAppointmentStatusChange(u, 'COMPLETED')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg>
                         <span>Concluída</span>
                       </button>
-                      <button type="button" class="is-cancelled" [class.is-active]="u.status === 'CANCELLED'" [attr.aria-pressed]="u.status === 'CANCELLED'" [disabled]="updatingAppointmentId === u.id" (click)="updateAppointmentStatus(u, 'CANCELLED')">
+                      <button type="button" class="is-cancelled" [class.is-active]="u.status === 'CANCELLED'" [attr.aria-pressed]="u.status === 'CANCELLED'" [disabled]="updatingAppointmentId === u.id" (click)="requestAppointmentStatusChange(u, 'CANCELLED')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6m0-6l-6 6"/></svg>
                         <span>Cancelada</span>
                       </button>
                     </div>
-                    <p class="dashboard-status-context"><strong>{{ appointmentPhaseLabel(u) }}</strong><span>·</span>{{ appointmentStatusDetail(u) }}</p>
+                    @if (!compact) {
+                      <p class="dashboard-status-context"><strong>{{ appointmentPhaseLabel(u) }}</strong><span>·</span>{{ appointmentStatusDetail(u) }}</p>
+                    }
                   </div>
                 </li>
               }
             </ol>
           </div>
         } @else {
-          <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma consulta com status agendada para hoje.</p>
+          <p class="muted" style="padding:24px 0;text-align:center;">Nenhuma consulta encontrada para hoje.</p>
         }
       </article>
     </ng-template>
+
+    @if (pendingStatusChange) {
+      <div class="modal-backdrop" (click)="cancelAppointmentStatusChange()">
+        <div class="modal dashboard-status-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-status-confirm-title" (click)="$event.stopPropagation()">
+          <div class="dashboard-status-confirm-head">
+            <span [class]="'dashboard-status-confirm-icon status-' + pendingStatusChange.nextStatus.toLowerCase()" aria-hidden="true">
+              @if (pendingStatusChange.nextStatus === 'COMPLETED') {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>
+              } @else if (pendingStatusChange.nextStatus === 'CANCELLED') {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6m0-6l-6 6"/></svg>
+              } @else {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              }
+            </span>
+            <div>
+              <h3 id="dashboard-status-confirm-title">Confirmar alteração de status</h3>
+              <p>Revise antes de atualizar a consulta.</p>
+            </div>
+          </div>
+          <div class="dashboard-status-confirm-summary">
+            <strong>{{ pendingStatusChange.item.patientName }}</strong>
+            <span>{{ pendingStatusChange.item.startTime | date:'HH:mm' }}–{{ pendingStatusChange.item.endTime | date:'HH:mm' }} · {{ pendingStatusChange.item.dentistName || 'Sem dentista' }}</span>
+          </div>
+          <div class="dashboard-status-confirm-change" aria-label="Alteração de status">
+            <span>{{ STATUS_LABELS[pendingStatusChange.item.status] || pendingStatusChange.item.status }}</span>
+            <i aria-hidden="true">→</i>
+            <strong [class]="'status-' + pendingStatusChange.nextStatus.toLowerCase()">{{ STATUS_LABELS[pendingStatusChange.nextStatus] }}</strong>
+          </div>
+          <div class="dashboard-status-confirm-actions">
+            <button type="button" class="btn btn-outline" (click)="cancelAppointmentStatusChange()">Voltar</button>
+            <button type="button" class="btn" [class.btn-primary]="pendingStatusChange.nextStatus !== 'CANCELLED'" [class.btn-danger]="pendingStatusChange.nextStatus === 'CANCELLED'" (click)="confirmAppointmentStatusChange()">Confirmar alteração</button>
+          </div>
+        </div>
+      </div>
+    }
   `
 })
 export class DashboardComponent implements OnInit, OnDestroy {
@@ -343,9 +392,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   hasActivity = false
   currentTime = new Date()
   updatingAppointmentId: string | null = null
+  selectedDentist = 'ALL'
+  pendingStatusChange: { item: TodayAppointment; nextStatus: AppointmentStatus } | null = null
 
   readonly STATUS_LABELS = STATUS_LABELS
-  readonly STATUS_CLASS = STATUS_CLASS
 
   private privacySub: Subscription | null = null
   private clockTimer: ReturnType<typeof setInterval> | null = null
@@ -377,10 +427,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.clockTimer) clearInterval(this.clockTimer)
   }
 
-  scheduledAppointments(items: TodayAppointment[]) {
-    return items
-      .filter(item => item.status === 'SCHEDULED')
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+  todayAppointments(items: TodayAppointment[]) {
+    return [...items].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+  }
+
+  filteredTodayAppointments(items: TodayAppointment[], showDentist: boolean) {
+    if (!showDentist || this.selectedDentist === 'ALL') return items
+    return items.filter(item => this.dentistFilterValue(item) === this.selectedDentist)
+  }
+
+  dentistOptions(items: TodayAppointment[]) {
+    const options = new Map<string, string>()
+    for (const item of items) {
+      const value = this.dentistFilterValue(item)
+      options.set(value, item.dentistName?.trim() || 'Sem dentista')
+    }
+    return [...options.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+  }
+
+  changeDentistFilter(event: Event) {
+    this.selectedDentist = (event.target as HTMLSelectElement).value
+  }
+
+  private dentistFilterValue(item: TodayAppointment) {
+    return item.dentistName?.trim() || '__UNASSIGNED__'
   }
 
   highlightedAppointmentId(items: TodayAppointment[]) {
@@ -440,7 +512,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return 'Aguardando confirmação'
   }
 
-  updateAppointmentStatus(item: TodayAppointment, nextStatus: AppointmentStatus) {
+  requestAppointmentStatusChange(item: TodayAppointment, nextStatus: AppointmentStatus) {
+    if (nextStatus === item.status || this.updatingAppointmentId) return
+    this.pendingStatusChange = { item, nextStatus }
+  }
+
+  cancelAppointmentStatusChange() {
+    this.pendingStatusChange = null
+  }
+
+  confirmAppointmentStatusChange() {
+    if (!this.pendingStatusChange) return
+    const { item, nextStatus } = this.pendingStatusChange
+    this.pendingStatusChange = null
+    this.updateAppointmentStatus(item, nextStatus)
+  }
+
+  private updateAppointmentStatus(item: TodayAppointment, nextStatus: AppointmentStatus) {
     const previousStatus = item.status
     if (nextStatus === previousStatus || this.updatingAppointmentId) return
 

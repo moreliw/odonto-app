@@ -52,7 +52,7 @@ export class DashboardController {
       isAdmin ? prisma.invoice.count({ where: { status: 'PAID' } }) : Promise.resolve(0),
       isAdmin ? prisma.invoice.count({ where: { status: 'CANCELLED' } }) : Promise.resolve(0),
       prisma.appointment.findMany({
-        where: { status: 'SCHEDULED', startTime: { gte: startOfToday, lt: endOfToday } },
+        where: { startTime: { gte: startOfToday, lt: endOfToday } },
         include: { patient: { select: { id: true, name: true } }, dentist: { select: { id: true, name: true } } },
         orderBy: { startTime: 'asc' }
       })
@@ -117,7 +117,7 @@ export class DashboardController {
       prisma.appointment.count({ where: { ...where, status: 'COMPLETED', startTime: { gte: startOfMonth } } }),
       prisma.appointment.findMany({ where, distinct: ['patientId'], select: { patientId: true } }),
       prisma.appointment.findMany({
-        where: { ...where, status: 'SCHEDULED', startTime: { gte: startOfToday, lt: endOfToday } },
+        where: { ...where, startTime: { gte: startOfToday, lt: endOfToday } },
         include: { patient: { select: { id: true, name: true } } },
         orderBy: { startTime: 'asc' }
       })
