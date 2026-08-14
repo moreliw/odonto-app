@@ -3,6 +3,50 @@ import { AuthGuard } from '@nestjs/passport'
 import { Request } from 'express'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 
+const APP_TIME_ZONE = process.env.APP_TIMEZONE?.trim() || 'America/Sao_Paulo'
+
+function datePartsInTimeZone(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date)
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(part => part.type === type)?.value)
+  return { year: value('year'), month: value('month'), day: value('day'), hour: value('hour'), minute: value('minute'), second: value('second') }
+}
+
+function timeZoneOffset(date: Date) {
+  const parts = datePartsInTimeZone(date)
+  const representedAsUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
+  return representedAsUtc - Math.floor(date.getTime() / 1000) * 1000
+}
+
+function localDateTimeToUtc(year: number, month: number, day: number, hour = 0) {
+  const targetAsUtc = Date.UTC(year, month - 1, day, hour)
+  let result = new Date(targetAsUtc - timeZoneOffset(new Date(targetAsUtc)))
+  result = new Date(targetAsUtc - timeZoneOffset(result))
+  return result
+}
+
+function dayBoundsInAppTimeZone(now: Date) {
+  const { year, month, day } = datePartsInTimeZone(now)
+  const followingDay = new Date(Date.UTC(year, month - 1, day + 1))
+  return {
+    start: localDateTimeToUtc(year, month, day),
+    end: localDateTimeToUtc(followingDay.getUTCFullYear(), followingDay.getUTCMonth() + 1, followingDay.getUTCDate())
+  }
+}
+
+function monthStartInAppTimeZone(now: Date) {
+  const { year, month } = datePartsInTimeZone(now)
+  return localDateTimeToUtc(year, month, 1)
+}
+
 @UseGuards(AuthGuard('jwt'))
 @Controller('dashboard')
 export class DashboardController {
@@ -17,9 +61,8 @@ export class DashboardController {
     const prisma: any = this.prismaTenant.getClient()
     const now = new Date()
     const isAdmin = (req as any).user?.role === 'ADMIN'
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const { start: startOfToday, end: endOfToday } = dayBoundsInAppTimeZone(now)
+    const startOfMonth = monthStartInAppTimeZone(now)
     const nextSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
     const [
@@ -39,7 +82,7 @@ export class DashboardController {
       todayAppointments
     ] = await Promise.all([
       prisma.patient.count(),
-      prisma.appointment.count({ where: { startTime: { gte: startOfToday, lt: endOfToday }, status: 'SCHEDULED' } }),
+      prisma.appointment.count({ where: { startTime: { gte: startOfToday, lt: endOfToday } } }),
       prisma.patient.count({ where: { createdAt: { gte: startOfMonth } } }),
       prisma.appointment.count({ where: { startTime: { gte: now, lt: nextSevenDays }, status: 'SCHEDULED' } }),
       prisma.appointment.count({ where: { startTime: { gte: now }, status: 'SCHEDULED', confirmationStatus: 'PENDING' } }),
@@ -83,6 +126,7 @@ export class DashboardController {
       todayAppointments: todayAppointments.map((a: any) => ({
         id: a.id,
         patientName: a.patient?.name || 'Paciente',
+        dentistId: a.dentist?.id || a.dentistId || null,
         dentistName: a.dentist?.name || a.dentistName || null,
         startTime: a.startTime,
         endTime: a.endTime,
@@ -101,18 +145,17 @@ export class DashboardController {
     const prisma: any = this.prismaTenant.getClient()
     const dentistId = (req as any).user?.userId
     const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const { start: startOfToday, end: endOfToday } = dayBoundsInAppTimeZone(now)
     const startOfWeek = new Date(startOfToday)
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
     const endOfWeek = new Date(startOfWeek)
     endOfWeek.setDate(endOfWeek.getDate() + 7)
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfMonth = monthStartInAppTimeZone(now)
 
     const where = { dentistId }
 
     const [appointmentsToday, appointmentsThisWeek, completedThisMonth, distinctPatients, todayAppointments] = await Promise.all([
-      prisma.appointment.count({ where: { ...where, status: 'SCHEDULED', startTime: { gte: startOfToday, lt: endOfToday } } }),
+      prisma.appointment.count({ where: { ...where, startTime: { gte: startOfToday, lt: endOfToday } } }),
       prisma.appointment.count({ where: { ...where, status: 'SCHEDULED', startTime: { gte: startOfWeek, lt: endOfWeek } } }),
       prisma.appointment.count({ where: { ...where, status: 'COMPLETED', startTime: { gte: startOfMonth } } }),
       prisma.appointment.findMany({ where, distinct: ['patientId'], select: { patientId: true } }),

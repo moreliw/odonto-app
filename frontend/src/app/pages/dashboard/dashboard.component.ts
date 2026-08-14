@@ -11,7 +11,7 @@ import { PrivacyService } from '../../services/privacy.service'
 import { ToastService } from '../../services/toast.service'
 import { ChartPoint, DonutSlice, KpiMetric } from '../../models/analytics.model'
 
-type TodayAppointment = { id: string; patientName: string; dentistName?: string | null; startTime: string; endTime: string; status: string; confirmationStatus?: string | null }
+type TodayAppointment = { id: string; patientName: string; dentistId?: string | null; dentistName?: string | null; startTime: string; endTime: string; status: string; confirmationStatus?: string | null }
 type TimelinePhase = 'completed' | 'cancelled' | 'current' | 'overdue' | 'upcoming'
 type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
 
@@ -452,7 +452,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private dentistFilterValue(item: TodayAppointment) {
-    return item.dentistName?.trim() || '__UNASSIGNED__'
+    if (item.dentistId) return `id:${item.dentistId}`
+    if (item.dentistName?.trim()) return `name:${item.dentistName.trim().toLocaleLowerCase('pt-BR')}`
+    return '__UNASSIGNED__'
   }
 
   highlightedAppointmentId(items: TodayAppointment[]) {
@@ -550,7 +552,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   openMetric(metric: KpiMetric) {
     const appointmentFilters: Record<string, Record<string, string>> = {
-      appointments: { view: 'list', range: 'today', status: 'SCHEDULED' },
+      appointments: { view: 'list', range: 'today' },
       today: { view: 'list', range: 'today' },
       'next-seven-days': { view: 'list', range: 'next7', status: 'SCHEDULED' },
       confirmations: { view: 'list', confirmation: 'PENDING', status: 'SCHEDULED' },
@@ -613,11 +615,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.kpis = this.isAdmin ? [
       { id: 'patients', title: 'Pacientes', value: String(m.patientCount), delta: `${m.newPatientsThisMonth} novos neste mês` },
-      { id: 'appointments', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Agendadas para hoje' },
+      { id: 'appointments', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Registradas no dia' },
       { id: 'revenue', title: 'Faturamento do mês', value: revenueValue, delta: 'Cobranças pagas no mês' },
       { id: 'pending', title: 'Cobranças pendentes', value: String(m.invoicesStatus.pending + m.invoicesStatus.partial), delta: 'Aguardando pagamento' }
     ] : [
-      { id: 'appointments', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Agendadas para hoje' },
+      { id: 'appointments', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Registradas no dia' },
       { id: 'next-seven-days', title: 'Próximos 7 dias', value: String(m.appointmentsNextSevenDays), delta: 'Consultas programadas' },
       { id: 'confirmations', title: 'Aguardando confirmação', value: String(m.pendingConfirmations), delta: 'Pacientes sem resposta' },
       { id: 'unassigned', title: 'Sem dentista', value: String(m.unassignedAppointments), delta: 'Agendamentos para organizar' }
@@ -655,7 +657,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private buildDentistViewModel(m: MyMetrics) {
     this.kpis = [
-      { id: 'today', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Agendadas para hoje' },
+      { id: 'today', title: 'Consultas hoje', value: String(m.appointmentsToday), delta: 'Registradas no dia' },
       { id: 'week', title: 'Esta semana', value: String(m.appointmentsThisWeek), delta: 'No total da semana' },
       { id: 'completed', title: 'Concluídas no mês', value: String(m.completedThisMonth), delta: 'Atendimentos finalizados' },
       { id: 'patients', title: 'Meus pacientes', value: String(m.totalPatients), delta: 'Vinculados à minha agenda' }
