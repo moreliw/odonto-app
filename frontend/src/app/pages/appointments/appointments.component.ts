@@ -647,6 +647,9 @@ export class AppointmentsComponent implements OnInit {
     this.loadPatients()
     if (!this.isDentist) this.loadDentists()
     this.load()
+    if (!this.isDentist && this.route.snapshot.queryParamMap.get('new') === '1') {
+      queueMicrotask(() => this.openCreate())
+    }
   }
 
   get weekDays() {

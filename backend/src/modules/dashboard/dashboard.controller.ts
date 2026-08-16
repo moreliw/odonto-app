@@ -73,8 +73,10 @@ export class DashboardController {
       pendingConfirmations,
       unassignedAppointments,
       completedThisMonth,
+      billedThisMonthAgg,
       paymentRevenueAgg,
       legacyRevenueAgg,
+      expensesThisMonthAgg,
       invPending,
       invPartial,
       invPaid,
@@ -88,8 +90,10 @@ export class DashboardController {
       prisma.appointment.count({ where: { startTime: { gte: now }, status: 'SCHEDULED', confirmationStatus: 'PENDING' } }),
       prisma.appointment.count({ where: { startTime: { gte: now }, status: 'SCHEDULED', dentistId: null, dentistName: null } }),
       prisma.appointment.count({ where: { startTime: { gte: startOfMonth }, status: 'COMPLETED' } }),
+      isAdmin ? prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: { not: 'CANCELLED' } } }) : Promise.resolve({ _sum: { amount: 0 } }),
       isAdmin ? prisma.invoicePayment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: startOfMonth } } }) : Promise.resolve({ _sum: { amount: 0 } }),
       isAdmin ? prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: 'PAID', payments: { none: {} } } }) : Promise.resolve({ _sum: { amount: 0 } }),
+      isAdmin ? prisma.expense.aggregate({ _sum: { amount: true }, where: { status: 'PAID', paidAt: { gte: startOfMonth } } }) : Promise.resolve({ _sum: { amount: 0 } }),
       isAdmin ? prisma.invoice.count({ where: { status: 'PENDING' } }) : Promise.resolve(0),
       isAdmin ? prisma.invoice.count({ where: { status: 'PARTIAL' } }) : Promise.resolve(0),
       isAdmin ? prisma.invoice.count({ where: { status: 'PAID' } }) : Promise.resolve(0),
@@ -111,6 +115,9 @@ export class DashboardController {
       monthlyPatients.push({ label, count })
     }
 
+    const receivedThisMonth = Number(paymentRevenueAgg._sum.amount || 0) + Number(legacyRevenueAgg._sum.amount || 0)
+    const expensesThisMonth = Number(expensesThisMonthAgg._sum.amount || 0)
+
     return {
       patientCount,
       appointmentsToday,
@@ -120,7 +127,10 @@ export class DashboardController {
       unassignedAppointments,
       completedThisMonth,
       canViewFinancial: isAdmin,
-      revenueThisMonth: Number(paymentRevenueAgg._sum.amount || 0) + Number(legacyRevenueAgg._sum.amount || 0),
+      billedThisMonth: Number(billedThisMonthAgg._sum.amount || 0),
+      revenueThisMonth: receivedThisMonth,
+      expensesThisMonth,
+      netThisMonth: receivedThisMonth - expensesThisMonth,
       invoicesStatus: { pending: invPending, partial: invPartial, paid: invPaid, cancelled: invCancelled },
       monthlyPatients,
       todayAppointments: todayAppointments.map((a: any) => ({

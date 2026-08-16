@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
+import { ActivatedRoute } from '@angular/router'
 import { ToastService } from '../../services/toast.service'
 import { AuthService } from '../../services/auth.service'
 import { PaginationComponent } from '../../components/pagination/pagination.component'
@@ -221,11 +222,14 @@ export class PatientsComponent implements OnInit {
 
   form: Partial<Patient> = {}
 
-  constructor(private http: HttpClient, private toast: ToastService, auth: AuthService) {
+  constructor(private http: HttpClient, private toast: ToastService, auth: AuthService, private route: ActivatedRoute) {
     this.isAdmin = auth.isAdmin()
   }
 
-  ngOnInit() { this.load() }
+  ngOnInit() {
+    this.search = this.route.snapshot.queryParamMap.get('search')?.trim() || ''
+    this.load()
+  }
 
   get filtered() {
     const q = this.search.toLowerCase().trim()

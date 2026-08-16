@@ -1,0 +1,259 @@
+<div class="modern-dashboard">
+  <header class="dashboard-welcome">
+    <div class="dashboard-welcome-copy">
+      <h1>Bom dia, {{ greetingName }}! <span aria-hidden="true">👋</span></h1>
+      <p>{{ today | titlecase }}</p>
+    </div>
+
+    <form class="dashboard-search" (ngSubmit)="submitGlobalSearch()" role="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input [(ngModel)]="globalSearch" name="dashboardSearch" [placeholder]="isDentist ? 'Buscar prontuário ou paciente...' : 'Buscar paciente, agendamento, prontuário...'" aria-label="Buscar no sistema" />
+      <button type="submit" aria-label="Buscar">Buscar</button>
+    </form>
+
+    <button class="dashboard-refresh" type="button" (click)="load()" [disabled]="loading" aria-label="Atualizar dashboard" title="Atualizar dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+      <span>{{ loading ? 'Atualizando' : 'Atualizar' }}</span>
+    </button>
+  </header>
+
+  @if (error) {
+    <div class="dashboard-error" role="alert">{{ error }}</div>
+  }
+
+  @if (loading && !metrics && !myMetrics) {
+    <section class="dashboard-kpis dashboard-kpis--loading" aria-label="Carregando indicadores">
+      @for (item of [1, 2, 3, 4, 5]; track item) { <div class="dashboard-skeleton"></div> }
+    </section>
+  } @else {
+    <section class="dashboard-kpis" [class.dashboard-kpis--four]="isDentist" aria-label="Indicadores principais">
+      @for (metric of kpis; track metric.id) {
+        <button type="button" class="dashboard-kpi" [class]="'dashboard-kpi tone-' + metric.tone" (click)="openMetric(metric)">
+          <span class="dashboard-kpi-icon" aria-hidden="true">
+            @switch (metric.id) {
+              @case ('patients') {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg>
+              }
+              @case ('revenue') {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M16 8.5c-.8-1-2-1.5-4-1.5-2.2 0-3.5 1-3.5 2.5 0 4 7.5 1.5 7.5 5.5 0 1.5-1.4 2.5-3.8 2.5-2 0-3.5-.6-4.2-1.7M12 5v14"/></svg>
+              }
+              @case ('confirmations') {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 0 1-8.5 8 9 9 0 0 1-3.5-.8L3 20l1.7-4.8A8 8 0 1 1 20 11Z"/><path d="M12 7v5l3 2"/></svg>
+              }
+              @case ('unassigned') {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 20v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8" cy="7" r="4"/><path d="M18 8v5m0 4v.1"/></svg>
+              }
+              @case ('completed') {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>
+              }
+              @default {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+              }
+            }
+          </span>
+          <span class="dashboard-kpi-copy">
+            <span class="dashboard-kpi-title">{{ metric.title }}</span>
+            <strong>{{ metric.value }}</strong>
+            <small>{{ metric.delta }}</small>
+          </span>
+          <span class="dashboard-kpi-note">
+            @if (metric.tone === 'orange' || metric.tone === 'red') {
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3 2 21h20L12 3Zm1 14h-2v-2h2v2Zm0-4h-2V9h2v4Z"/></svg>
+            } @else {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><path d="m5 14 4-4 3 3 6-7"/><path d="M14 6h4v4"/></svg>
+            }
+            {{ metric.note }}
+          </span>
+        </button>
+      }
+    </section>
+
+    <section class="dashboard-panel dashboard-agenda" aria-labelledby="dashboard-agenda-title">
+      <header class="dashboard-panel-head dashboard-agenda-head">
+        <div>
+          <h2 id="dashboard-agenda-title">Agenda de hoje</h2>
+          <p>{{ today | titlecase }}</p>
+        </div>
+        <div class="dashboard-agenda-toolbar">
+          @if (!isDentist) {
+            <label class="dashboard-dentist-select">
+              <span class="sr-only">Filtrar por dentista</span>
+              <select [value]="selectedDentist" (change)="changeDentistFilter($event)">
+                <option value="ALL">Todos os dentistas</option>
+                @for (dentist of dentistOptions(todayAppointments(metrics?.todayAppointments || [])); track dentist.value) {
+                  <option [value]="dentist.value">{{ dentist.label }}</option>
+                }
+              </select>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+            </label>
+          }
+          <span class="dashboard-today-chip">Hoje</span>
+          <div class="dashboard-view-switch" aria-label="Visualização da agenda">
+            <a routerLink="/app/appointments" [queryParams]="{ view: 'week' }" aria-label="Abrir calendário semanal" title="Calendário semanal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            </a>
+            <a class="active" routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }" aria-label="Abrir agenda em lista" title="Lista do dia">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
+            </a>
+          </div>
+        </div>
+      </header>
+
+      @if (agendaItems.length) {
+        <div class="dashboard-appointment-grid">
+          @for (appointment of agendaItems; track appointment.id) {
+            <article
+              class="dashboard-appointment"
+              [class]="'dashboard-appointment phase-' + appointmentPhase(appointment) + ' status-' + appointment.status.toLowerCase() + (appointment.id === highlightedId ? ' is-highlighted' : '')"
+              [class.has-status-menu]="openStatusMenuId === appointment.id"
+              [attr.aria-current]="appointment.id === highlightedId ? 'time' : null"
+            >
+              <div class="dashboard-appointment-time">
+                <span class="dashboard-appointment-dot" aria-hidden="true"></span>
+                <strong>{{ appointment.startTime | date:'HH:mm' }}</strong>
+                <small>{{ appointment.endTime | date:'HH:mm' }}</small>
+              </div>
+              <div class="dashboard-appointment-person">
+                <strong>{{ appointment.patientName }}</strong>
+                <span>{{ isDentist ? 'Consulta odontológica' : (appointment.dentistName || 'Sem dentista') }}</span>
+              </div>
+              <div class="dashboard-appointment-status">
+                <button type="button" class="dashboard-status-trigger" [class]="'dashboard-status-trigger status-' + appointment.status.toLowerCase()" (click)="$event.stopPropagation(); toggleStatusMenu(appointment)" [attr.aria-expanded]="openStatusMenuId === appointment.id" [disabled]="updatingAppointmentId === appointment.id">
+                  @if (updatingAppointmentId === appointment.id) {
+                    <i class="dashboard-spinner" aria-hidden="true"></i> Salvando
+                  } @else {
+                    {{ STATUS_LABELS[appointment.status] || appointment.status }}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
+                  }
+                </button>
+                @if (openStatusMenuId === appointment.id) {
+                  <div class="dashboard-status-menu" role="menu" aria-label="Alterar status da consulta">
+                    <span>Alterar status</span>
+                    @for (status of statusOptions; track status.value) {
+                      <button type="button" role="menuitem" [class.active]="appointment.status === status.value" [class]="'status-' + status.value.toLowerCase() + (appointment.status === status.value ? ' active' : '')" (click)="$event.stopPropagation(); requestAppointmentStatusChange(appointment, status.value)">
+                        <i aria-hidden="true"></i>{{ status.label }}
+                        @if (appointment.status === status.value) { <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg> }
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="dashboard-agenda-empty">
+          <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span>
+          <strong>Nenhuma consulta encontrada para hoje</strong>
+          <p>A agenda está livre para o filtro selecionado.</p>
+        </div>
+      }
+
+      <footer class="dashboard-agenda-footer">
+        <a routerLink="/app/appointments" [queryParams]="{ view: 'list', range: 'today' }">Ver agenda completa <span aria-hidden="true">→</span></a>
+      </footer>
+    </section>
+
+    <section class="dashboard-insights" [class.dashboard-insights--without-finance]="!isAdmin" aria-label="Análises da clínica">
+      <app-line-chart [points]="analysisPoints" [title]="analysisTitle" [subtitle]="analysisSubtitle" [compact]="true"></app-line-chart>
+
+      <article class="dashboard-panel dashboard-distribution">
+        <header class="dashboard-panel-head">
+          <div><h2>Distribuição da agenda</h2><p>Por status das consultas de hoje</p></div>
+        </header>
+        @if (agendaTotal) {
+          <div class="dashboard-distribution-body">
+            <div class="dashboard-donut" [style.background]="agendaDistributionGradient" role="img" [attr.aria-label]="agendaTotal + ' consultas distribuídas por status'">
+              <span><small>Total</small><strong>{{ agendaTotal }}</strong></span>
+            </div>
+            <div class="dashboard-distribution-legend">
+              @for (slice of agendaSlices; track slice.label) {
+                <div><i [style.background]="slice.color"></i><span>{{ slice.label }}</span><strong>{{ slice.value }}</strong><small>{{ (slice.value / agendaTotal) | percent:'1.0-0' }}</small></div>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="dashboard-insight-empty">Sem consultas para distribuir hoje.</div>
+        }
+      </article>
+
+      @if (isAdmin && metrics) {
+        <article class="dashboard-panel dashboard-financial">
+          <header class="dashboard-panel-head">
+            <div><h2>Resumo financeiro</h2><p>Visão geral do mês</p></div>
+            <button type="button" (click)="privacy.toggle()" [attr.aria-label]="hideValues ? 'Mostrar valores' : 'Ocultar valores'" [title]="hideValues ? 'Mostrar valores' : 'Ocultar valores'">
+              @if (hideValues) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M10.6 10.7a2 2 0 0 0 2.7 2.7M9.8 5.2A10 10 0 0 1 12 5c6 0 9 7 9 7a15 15 0 0 1-2.1 3.2M6.6 6.6C4.2 8.2 3 12 3 12s3 7 9 7a9.8 9.8 0 0 0 4-.8"/></svg>
+              } @else {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12s3-7 9-7 9 7 9 7-3 7-9 7-9-7-9-7Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              }
+            </button>
+          </header>
+          <dl class="dashboard-financial-list">
+            <div><dt>Faturamento bruto</dt><dd class="positive">{{ billedValue }}</dd></div>
+            <div><dt>Recebimentos</dt><dd class="primary">{{ receivedValue }}</dd></div>
+            <div><dt>Despesas pagas</dt><dd class="negative">{{ expensesValue }}</dd></div>
+          </dl>
+          <div class="dashboard-net-result">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/></svg>Resultado líquido</span>
+            <strong>{{ netValue }}</strong>
+          </div>
+          <a routerLink="/app/finance">Abrir financeiro <span aria-hidden="true">→</span></a>
+        </article>
+      }
+    </section>
+
+    <section class="dashboard-panel dashboard-quick-actions" aria-labelledby="quick-actions-title">
+      <header class="dashboard-panel-head"><div><h2 id="quick-actions-title">Ações rápidas</h2><p>Acesse as tarefas mais usadas</p></div></header>
+      <div class="dashboard-quick-grid">
+        <a routerLink="/app/appointments" [queryParams]="{ new: '1' }"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13v5m-2.5-2.5h5"/></svg></span>Nova consulta</a>
+        @if (!isDentist) {
+          <a routerLink="/app/patients"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg></span>Novo paciente</a>
+        }
+        <a routerLink="/app/records"><span class="tone-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg></span>Abrir prontuário</a>
+        @if (isAdmin) {
+          <a routerLink="/app/finance"><span class="tone-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M16 8.5c-.8-1-2-1.5-4-1.5-2.2 0-3.5 1-3.5 2.5 0 4 7.5 1.5 7.5 5.5 0 1.5-1.4 2.5-3.8 2.5-2 0-3.5-.6-4.2-1.7M12 5v14"/></svg></span>Lançar pagamento</a>
+          <a routerLink="/app/team"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg></span>Gerenciar equipe</a>
+        } @else if (!isDentist) {
+          <a routerLink="/app/team"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg></span>Equipe</a>
+        }
+      </div>
+    </section>
+  }
+</div>
+
+@if (openStatusMenuId) {
+  <button class="dashboard-status-backdrop" type="button" (click)="closeStatusMenu()" aria-label="Fechar menu de status"></button>
+}
+
+@if (pendingStatusChange) {
+  <div class="modal-backdrop" (click)="closeConfirmOnBackdrop($event)">
+    <div class="modal dashboard-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="dashboard-confirm-title" (click)="$event.stopPropagation()">
+      <div class="dashboard-confirm-head">
+        <span [class]="'status-' + pendingStatusChange.nextStatus.toLowerCase()" aria-hidden="true">
+          @if (pendingStatusChange.nextStatus === 'COMPLETED') {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>
+          } @else if (pendingStatusChange.nextStatus === 'CANCELLED') {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+          } @else {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          }
+        </span>
+        <div><h3 id="dashboard-confirm-title">Confirmar alteração de status</h3><p>Revise a mudança antes de atualizar a agenda.</p></div>
+      </div>
+      <div class="dashboard-confirm-patient">
+        <strong>{{ pendingStatusChange.item.patientName }}</strong>
+        <span>{{ pendingStatusChange.item.startTime | date:'HH:mm' }}–{{ pendingStatusChange.item.endTime | date:'HH:mm' }} · {{ pendingStatusChange.item.dentistName || 'Sem dentista' }}</span>
+      </div>
+      <div class="dashboard-confirm-change">
+        <span>{{ STATUS_LABELS[pendingStatusChange.item.status] || pendingStatusChange.item.status }}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+        <strong [class]="'status-' + pendingStatusChange.nextStatus.toLowerCase()">{{ STATUS_LABELS[pendingStatusChange.nextStatus] }}</strong>
+      </div>
+      <div class="dashboard-confirm-actions">
+        <button type="button" class="btn btn-outline" (click)="cancelAppointmentStatusChange()">Voltar</button>
+        <button type="button" class="btn" [class.btn-primary]="pendingStatusChange.nextStatus !== 'CANCELLED'" [class.btn-danger]="pendingStatusChange.nextStatus === 'CANCELLED'" (click)="confirmAppointmentStatusChange()">Confirmar alteração</button>
+      </div>
+    </div>
+  </div>
+}
