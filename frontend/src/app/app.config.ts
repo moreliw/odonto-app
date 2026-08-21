@@ -4,6 +4,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http'
 import { LoginComponent } from './pages/login/login.component'
 import { DashboardComponent } from './pages/dashboard/dashboard.component'
 import { PatientsComponent } from './pages/patients/patients.component'
+import { PatientDetailsComponent } from './pages/patients/patient-details/patient-details.component'
 import { AppointmentsComponent } from './pages/appointments/appointments.component'
 import { RecordsComponent } from './pages/records/records.component'
 import { TeamComponent } from './pages/team/team.component'
@@ -114,6 +115,7 @@ export const routes: Routes = [
     children: [
       { path: '', component: DashboardComponent },
       { path: 'profile', component: ProfileComponent },
+      { path: 'patients/:id', component: PatientDetailsComponent },
       { path: 'patients', component: PatientsComponent, canActivate: [patientManagementGuard] },
       { path: 'appointments', component: AppointmentsComponent },
       { path: 'records', component: RecordsComponent },

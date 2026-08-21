@@ -79,12 +79,32 @@ model RefreshToken {
 }
 
 model Patient {
-  id           String        @id @default(uuid())
-  name         String
-  email        String?       @unique
-  phone        String?
-  birthDate    DateTime?
-  document     String?
+  id                    String        @id @default(uuid())
+  name                  String
+  email                 String?       @unique
+  phone                 String?
+  whatsapp              String?
+  birthDate             DateTime?
+  document              String?
+  gender                String?
+  photoUrl              String?
+  postalCode            String?
+  address               String?
+  addressNumber         String?
+  addressComplement     String?
+  neighborhood          String?
+  city                  String?
+  state                 String?
+  profession            String?
+  guardianName          String?
+  insuranceName         String?
+  insuranceNumber       String?
+  notes                 String?
+  bloodType             String?
+  allergies             String?
+  medications           String?
+  preexistingConditions String?
+  medicalNotes          String?
   createdByName String?
   updatedByName String?
   createdAt    DateTime      @default(now())
@@ -139,6 +159,10 @@ model File {
   url         String
   contentType String
   size        Int
+  originalName String?
+  category      String?
+  notes         String?
+  uploadedByName String?
   createdAt   DateTime @default(now())
 }
 

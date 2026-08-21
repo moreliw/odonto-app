@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { Prisma } from '@prisma/client-tenant'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 
-type Requester = { userId: string; email?: string; role: string }
+type Requester = { userId: string; email?: string; name?: string; role: string }
 
 @Injectable()
 export class RecordsService {
@@ -19,7 +19,7 @@ export class RecordsService {
     if (serialized.length > 100_000) {
       throw new BadRequestException('O registro clínico excede o limite de 100 KB. Anexe arquivos separadamente.')
     }
-    const auditName = requester.email?.trim() || 'Sistema'
+    const auditName = await this.actorName(requester)
     return this.prismaTenant.getClient().record.create({
       data: { patientId, content: normalized, createdByName: auditName, updatedByName: auditName }
     })
@@ -52,5 +52,10 @@ export class RecordsService {
     } catch {
       return { text: content }
     }
+  }
+
+  private async actorName(requester: Requester) {
+    const user = await this.prismaTenant.getClient().user.findUnique({ where: { id: requester.userId }, select: { name: true } })
+    return user?.name?.trim() || requester.name?.trim() || 'Sistema'
   }
 }

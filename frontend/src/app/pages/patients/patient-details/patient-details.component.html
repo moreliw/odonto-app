@@ -1,0 +1,126 @@
+<div class="patient-page">
+  <a class="back-link" routerLink="/app/patients"><span aria-hidden="true">←</span> Pacientes</a>
+
+  @if (loading) {
+    <div class="patient-skeleton"><div></div><div></div><div></div><div></div></div>
+  } @else if (error) {
+    <section class="patient-error"><div>!</div><h2>Não foi possível abrir a ficha</h2><p>{{ error }}</p><a class="btn btn-primary" routerLink="/app/patients">Voltar para pacientes</a></section>
+  } @else if (patient; as p) {
+    <app-patient-header [patient]="p" [appointments]="workspace?.appointments || []" [canEdit]="!isDentist" (edit)="beginEdit()" />
+
+    <nav class="patient-tabs" aria-label="Seções da ficha do paciente">
+      @for (tab of tabs; track tab.id) {
+        <button type="button" [class.active]="activeTab === tab.id" (click)="selectTab(tab.id)">{{ tab.label }}</button>
+      }
+    </nav>
+
+    <main class="patient-tab-content">
+      @if (activeTab === 'overview') {
+        <section class="overview-grid">
+          <div class="overview-kpis">
+            <article><span>Próxima consulta</span><strong>{{ upcomingAppointments[0]?.startTime ? (upcomingAppointments[0].startTime | date:'dd/MM · HH:mm') : 'Não agendada' }}</strong><small>{{ upcomingAppointments[0] ? professionalName(upcomingAppointments[0]) : 'Agende pela agenda da clínica' }}</small></article>
+            <article><span>Última consulta</span><strong>{{ previousAppointments[0]?.startTime ? (previousAppointments[0].startTime | date:'dd/MM/yyyy') : 'Sem consultas' }}</strong><small>{{ previousAppointments[0] ? appointmentStatusLabel(previousAppointments[0].status) : 'Nenhum atendimento registrado' }}</small></article>
+            <article><span>Tratamentos em aberto</span><strong>{{ openTreatments }}</strong><small>{{ treatmentRecords.length }} registro(s) no total</small></article>
+            @if (isAdmin) { <article><span>Financeiro pendente</span><strong>{{ formatMoney(financialSummary.pending) }}</strong><small [class.danger-copy]="financialSummary.overdue > 0">{{ financialSummary.overdue ? formatMoney(financialSummary.overdue) + ' vencido' : 'Sem valores vencidos' }}</small></article> }
+          </div>
+
+          <div class="overview-main">
+            <section class="section-card appointments-card">
+              <header><div><span>Agenda</span><h2>Próximos agendamentos</h2></div><a routerLink="/app/appointments">Abrir agenda →</a></header>
+              @if (!upcomingAppointments.length) { <div class="compact-empty"><strong>Nenhum agendamento futuro</strong><span>O próximo horário aparecerá aqui automaticamente.</span></div> }
+              @else { <div class="appointment-list">@for (item of upcomingAppointments.slice(0,4); track item.id) { <article><time><b>{{ item.startTime | date:'dd' }}</b><span>{{ item.startTime | date:'MMM' }}</span></time><div><strong>{{ item.startTime | date:'HH:mm' }}–{{ item.endTime | date:'HH:mm' }}</strong><span>{{ professionalName(item) }}</span>@if (item.notes) { <small>{{ item.notes }}</small> }</div><span class="status-pill status-scheduled">{{ confirmationLabel(item.confirmationStatus) }}</span></article> }</div> }
+            </section>
+
+            <section class="section-card recent-card">
+              <header><div><span>Clínico</span><h2>Tratamentos recentes</h2></div><button type="button" (click)="selectTab('treatments')">Ver todos →</button></header>
+              @if (!treatmentRecords.length) { <div class="compact-empty"><strong>Nenhum tratamento registrado</strong><span>Adicione o primeiro plano ou procedimento.</span></div> }
+              @else { <div class="recent-list">@for (record of treatmentRecords.slice(0,4); track record.id) { <article><i></i><div><strong>{{ record.content?.procedure || record.content?.title }}</strong><span>{{ record.content?.tooth ? 'Dente ' + record.content.tooth + ' · ' : '' }}{{ record.content?.professionalName || record.createdByName || 'Sistema' }}</span></div><span [class]="'status-pill treatment-' + (record.content?.status || 'PLANNED').toLowerCase()">{{ treatmentStatusLabel(record.content?.status) }}</span></article> }</div> }
+            </section>
+
+            <section class="section-card alerts-card">
+              <header><div><span>Atenção clínica</span><h2>Observações importantes</h2></div><button type="button" (click)="selectTab('personal')">Dados pessoais →</button></header>
+              @if (!clinicalAlerts.length) { <div class="compact-empty success-empty"><strong>Nenhum alerta clínico informado</strong><span>Complete os dados médicos para facilitar os atendimentos.</span></div> }
+              @else { <div class="alert-list">@for (alert of clinicalAlerts; track alert.label) { <article><i>!</i><div><strong>{{ alert.label }}</strong><span>{{ alert.value }}</span></div></article> }</div> }
+            </section>
+
+            <section class="section-card dental-overview-card">
+              <header><div><span>Odontologia</span><h2>Resumo odontológico</h2></div><button type="button" (click)="selectTab('odontogram')">Abrir odontograma →</button></header>
+              <div class="dental-overview">@for (item of dentalSummary; track item.id) { <div><span>{{ item.label }}</span><strong>{{ item.count }}</strong><i [style.width.%]="dentalBarWidth(item.count)"></i></div> }</div>
+            </section>
+          </div>
+        </section>
+      }
+
+      @if (activeTab === 'personal') {
+        <section class="personal-section">
+          <header class="section-heading"><div><span>Cadastro e saúde</span><h2>Dados pessoais</h2><p>Informações administrativas e clínicas do paciente.</p></div>@if (!editingPersonal) { <button class="btn btn-primary" type="button" (click)="beginEdit()">Editar</button> }</header>
+          @if (editingPersonal) {
+            <form class="personal-form" (ngSubmit)="savePatient()">
+              <fieldset><legend>Dados básicos</legend><div class="form-grid cols-3"><label class="wide-2">Nome completo *<input class="input" name="name" [(ngModel)]="patientForm.name" required></label><label>CPF / Documento<input class="input" name="document" [(ngModel)]="patientForm.document"></label><label>Data de nascimento<input class="input" type="date" name="birthDate" [(ngModel)]="patientForm.birthDate"></label><label>Sexo<select class="select" name="gender" [(ngModel)]="patientForm.gender"><option value="">Não informado</option><option value="FEMININO">Feminino</option><option value="MASCULINO">Masculino</option><option value="OUTRO">Outro</option><option value="NAO_INFORMADO">Prefere não informar</option></select></label><label>Telefone<input class="input" name="phone" [(ngModel)]="patientForm.phone"></label><label>WhatsApp<input class="input" name="whatsapp" [(ngModel)]="patientForm.whatsapp"></label><label class="wide-2">E-mail<input class="input" type="email" name="email" [(ngModel)]="patientForm.email"></label></div></fieldset>
+              <fieldset><legend>Endereço</legend><div class="form-grid cols-3"><label>CEP<input class="input" name="postalCode" [(ngModel)]="patientForm.postalCode"></label><label class="wide-2">Endereço<input class="input" name="address" [(ngModel)]="patientForm.address"></label><label>Número<input class="input" name="addressNumber" [(ngModel)]="patientForm.addressNumber"></label><label>Complemento<input class="input" name="addressComplement" [(ngModel)]="patientForm.addressComplement"></label><label>Bairro<input class="input" name="neighborhood" [(ngModel)]="patientForm.neighborhood"></label><label>Cidade<input class="input" name="city" [(ngModel)]="patientForm.city"></label><label>Estado<input class="input" maxlength="2" name="state" [(ngModel)]="patientForm.state"></label></div></fieldset>
+              <fieldset><legend>Informações adicionais</legend><div class="form-grid cols-3"><label>Profissão<input class="input" name="profession" [(ngModel)]="patientForm.profession"></label><label>Responsável<input class="input" name="guardianName" [(ngModel)]="patientForm.guardianName"></label><label>Convênio<input class="input" name="insuranceName" [(ngModel)]="patientForm.insuranceName"></label><label>Nº da carteirinha<input class="input" name="insuranceNumber" [(ngModel)]="patientForm.insuranceNumber"></label><label class="wide-2">Observações<textarea class="textarea" rows="2" name="notes" [(ngModel)]="patientForm.notes"></textarea></label></div></fieldset>
+              <fieldset><legend>Informações clínicas</legend><div class="form-grid cols-3"><label>Tipo sanguíneo<select class="select" name="bloodType" [(ngModel)]="patientForm.bloodType"><option value="">Não informado</option>@for (type of ['A+','A-','B+','B-','AB+','AB-','O+','O-']; track type) { <option [value]="type">{{ type }}</option> }</select></label><label class="wide-2">Alergias<textarea class="textarea" rows="2" name="allergies" [(ngModel)]="patientForm.allergies"></textarea></label><label class="wide-2">Medicamentos em uso<textarea class="textarea" rows="2" name="medications" [(ngModel)]="patientForm.medications"></textarea></label><label>Doenças preexistentes<textarea class="textarea" rows="2" name="preexistingConditions" [(ngModel)]="patientForm.preexistingConditions"></textarea></label><label class="wide-3">Observações médicas<textarea class="textarea" rows="2" name="medicalNotes" [(ngModel)]="patientForm.medicalNotes"></textarea></label></div></fieldset>
+              <footer class="form-actions"><button class="btn btn-ghost" type="button" (click)="cancelEdit()">Cancelar</button><button class="btn btn-primary" [disabled]="saving" type="submit">@if (saving) { <span class="spinner"></span> } Salvar alterações</button></footer>
+            </form>
+          } @else {
+            <div class="personal-readonly">
+              <section><h3>Dados básicos</h3><dl><div><dt>Nome completo</dt><dd>{{ p.name }}</dd></div><div><dt>Documento</dt><dd>{{ p.document || '—' }}</dd></div><div><dt>Nascimento</dt><dd>{{ p.birthDate ? (p.birthDate | date:'dd/MM/yyyy') : '—' }}</dd></div><div><dt>Sexo</dt><dd>{{ p.gender || '—' }}</dd></div><div><dt>Telefone</dt><dd>{{ p.phone || '—' }}</dd></div><div><dt>WhatsApp</dt><dd>{{ p.whatsapp || p.phone || '—' }}</dd></div><div><dt>E-mail</dt><dd>{{ p.email || '—' }}</dd></div></dl></section>
+              <section><h3>Endereço</h3><dl><div><dt>CEP</dt><dd>{{ p.postalCode || '—' }}</dd></div><div class="wide"><dt>Endereço</dt><dd>{{ p.address ? p.address + (p.addressNumber ? ', ' + p.addressNumber : '') : '—' }}</dd></div><div><dt>Bairro</dt><dd>{{ p.neighborhood || '—' }}</dd></div><div><dt>Cidade / UF</dt><dd>{{ p.city ? p.city + (p.state ? ' / ' + p.state : '') : '—' }}</dd></div><div><dt>Complemento</dt><dd>{{ p.addressComplement || '—' }}</dd></div></dl></section>
+              <section><h3>Informações adicionais</h3><dl><div><dt>Profissão</dt><dd>{{ p.profession || '—' }}</dd></div><div><dt>Responsável</dt><dd>{{ p.guardianName || '—' }}</dd></div><div><dt>Convênio</dt><dd>{{ p.insuranceName || 'Particular' }}</dd></div><div><dt>Carteirinha</dt><dd>{{ p.insuranceNumber || '—' }}</dd></div><div class="wide"><dt>Observações</dt><dd>{{ p.notes || '—' }}</dd></div></dl></section>
+              <section class="clinical-data"><h3>Informações clínicas</h3><dl><div><dt>Tipo sanguíneo</dt><dd>{{ p.bloodType || '—' }}</dd></div><div><dt>Alergias</dt><dd>{{ p.allergies || anamnesis?.allergies || 'Nenhuma informada' }}</dd></div><div><dt>Medicamentos</dt><dd>{{ p.medications || anamnesis?.medications || 'Nenhum informado' }}</dd></div><div><dt>Condições preexistentes</dt><dd>{{ p.preexistingConditions || 'Nenhuma informada' }}</dd></div><div class="wide"><dt>Observações médicas</dt><dd>{{ p.medicalNotes || '—' }}</dd></div></dl></section>
+            </div>
+          }
+        </section>
+      }
+
+      @if (activeTab === 'odontogram') { <app-patient-dental-chart [patientId]="p.id" [records]="workspace?.records || []" [professionals]="workspace?.professionals || []" (recordSaved)="onDentalRecordSaved($event)" /> }
+
+      @if (activeTab === 'treatments') {
+        <section><header class="section-heading"><div><span>Plano clínico</span><h2>Tratamentos</h2><p>Procedimentos planejados e executados vinculados ao paciente.</p></div><button class="btn btn-primary" type="button" (click)="openTreatment()">＋ Novo tratamento</button></header>
+          @if (!treatmentRecords.length) { <div class="large-empty"><div>◇</div><h3>Nenhum tratamento registrado</h3><p>Crie o primeiro procedimento ou plano deste paciente.</p><button class="btn btn-primary" type="button" (click)="openTreatment()">Adicionar tratamento</button></div> }
+          @else { <div class="responsive-table"><table><thead><tr><th>Procedimento</th><th>Dente</th><th>Profissional</th><th>Data</th><th>Valor</th><th>Status</th></tr></thead><tbody>@for (record of treatmentRecords; track record.id) { <tr><td><strong>{{ record.content?.procedure || record.content?.title }}</strong>@if (record.content?.notes) { <small>{{ record.content.notes }}</small> }</td><td>{{ record.content?.tooth || (record.content?.teeth || []).join(', ') || '—' }}</td><td>{{ record.content?.professionalName || record.createdByName || '—' }}</td><td>{{ record.content?.clinicalDate || record.createdAt | date:'dd/MM/yyyy' }}</td><td>{{ record.content?.value ? formatMoney(record.content.value) : '—' }}</td><td><span [class]="'status-pill treatment-' + (record.content?.status || 'PLANNED').toLowerCase()">{{ treatmentStatusLabel(record.content?.status) }}</span></td></tr> }</tbody></table></div> }
+        </section>
+      }
+
+      @if (activeTab === 'records') {
+        <section><header class="section-heading"><div><span>Histórico clínico</span><h2>Prontuário</h2><p>Evoluções e registros clínicos preservados cronologicamente.</p></div><button class="btn btn-primary" type="button" (click)="openClinicalRecord()">＋ Nova evolução</button></header>
+          @if (!clinicalRecords.length) { <div class="large-empty"><div>▤</div><h3>Nenhuma evolução registrada</h3><p>Documente o primeiro atendimento clínico do paciente.</p><button class="btn btn-primary" type="button" (click)="openClinicalRecord()">Registrar evolução</button></div> }
+          @else { <div class="clinical-timeline">@for (record of clinicalRecords; track record.id) { <article><div class="timeline-date"><b>{{ record.content?.clinicalDate || record.createdAt | date:'dd' }}</b><span>{{ record.content?.clinicalDate || record.createdAt | date:'MMM yyyy' }}</span></div><div class="timeline-body"><header><div><h3>{{ recordTitle(record) }}</h3><span>{{ record.content?.clinicalDate || record.createdAt | date:'HH:mm' }} · {{ record.createdByName || 'Sistema' }}</span></div>@if (record.content?.teeth?.length) { <span class="tooth-chip">Dentes {{ record.content.teeth.join(', ') }}</span> }</header><p>{{ recordSummary(record) }}</p>@if (record.content?.procedure) { <div class="procedure-note"><span>Procedimento</span>{{ record.content.procedure }}</div> }</div></article> }</div> }
+        </section>
+      }
+
+      @if (activeTab === 'files') {
+        <section><header class="section-heading"><div><span>Documentos clínicos</span><h2>Arquivos</h2><p>Radiografias, exames, fotos, receitas e termos do paciente.</p></div><button class="btn btn-primary" type="button" (click)="uploadOpen=true">＋ Adicionar arquivo</button></header>
+          @if (!workspace?.files?.length) { <div class="large-empty"><div>▧</div><h3>Nenhum arquivo adicionado</h3><p>Centralize imagens e documentos importantes nesta ficha.</p><button class="btn btn-primary" type="button" (click)="uploadOpen=true">Adicionar arquivo</button></div> }
+          @else { <div class="file-grid">@for (file of workspace?.files || []; track file.id) { <article><div class="file-icon">{{ file.contentType.includes('image') ? 'IMG' : file.contentType.includes('pdf') ? 'PDF' : 'DOC' }}</div><div><span>{{ fileCategoryLabel(file.category) }}</span><h3>{{ file.originalName || 'Arquivo do paciente' }}</h3><p>{{ formatSize(file.size) }} · {{ file.createdAt | date:'dd/MM/yyyy' }}</p><small>Enviado por {{ file.uploadedByName || 'Sistema' }}</small></div><div class="file-actions"><button class="btn btn-sm btn-outline" type="button" (click)="downloadFile(file)">Visualizar</button>@if (isAdmin) { <button class="btn btn-sm btn-ghost danger-copy" type="button" (click)="deleteFile(file)">Excluir</button> }</div></article> }</div> }
+        </section>
+      }
+
+      @if (activeTab === 'financial' && isAdmin) {
+        <section><header class="section-heading"><div><span>Financeiro do paciente</span><h2>Resumo financeiro</h2><p>Cobranças e pagamentos vinculados exclusivamente a este paciente.</p></div><a class="btn btn-outline" routerLink="/app/finance">Abrir financeiro</a></header>
+          <div class="financial-kpis"><article><span>Total dos tratamentos</span><strong>{{ formatMoney(financialSummary.total) }}</strong></article><article><span>Total pago</span><strong class="success-copy">{{ formatMoney(financialSummary.paid) }}</strong></article><article><span>Pendente</span><strong>{{ formatMoney(financialSummary.pending) }}</strong></article><article><span>Vencido</span><strong class="danger-copy">{{ formatMoney(financialSummary.overdue) }}</strong></article></div>
+          @if (!workspace?.invoices?.length) { <div class="large-empty"><div>R$</div><h3>Nenhuma cobrança vinculada</h3><p>As cobranças criadas no financeiro para este paciente aparecerão aqui.</p></div> }
+          @else { <div class="responsive-table"><table><thead><tr><th>Descrição</th><th>Emissão</th><th>Vencimento</th><th>Total</th><th>Pago</th><th>Status</th></tr></thead><tbody>@for (invoice of workspace?.invoices || []; track invoice.id) { <tr><td><strong>{{ invoice.description }}</strong><small>{{ invoice.items.length }} item(ns)</small></td><td>{{ invoice.issuedAt | date:'dd/MM/yyyy' }}</td><td>{{ invoice.dueDate | date:'dd/MM/yyyy' }}</td><td>{{ formatMoney(invoice.amount - invoice.discount) }}</td><td>{{ formatMoney(invoicePaid(invoice)) }}</td><td><span [class]="'status-pill invoice-' + invoice.status.toLowerCase()">{{ invoiceStatusLabel(invoice.status) }}</span></td></tr> }</tbody></table></div> }
+        </section>
+      }
+
+      @if (activeTab === 'history') {
+        <section><header class="section-heading"><div><span>Linha do tempo</span><h2>Histórico completo</h2><p>Eventos importantes consolidados em uma única visão somente leitura.</p></div></header>
+          <div class="history-timeline">@for (item of historyItems; track item.id) { <article><time><b>{{ item.date | date:'dd' }}</b><span>{{ item.date | date:'MMM' }}</span><small>{{ item.date | date:'yyyy' }}</small></time><i [class]="'history-icon history-' + item.type.toLowerCase()"></i><div><h3>{{ item.title }}</h3><p>{{ item.detail }}</p><span>{{ item.date | date:'dd/MM/yyyy · HH:mm' }}</span></div></article> }</div>
+        </section>
+      }
+    </main>
+  }
+</div>
+
+@if (showTreatmentModal) {
+  <div class="modal-backdrop" (click)="showTreatmentModal=false"><div class="modal patient-modal" (click)="$event.stopPropagation()"><header class="modal-header"><div><span class="modal-kicker">Plano clínico</span><h3>Novo tratamento</h3><p>Vincule o procedimento ao paciente e ao profissional responsável.</p></div><button class="btn btn-icon" type="button" (click)="showTreatmentModal=false">×</button></header><form (ngSubmit)="saveTreatment()"><div class="form-grid cols-2"><label class="wide-2">Procedimento *<input class="input" name="procedure" [(ngModel)]="treatmentForm.procedure" required></label><label>Dente/região<input class="input" name="tooth" [(ngModel)]="treatmentForm.tooth" placeholder="Ex.: 26 ou quadrante 2"></label><label>Profissional<select class="select" name="professionalId" [(ngModel)]="treatmentForm.professionalId"><option value="">Não informado</option>@for (professional of workspace?.professionals || []; track professional.id) { <option [value]="professional.id">{{ professional.name }}</option> }</select></label><label>Data<input class="input" type="date" name="treatmentDate" [(ngModel)]="treatmentForm.date"></label><label>Valor<input class="input" type="number" min="0" step="0.01" name="treatmentValue" [(ngModel)]="treatmentForm.value"></label><label>Status<select class="select" name="treatmentStatus" [(ngModel)]="treatmentForm.status"><option value="PLANNED">Planejado</option><option value="APPROVED">Aprovado</option><option value="IN_PROGRESS">Em andamento</option><option value="COMPLETED">Concluído</option><option value="CANCELLED">Cancelado</option></select></label><label class="wide-2">Observações<textarea class="textarea" rows="3" name="treatmentNotes" [(ngModel)]="treatmentForm.notes"></textarea></label></div><footer class="modal-footer"><button class="btn btn-ghost" type="button" (click)="showTreatmentModal=false">Cancelar</button><button class="btn btn-primary" type="submit" [disabled]="saving">@if (saving) { <span class="spinner"></span> } Salvar tratamento</button></footer></form></div></div>
+}
+
+@if (showRecordModal) {
+  <div class="modal-backdrop" (click)="showRecordModal=false"><div class="modal patient-modal" (click)="$event.stopPropagation()"><header class="modal-header"><div><span class="modal-kicker">Prontuário</span><h3>Nova evolução clínica</h3><p>O registro ficará preservado com data, hora e autoria.</p></div><button class="btn btn-icon" type="button" (click)="showRecordModal=false">×</button></header><form (ngSubmit)="saveClinicalRecord()"><div class="form-grid cols-2"><label>Título<input class="input" name="clinicalTitle" [(ngModel)]="clinicalForm.title" placeholder="Evolução clínica"></label><label>Data e hora<input class="input" type="datetime-local" name="clinicalDate" [(ngModel)]="clinicalForm.date"></label><label class="wide-2">Descrição / evolução *<textarea class="textarea" rows="5" name="clinicalDescription" [(ngModel)]="clinicalForm.description" required></textarea></label><label>Dentes relacionados<input class="input" name="clinicalTeeth" [(ngModel)]="clinicalForm.teeth" placeholder="Ex.: 26, 27"></label><label>Procedimento relacionado<input class="input" name="clinicalProcedure" [(ngModel)]="clinicalForm.procedure"></label><label class="wide-2">Observações<textarea class="textarea" rows="2" name="clinicalNotes" [(ngModel)]="clinicalForm.notes"></textarea></label></div><footer class="modal-footer"><button class="btn btn-ghost" type="button" (click)="showRecordModal=false">Cancelar</button><button class="btn btn-primary" type="submit" [disabled]="saving">@if (saving) { <span class="spinner"></span> } Salvar evolução</button></footer></form></div></div>
+}
+
+@if (uploadOpen) {
+  <div class="modal-backdrop" (click)="uploadOpen=false"><div class="modal patient-modal upload-modal" (click)="$event.stopPropagation()"><header class="modal-header"><div><span class="modal-kicker">Arquivos</span><h3>Adicionar arquivo</h3><p>PDF, JPG, PNG ou WEBP com até 20 MB.</p></div><button class="btn btn-icon" type="button" (click)="uploadOpen=false">×</button></header><div class="upload-drop" (dragover)="$event.preventDefault()" (drop)="onFileDrop($event)" (click)="uploadInput.click()"><input #uploadInput hidden type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" (change)="onFileSelected($event)"><div>↑</div>@if (selectedUpload) { <strong>{{ selectedUpload.name }}</strong><span>{{ formatSize(selectedUpload.size) }}</span> } @else { <strong>Arraste ou selecione um arquivo</strong><span>Clique aqui para procurar no dispositivo</span> }</div><div class="form-grid cols-2"><label>Categoria<select class="select" [(ngModel)]="uploadCategory">@for (category of fileCategories; track category.id) { <option [value]="category.id">{{ category.label }}</option> }</select></label><label class="wide-2">Observações<textarea class="textarea" rows="3" [(ngModel)]="uploadNotes"></textarea></label></div><footer class="modal-footer"><button class="btn btn-ghost" type="button" (click)="uploadOpen=false">Cancelar</button><button class="btn btn-primary" type="button" [disabled]="!selectedUpload || uploading" (click)="uploadFile()">@if (uploading) { <span class="spinner"></span> } Enviar arquivo</button></footer></div></div>
+}

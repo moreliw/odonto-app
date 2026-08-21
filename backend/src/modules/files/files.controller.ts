@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Post, Req, Res, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { S3Service } from './s3.service'
 import { AuthGuard } from '@nestjs/passport'
 import { IsString } from 'class-validator'
@@ -19,7 +19,7 @@ export class FilesController {
     return this.s3.presignPut(dto.contentType)
   }
   @Post('finalize')
-  async finalize(@Req() req: Request, @Body() dto: { key: string; url: string; contentType: string; size?: number; patientId?: string }) {
+  async finalize(@Req() req: Request, @Body() dto: { key: string; url: string; contentType: string; size?: number; patientId?: string; originalName?: string; category?: string; notes?: string }) {
     const prisma = this.prismaTenant.getClient()
     const requester = (req as any).user
     if (requester?.role === 'DENTIST') {
@@ -30,9 +30,33 @@ export class FilesController {
       })
       if (!appointment) throw new ForbiddenException('Você só pode anexar arquivos aos pacientes vinculados à sua agenda.')
     }
-    const data: any = { key: dto.key, url: dto.url, contentType: dto.contentType, size: dto.size || 0 }
+    const actor = await prisma.user.findUnique({ where: { id: requester.userId }, select: { name: true } })
+    const data: any = {
+      key: dto.key,
+      url: dto.url,
+      contentType: dto.contentType,
+      size: dto.size || 0,
+      originalName: dto.originalName?.trim() || null,
+      category: dto.category?.trim() || null,
+      notes: dto.notes?.trim() || null,
+      uploadedByName: actor?.name?.trim() || requester.name?.trim() || 'Sistema'
+    }
     if (dto.patientId) data.patientId = dto.patientId
     return prisma.file.create({ data })
+  }
+
+  @Delete(':id')
+  async remove(@Req() req: Request, @Param('id') id: string) {
+    const prisma = this.prismaTenant.getClient()
+    const requester = (req as any).user
+    const file = await prisma.file.findUnique({ where: { id } })
+    if (!file) throw new NotFoundException('Arquivo não encontrado')
+    if (requester?.role === 'DENTIST') {
+      throw new ForbiddenException('Somente a equipe administrativa pode excluir arquivos do paciente.')
+    }
+    await this.s3.removeObject(file.key)
+    await prisma.file.delete({ where: { id } })
+    return { ok: true }
   }
 
   @Get(':id/content')

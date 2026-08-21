@@ -669,6 +669,10 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 }
 .patients-table thead .patients-actions-cell { z-index: 2; }
 .patients-table tbody tr:hover .patients-actions-cell { background: var(--bg); }
+.patients-table tbody .patient-clickable-row { cursor: pointer; transition: background .15s ease; }
+.patients-table tbody .patient-clickable-row:hover td { background: var(--primary-50); }
+.patients-table tbody .patient-clickable-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.patients-table tbody .patient-clickable-row:hover .patients-actions-cell { background: var(--primary-50); }
 .patients-table .patients-actions-cell .table-actions { justify-content: center; flex-wrap: nowrap; }
 .audit-summary { display: flex; align-items: center; gap: 6px 16px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); color: var(--muted); font-size: 10px; line-height: 1.4; }
 .audit-summary strong { color: var(--text-2); font-weight: 650; }
