@@ -34,8 +34,12 @@ export interface PricingPlan {
   limitLabel: string
   highlight?: boolean
   highlightLabel?: string
-  /** Agrupa os itens por tema para o card não virar uma lista solta. */
-  groups: { title: string; items: PlanFeature[] }[]
+  /**
+   * Os poucos itens que realmente decidem a escolha do plano. O card mostra só isso —
+   * a lista exaustiva vive na tabela comparativa (COMPARISON_GROUPS) logo abaixo, para
+   * quem quiser conferir item a item.
+   */
+  highlights: PlanFeature[]
 }
 
 /** Desconto aplicado no ciclo anual (10%). */
@@ -59,41 +63,12 @@ export const PRICING_PLANS: PricingPlan[] = [
     priceCents: 12900,
     dentistLimit: 1,
     limitLabel: '1 dentista',
-    groups: [
-      {
-        title: 'Agenda e atendimento',
-        items: [
-          { label: 'Agenda com horário de início e fim', status: 'ready' },
-          { label: 'Status de agendado, concluído e cancelado', status: 'ready' },
-          { label: 'Observações por atendimento', status: 'ready' },
-          { label: 'Agendamentos ilimitados', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Pacientes e prontuário',
-        items: [
-          { label: 'Pacientes ilimitados', status: 'ready' },
-          { label: 'Ficha com contato, documento e nascimento', status: 'ready' },
-          { label: 'Prontuário digital com evolução por data', status: 'ready' },
-          { label: 'Anexo de exames, imagens e documentos', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Financeiro e gestão',
-        items: [
-          { label: 'Cobranças por paciente', status: 'ready' },
-          { label: 'Controle de pago, pendente e cancelado', status: 'ready' },
-          { label: 'Painel com receita do mês e consultas do dia', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Suporte e segurança',
-        items: [
-          { label: 'Banco de dados exclusivo da sua clínica', status: 'ready' },
-          { label: 'Backup automático diário', status: 'ready' },
-          { label: 'Suporte por e-mail', status: 'ready' }
-        ]
-      }
+    highlights: [
+      { label: 'Agenda, pacientes e prontuário digital', status: 'ready' },
+      { label: 'Pacientes e agendamentos ilimitados', status: 'ready' },
+      { label: 'Cobranças e receita do mês', status: 'ready' },
+      { label: 'Anexo de exames e documentos', status: 'ready' },
+      { label: 'Suporte por e-mail', status: 'ready' }
     ]
   },
   {
@@ -105,39 +80,12 @@ export const PRICING_PLANS: PricingPlan[] = [
     limitLabel: 'Até 3 dentistas',
     highlight: true,
     highlightLabel: 'Mais escolhido',
-    groups: [
-      {
-        title: 'Tudo do Essencial, mais',
-        items: [
-          { label: 'Até 3 dentistas com login próprio', status: 'ready' },
-          { label: 'Recepção e secretária sem custo extra', status: 'ready' },
-          { label: 'Perfis de administrador e equipe', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Equipe e operação',
-        items: [
-          { label: 'Histórico de quem atendeu cada paciente', status: 'ready' },
-          { label: 'Acesso simultâneo de vários usuários', status: 'ready' },
-          { label: 'Armazenamento ampliado de documentos', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Financeiro',
-        items: [
-          { label: 'Acompanhamento de pendências por paciente', status: 'ready' },
-          { label: 'Receita consolidada da clínica', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Suporte',
-        items: [
-          { label: 'Suporte prioritário por e-mail', status: 'ready' },
-          { label: 'Ajuda na migração dos seus dados', status: 'ready' },
-          { label: 'Agenda separada por profissional', status: 'soon' },
-          { label: 'Planos de tratamento e orçamentos', status: 'soon' }
-        ]
-      }
+    highlights: [
+      { label: 'Tudo do Essencial', status: 'ready' },
+      { label: 'Até 3 dentistas com login próprio', status: 'ready' },
+      { label: 'Recepção e secretária sem custo extra', status: 'ready' },
+      { label: 'Perfis de administrador e equipe', status: 'ready' },
+      { label: 'Suporte prioritário e ajuda na migração', status: 'ready' }
     ]
   },
   {
@@ -147,38 +95,12 @@ export const PRICING_PLANS: PricingPlan[] = [
     priceCents: 44900,
     dentistLimit: null,
     limitLabel: 'Dentistas ilimitados',
-    groups: [
-      {
-        title: 'Tudo do Profissional, mais',
-        items: [
-          { label: 'Dentistas e usuários ilimitados', status: 'ready' },
-          { label: 'Sem custo adicional por novo profissional', status: 'ready' },
-          { label: 'Armazenamento ampliado de arquivos', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Operação em escala',
-        items: [
-          { label: 'Base única para toda a equipe', status: 'ready' },
-          { label: 'Histórico completo por profissional', status: 'ready' },
-          { label: 'Painel consolidado da clínica', status: 'ready' }
-        ]
-      },
-      {
-        title: 'Implantação',
-        items: [
-          { label: 'Onboarding acompanhado pela nossa equipe', status: 'ready' },
-          { label: 'Atendimento prioritário', status: 'ready' }
-        ]
-      },
-      {
-        title: 'No roteiro do plano',
-        items: [
-          { label: 'Relatórios avançados e exportação', status: 'soon' },
-          { label: 'Gestão de comissões por profissional', status: 'soon' },
-          { label: 'Controle de estoque de materiais', status: 'soon' }
-        ]
-      }
+    highlights: [
+      { label: 'Tudo do Profissional', status: 'ready' },
+      { label: 'Dentistas e usuários ilimitados', status: 'ready' },
+      { label: 'Sem custo adicional por profissional', status: 'ready' },
+      { label: 'Armazenamento ampliado de arquivos', status: 'ready' },
+      { label: 'Onboarding acompanhado e atendimento prioritário', status: 'ready' }
     ]
   }
 ]

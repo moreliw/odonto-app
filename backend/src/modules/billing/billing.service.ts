@@ -95,6 +95,12 @@ const PLAN_CATALOG: Partial<Record<Plan, PlanPublicInfo>> = {
   }
 }
 
+/** Texto curto do limite de dentistas, exibido no card do plano. */
+function dentistLimitLabel(limit: number | null) {
+  if (limit === null) return 'Dentistas ilimitados'
+  return limit === 1 ? '1 dentista' : `Até ${limit} dentistas`
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -135,8 +141,15 @@ export class BillingService {
     private readonly auth: AuthService
   ) {}
 
+  /** Catálogo exibido no cadastro público, já com o limite de dentistas — é o que diferencia um plano do outro. */
   getPublicPlans() {
-    return Object.values(PLAN_CATALOG).filter(plan => plan.code !== 'FREE' || this.freeSignupsEnabled())
+    return Object.values(PLAN_CATALOG)
+      .filter(plan => plan.code !== 'FREE' || this.freeSignupsEnabled())
+      .map(plan => ({
+        ...plan,
+        dentistLimit: DENTIST_LIMIT_BY_PLAN[plan.code],
+        limitLabel: dentistLimitLabel(DENTIST_LIMIT_BY_PLAN[plan.code])
+      }))
   }
 
   private freeSignupsEnabled() {
@@ -297,14 +310,28 @@ export class BillingService {
     if (!plan) throw new BadRequestException('Plano inválido.')
 
     const clinicName = input.clinicName.trim()
-    if (clinicName.length < 3) throw new BadRequestException('Informe o nome da clínica.')
+    if (clinicName.length < 3) {
+      throw new BadRequestException({
+        message: 'Informe o nome da clínica.',
+        errors: { clinicName: 'Informe o nome da clínica.' }
+      })
+    }
     const adminEmail = input.adminEmail.trim().toLowerCase()
     const adminPassword = input.adminPassword
-    if (adminPassword.length < 8) throw new BadRequestException('A senha deve ter no mínimo 8 caracteres.')
+    if (adminPassword.length < 8) {
+      throw new BadRequestException({
+        message: 'A senha deve ter no mínimo 8 caracteres.',
+        errors: { adminPassword: 'A senha deve ter no mínimo 8 caracteres.' }
+      })
+    }
 
     const existingIdentity = await this.master.loginIdentity.findUnique({ where: { email: adminEmail } })
     if (existingIdentity) {
-      throw new ConflictException('Este e-mail já está vinculado a uma clínica. Faça login para continuar.')
+      // `errors` permite o formulário destacar exatamente o campo do e-mail em vez de só mostrar um alerta solto.
+      throw new ConflictException({
+        message: 'Este e-mail já está vinculado a uma clínica. Faça login para continuar.',
+        errors: { adminEmail: 'Este e-mail já está vinculado a uma clínica.' }
+      })
     }
 
     const requestedSubdomain = await this.resolveSubdomain(clinicName, input.requestedSubdomain)

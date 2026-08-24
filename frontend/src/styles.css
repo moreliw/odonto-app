@@ -1125,6 +1125,11 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   font-size: 11px; font-weight: 700;
 }
 .billing-plan-card h3 { font-family: var(--font-display); font-size: 17px; color: var(--text); margin-bottom: 4px; }
+.billing-plan-limit {
+  display: inline-flex; align-self: flex-start; padding: 4px 10px; border-radius: 99px;
+  background: var(--primary-50); color: var(--primary-700);
+  font-size: 12px; font-weight: 650;
+}
 .billing-plan-price { display: flex; align-items: baseline; gap: 4px; margin: 14px 0; }
 .billing-plan-price strong { font-family: var(--font-display); font-size: 26px; color: var(--text); }
 .billing-plan-price span { font-size: 13px; }
@@ -1503,13 +1508,67 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .lp-app-chartbars { display: flex; align-items: flex-end; gap: 9px; height: 108px; padding: 14px; }
 .lp-app-chartbars i { flex: 1; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, var(--brand), #7ea8f8); }
 
-/* ─────────────── Faixa de confiança ─────────────── */
-.lp-trust { padding: 40px 0; background: var(--white); border-block: 1px solid var(--line); }
-.lp-trust-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px; }
-.lp-trust-item { display: flex; gap: 11px; align-items: flex-start; }
-.lp-trust-icon { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; fill: none; stroke: var(--brand); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.lp-trust-item h3 { font-size: 14px; margin-bottom: 3px; }
-.lp-trust-item p { font-size: 13px; color: var(--fg-2); line-height: 1.45; }
+/* ─────────────── Faixa de confiança (bento) ─────────────── */
+.lp-trust { padding: 56px 0; background: var(--white); border-block: 1px solid var(--line); }
+
+/* Seis colunas: o painel principal ocupa metade em duas linhas e os três menores
+   preenchem a outra metade — o mesmo ritmo assimétrico de um bento. */
+.lp-bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+.lp-bento-tile {
+  position: relative; overflow: hidden;
+  padding: 26px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg);
+}
+.lp-bento-tile--hero {
+  grid-column: span 3; grid-row: span 2;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 28px;
+  padding: 32px; border-color: transparent; background: var(--brand); color: #fff;
+}
+.lp-bento-tile--wide { grid-column: span 3; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.lp-bento-tile--mini { grid-column: span 1; display: grid; place-content: center; text-align: center; background: #fff; }
+.lp-bento-tile--pair { grid-column: span 2; display: flex; align-items: center; gap: 14px; }
+
+/* Hachura diagonal esmaecida por uma máscara radial a partir do canto superior direito. */
+.lp-bento-texture {
+  position: absolute; inset: 0; pointer-events: none; opacity: .22;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .9) 0 1px, transparent 1px 11px);
+  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 100% 0%, #000 55%, transparent 105%);
+  mask-image: radial-gradient(ellipse 80% 55% at 100% 0%, #000 55%, transparent 105%);
+}
+.lp-bento-tile--hero > * { position: relative; }
+
+.lp-bento-eyebrow {
+  display: inline-block; margin-bottom: 14px; padding: 5px 12px; border-radius: 99px;
+  background: rgba(255, 255, 255, .16); color: rgba(255, 255, 255, .82);
+  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+}
+.lp-bento-figure {
+  font-family: var(--font-display); font-size: clamp(40px, 5vw, 62px);
+  line-height: 1; letter-spacing: -0.035em; color: inherit;
+}
+.lp-bento-figure--sm { font-size: clamp(24px, 2.6vw, 32px); color: var(--ink); }
+.lp-bento-hero-text { max-width: 30ch; font-size: 14.5px; line-height: 1.55; color: rgba(255, 255, 255, .78); }
+.lp-bento-label { font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--fg-2); }
+.lp-bento-tile--wide .lp-bento-label { margin-bottom: 6px; }
+.lp-bento-tile--mini .lp-bento-label { margin-top: 6px; }
+.lp-bento-tile-title { font-family: var(--font-display); font-size: 16px; color: var(--ink); margin-bottom: 4px; }
+.lp-bento-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 220px; }
+.lp-bento-chips li {
+  padding: 5px 11px; border-radius: 99px; background: #fff; border: 1px solid var(--line);
+  font-size: 12px; font-weight: 600; color: var(--fg-2);
+}
+.lp-bento-badge {
+  display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
+  border-radius: 50%; background: #fff; box-shadow: var(--sh-sm);
+}
+.lp-bento-badge svg { width: 21px; height: 21px; fill: none; stroke: var(--brand); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.lp-trust-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
+.lp-trust-pills li {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 15px; border: 1px solid var(--line); border-radius: 99px; background: var(--bg);
+  font-size: 13px; font-weight: 600; color: var(--fg-2);
+}
+.lp-trust-pills svg { width: 16px; height: 16px; fill: none; stroke: var(--brand); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ─────────────── Problema x Solução ─────────────── */
 .lp-problem { background: var(--bg); }
@@ -1523,33 +1582,62 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .lp-compare-card--solution { background: linear-gradient(165deg, var(--brand-soft), #fff 60%); border-color: rgba(37, 99, 235, .22); }
 .lp-compare-card--solution svg { stroke: var(--teal); }
 
-/* ─────────────── Tabs de produto ─────────────── */
-.lp-tabs {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;
-  padding: 6px; margin: 0 auto 36px; width: fit-content; max-width: 100%;
-  background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+/* ─────────────── Carrossel das telas do sistema ─────────────── */
+.cf { width: 100%; }
+.cf-frame {
+  /* O padding vertical mantém as sombras dos cards fora do recorte do overflow. */
+  padding: 34px 0; overflow: hidden; outline: none; cursor: grab;
+  perspective: calc(var(--cf-card) * 2.4);
+  /* O arrasto horizontal é nosso; a página continua rolando na vertical. */
+  touch-action: pan-y;
+  --cf-card: clamp(280px, 46vw, 520px);
 }
-.lp-tab {
-  min-height: 44px; padding: 10px 20px; border: 0; border-radius: 10px;
+.cf-frame:active { cursor: grabbing; }
+.cf-frame:focus-visible { outline: 3px solid rgba(37, 99, 235, .45); outline-offset: 4px; border-radius: var(--r); }
+.cf-stage { position: relative; height: calc(var(--cf-card) * 0.78); transform-style: preserve-3d; user-select: none; }
+.cf-card {
+  position: absolute; left: 50%; top: 0; width: var(--cf-card);
+  border-radius: var(--r); overflow: hidden; will-change: transform, opacity;
+  box-shadow: 0 28px 56px -26px rgba(15, 23, 42, .45);
+}
+.cf-card .lp-app { height: 100%; }
+.cf-card .lp-app-body { min-height: 0; height: 100%; }
+
+.cf-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 6px; }
+.cf-arrow {
+  display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px;
+  border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--fg-2);
+  cursor: pointer; transition: color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.cf-arrow:hover { color: var(--brand); border-color: var(--brand); box-shadow: var(--sh-sm); }
+.cf-arrow svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.cf-dots {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;
+  padding: 5px; border: 1px solid var(--line); border-radius: 13px; background: var(--bg);
+}
+.cf-dot {
+  min-height: 38px; padding: 9px 17px; border: 0; border-radius: 9px;
   background: transparent; color: var(--fg-2);
-  font: 600 15px/1 var(--font-body); cursor: pointer;
+  font: 600 14.5px/1 var(--font-body); cursor: pointer;
   transition: background .18s ease, color .18s ease, box-shadow .18s ease;
 }
-.lp-tab:hover { color: var(--brand); }
-.lp-tab.is-active { background: #fff; color: var(--brand); box-shadow: var(--sh-sm); }
+.cf-dot:hover { color: var(--brand); }
+.cf-dot.is-active { background: #fff; color: var(--brand); box-shadow: var(--sh-sm); }
 
-.lp-tab-panel {
-  display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
-  gap: clamp(28px, 4vw, 56px); align-items: center;
-  animation: lp-fade .35s ease both;
-}
-.lp-tab-panel h3 { font-size: clamp(22px, 2.4vw, 30px); margin-bottom: 14px; }
-.lp-tab-copy > p { color: var(--fg-2); font-size: 17px; }
-.lp-outcomes { margin-top: 22px; display: grid; gap: 11px; }
+.lp-tab-caption { max-width: 620px; margin: 34px auto 0; text-align: center; }
+.lp-tab-caption h3 { font-size: clamp(22px, 2.4vw, 30px); margin-bottom: 14px; }
+.lp-tab-caption > p { color: var(--fg-2); font-size: 17px; }
+.lp-outcomes { margin-top: 22px; display: inline-grid; gap: 11px; text-align: left; }
 .lp-outcomes li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
 .lp-outcomes svg { width: 19px; height: 19px; flex: 0 0 auto; margin-top: 2px; fill: none; stroke: var(--teal); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 
-@keyframes lp-fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* ─────────────── Revelação ao rolar (diretiva appReveal) ─────────────── */
+.reveal {
+  opacity: 0; transform: translateY(22px);
+  transition: opacity .6s cubic-bezier(.22, 1, .36, 1), transform .6s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-revealed { opacity: 1; transform: none; }
 
 /* ─────────────── Blocos de funcionalidades ─────────────── */
 .lp-features { background: var(--bg); }
@@ -1673,18 +1761,18 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .lp-plan-price strong { font-family: var(--font-display); font-size: 40px; color: var(--ink); letter-spacing: -0.03em; }
 .lp-plan-period { font-size: 15px; color: var(--fg-2); }
 .lp-plan-price-note { font-size: 13px; color: var(--fg-2); margin-bottom: 22px; }
-.lp-plan-groups { margin-top: 26px; display: grid; gap: 20px; }
-.lp-plan-group h4 {
-  font-family: var(--font-body); font-size: 12px; font-weight: 700;
-  letter-spacing: .07em; text-transform: uppercase; color: var(--fg-2);
-  margin-bottom: 11px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+/* Só os itens que decidem a escolha do plano. O detalhamento vive na tabela comparativa. */
+.lp-plan-highlights { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); display: grid; gap: 12px; }
+.lp-plan-highlights li { display: flex; gap: 9px; align-items: flex-start; flex-wrap: wrap; font-size: 14.5px; line-height: 1.45; }
+.lp-plan-highlights svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; fill: none; stroke: var(--teal); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.lp-plan-highlights li span:first-of-type { flex: 1; min-width: 0; }
+.lp-plan-highlights li.is-soon { color: var(--fg-2); }
+.lp-plan-highlights li.is-soon svg { stroke: #94a3b8; }
+.lp-plan-compare-link {
+  display: inline-block; margin-top: 20px; color: var(--brand);
+  font-size: 13.5px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px;
 }
-.lp-plan-group ul { display: grid; gap: 10px; }
-.lp-plan-group li { display: flex; gap: 9px; align-items: flex-start; flex-wrap: wrap; font-size: 14.5px; line-height: 1.45; }
-.lp-plan-group svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; fill: none; stroke: var(--teal); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
-.lp-plan-group li span:first-of-type { flex: 1; min-width: 0; }
-.lp-plan-group li.is-soon { color: var(--fg-2); }
-.lp-plan-group li.is-soon svg { stroke: #94a3b8; }
+.lp-plan-compare-link:hover { color: var(--brand-dark); }
 
 /* ─── Tabela comparativa ─── */
 .lp-compare-wrap { margin-top: 64px; }
@@ -1783,7 +1871,6 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 
 /* ═══════════════ Responsivo ═══════════════ */
 @media (max-width: 1180px) {
-  .lp-trust-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
   .lp-benefit-grid, .lp-commitment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -1793,7 +1880,6 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   .lp-burger { display: inline-flex; }
   .lp-hero-grid { grid-template-columns: 1fr; }
   .lp-hero-visual { order: 2; }
-  .lp-tab-panel { grid-template-columns: 1fr; }
   .lp-feature-row { grid-template-columns: 1fr; }
   .lp-feature-row.is-reversed .lp-feature-copy { order: 0; }
   .lp-roadmap-inner { grid-template-columns: 1fr; }
@@ -1810,11 +1896,19 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   .lp-header-actions .lp-btn-ghost { display: none; }
   .lp-compare { grid-template-columns: 1fr; }
   .lp-audience-grid, .lp-step-grid, .lp-security-grid { grid-template-columns: 1fr; }
-  .lp-trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lp-benefit-grid, .lp-commitment-grid { grid-template-columns: 1fr; }
-  .lp-tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; scrollbar-width: none; }
-  .lp-tabs::-webkit-scrollbar { display: none; }
-  .lp-tab { flex: 0 0 auto; }
+  /* O bento vira uma coluna única: os spans de 6 colunas não cabem em telas estreitas. */
+  .lp-bento { grid-template-columns: 1fr; }
+  .lp-bento-tile--hero,
+  .lp-bento-tile--wide,
+  .lp-bento-tile--mini,
+  .lp-bento-tile--pair { grid-column: auto; grid-row: auto; }
+  .lp-bento-tile--mini { place-content: start; text-align: left; }
+  .lp-bento-chips { justify-content: flex-start; max-width: none; }
+  .cf-dots { width: 100%; overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; scrollbar-width: none; }
+  .cf-dots::-webkit-scrollbar { display: none; }
+  .cf-dot { flex: 0 0 auto; }
+  .cf-arrow { display: none; }
   .lp-hero-cta .lp-btn { width: 100%; }
   .lp-final-cta .lp-btn { width: 100%; }
   .lp-app-body { grid-template-columns: 44px minmax(0, 1fr); }
@@ -1859,7 +1953,8 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
-  .lp-tab-panel { animation: none; }
+  /* A revelação ao rolar é enfeite: sem movimento, o conteúdo já nasce visível. */
+  .reveal { opacity: 1; transform: none; }
 }
 
 /* Onboarding — transição entre checkout e o painel autenticado */

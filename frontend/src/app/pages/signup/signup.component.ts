@@ -12,7 +12,26 @@ type Plan = {
   currency: string
   description: string
   features: string[]
+  /** Limite de dentistas do plano (`null` = ilimitado). Vem do backend junto do catálogo. */
+  dentistLimit?: number | null
+  limitLabel?: string
 }
+
+type FieldName = 'clinicName' | 'adminName' | 'adminEmail' | 'adminPassword' | 'adminPasswordConfirm'
+
+/** Id do input de cada campo — usado para focar o primeiro erro depois de um submit inválido. */
+const FIELD_INPUT_IDS: Record<FieldName, string> = {
+  clinicName: 'clinic-name',
+  adminName: 'admin-name',
+  adminEmail: 'admin-email',
+  adminPassword: 'admin-password',
+  adminPasswordConfirm: 'admin-password-confirm'
+}
+
+/** Ordem em que os campos aparecem no formulário — define qual erro recebe o foco. */
+const FIELD_ORDER: FieldName[] = ['clinicName', 'adminName', 'adminEmail', 'adminPassword', 'adminPasswordConfirm']
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 @Component({
   selector: 'app-signup',
@@ -77,47 +96,74 @@ type Plan = {
               </div>
             }
 
-            <form class="signup-form" (ngSubmit)="submit()">
-              <div class="login-field signup-field--full">
+            <form class="signup-form" (ngSubmit)="submit()" novalidate>
+              <div class="login-field signup-field--full" [class.is-invalid]="showError('clinicName')">
                 <label for="clinic-name">Nome da clínica</label>
                 <div class="login-input-wrap">
                   <svg class="login-input-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h1M14 9h1M9 13h1M14 13h1M10 21v-4h4v4" />
                   </svg>
-                  <input id="clinic-name" [(ngModel)]="clinicName" name="clinicName" placeholder="Ex.: Clínica Sorriso Ideal" autocomplete="organization" required />
+                  <input
+                    id="clinic-name" [(ngModel)]="clinicName" name="clinicName" placeholder="Ex.: Clínica Sorriso Ideal"
+                    autocomplete="organization"
+                    [attr.aria-invalid]="showError('clinicName') || null"
+                    [attr.aria-describedby]="showError('clinicName') ? 'err-clinicName' : null"
+                    (blur)="onBlur('clinicName')" (ngModelChange)="onFieldChange('clinicName')"
+                  />
                 </div>
+                @if (showError('clinicName')) { <small class="signup-field-error" id="err-clinicName">{{ fieldErrors.clinicName }}</small> }
               </div>
 
-              <div class="login-field">
+              <div class="login-field" [class.is-invalid]="showError('adminName')">
                 <label for="admin-name">Nome do responsável</label>
                 <div class="login-input-wrap">
                   <svg class="login-input-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="8" r="4" />
                     <path d="M4 21a8 8 0 0 1 16 0" />
                   </svg>
-                  <input id="admin-name" [(ngModel)]="adminName" name="adminName" placeholder="Ex.: Dra. Ana Souza" autocomplete="name" required />
+                  <input
+                    id="admin-name" [(ngModel)]="adminName" name="adminName" placeholder="Ex.: Dra. Ana Souza" autocomplete="name"
+                    [attr.aria-invalid]="showError('adminName') || null"
+                    [attr.aria-describedby]="showError('adminName') ? 'err-adminName' : null"
+                    (blur)="onBlur('adminName')" (ngModelChange)="onFieldChange('adminName')"
+                  />
                 </div>
+                @if (showError('adminName')) { <small class="signup-field-error" id="err-adminName">{{ fieldErrors.adminName }}</small> }
               </div>
 
-              <div class="login-field">
+              <div class="login-field" [class.is-invalid]="showError('adminEmail')">
                 <label for="admin-email">E-mail do administrador</label>
                 <div class="login-input-wrap">
                   <svg class="login-input-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="5" width="18" height="14" rx="2" />
                     <path d="m3 7 9 6 9-6" />
                   </svg>
-                  <input id="admin-email" [(ngModel)]="adminEmail" name="adminEmail" type="email" placeholder="admin@clinica.com" autocomplete="email" autocapitalize="none" spellcheck="false" required />
+                  <input
+                    id="admin-email" [(ngModel)]="adminEmail" name="adminEmail" type="email" placeholder="admin@clinica.com"
+                    autocomplete="email" autocapitalize="none" spellcheck="false"
+                    [attr.aria-invalid]="showError('adminEmail') || null"
+                    [attr.aria-describedby]="showError('adminEmail') ? 'err-adminEmail' : null"
+                    (blur)="onBlur('adminEmail')" (ngModelChange)="onFieldChange('adminEmail')"
+                  />
                 </div>
+                @if (showError('adminEmail')) { <small class="signup-field-error" id="err-adminEmail">{{ fieldErrors.adminEmail }}</small> }
+                @else { <small class="signup-field-hint">É com este e-mail que você vai entrar no sistema.</small> }
               </div>
 
-              <div class="login-field">
+              <div class="login-field" [class.is-invalid]="showError('adminPassword')">
                 <label for="admin-password">Senha</label>
                 <div class="login-input-wrap">
                   <svg class="login-input-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="4" y="10" width="16" height="11" rx="2" />
                     <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                   </svg>
-                  <input id="admin-password" [(ngModel)]="adminPassword" name="adminPassword" [type]="showPwd ? 'text' : 'password'" minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password" required />
+                  <input
+                    id="admin-password" [(ngModel)]="adminPassword" name="adminPassword" [type]="showPwd ? 'text' : 'password'"
+                    placeholder="Mínimo 8 caracteres" autocomplete="new-password"
+                    [attr.aria-invalid]="showError('adminPassword') || null"
+                    [attr.aria-describedby]="showError('adminPassword') ? 'err-adminPassword' : null"
+                    (blur)="onBlur('adminPassword')" (ngModelChange)="onFieldChange('adminPassword')"
+                  />
                   <button type="button" class="login-password-action" (click)="showPwd = !showPwd" [attr.aria-label]="showPwd ? 'Ocultar senha' : 'Mostrar senha'" [attr.aria-pressed]="showPwd">
                     @if (showPwd) {
                       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><path d="M1 1l22 22" /></svg>
@@ -126,16 +172,23 @@ type Plan = {
                     }
                   </button>
                 </div>
+                @if (showError('adminPassword')) { <small class="signup-field-error" id="err-adminPassword">{{ fieldErrors.adminPassword }}</small> }
               </div>
 
-              <div class="login-field">
+              <div class="login-field" [class.is-invalid]="showError('adminPasswordConfirm')">
                 <label for="admin-password-confirm">Confirmar senha</label>
                 <div class="login-input-wrap">
                   <svg class="login-input-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="4" y="10" width="16" height="11" rx="2" />
                     <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                   </svg>
-                  <input id="admin-password-confirm" [(ngModel)]="adminPasswordConfirm" name="adminPasswordConfirm" [type]="showPasswordConfirm ? 'text' : 'password'" minlength="8" placeholder="Repita a senha" autocomplete="new-password" required />
+                  <input
+                    id="admin-password-confirm" [(ngModel)]="adminPasswordConfirm" name="adminPasswordConfirm"
+                    [type]="showPasswordConfirm ? 'text' : 'password'" placeholder="Repita a senha" autocomplete="new-password"
+                    [attr.aria-invalid]="showError('adminPasswordConfirm') || null"
+                    [attr.aria-describedby]="showError('adminPasswordConfirm') ? 'err-adminPasswordConfirm' : null"
+                    (blur)="onBlur('adminPasswordConfirm')" (ngModelChange)="onFieldChange('adminPasswordConfirm')"
+                  />
                   <button type="button" class="login-password-action" (click)="showPasswordConfirm = !showPasswordConfirm" [attr.aria-label]="showPasswordConfirm ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'" [attr.aria-pressed]="showPasswordConfirm">
                     @if (showPasswordConfirm) {
                       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><path d="M1 1l22 22" /></svg>
@@ -144,9 +197,7 @@ type Plan = {
                     }
                   </button>
                 </div>
-                @if (adminPasswordConfirm && adminPassword !== adminPasswordConfirm) {
-                  <small class="signup-password-error">As senhas não coincidem.</small>
-                }
+                @if (showError('adminPasswordConfirm')) { <small class="signup-field-error" id="err-adminPasswordConfirm">{{ fieldErrors.adminPasswordConfirm }}</small> }
               </div>
 
               <fieldset class="signup-plan-field signup-field--full">
@@ -170,10 +221,12 @@ type Plan = {
                       </span>
                       <span class="price">
                         @if (p.priceCents === 0) { Gratuito }
-                        @else if (billingInterval === 'YEAR') { R$ {{ formatPrice(displayPriceCents(p)) }}<small>/ano</small> }
-                        @else { R$ {{ formatPrice(p.priceCents) }}<small>/mês</small> }
+                        @else { R$ {{ formatPrice(monthlyEquivalentCents(p)) }}<small>/mês</small> }
                       </span>
-                      <span class="signup-plan-description">{{ p.description }}</span>
+                      @if (billingInterval === 'YEAR' && p.priceCents > 0) {
+                        <span class="signup-plan-billed">R$ {{ formatPrice(p.annualPriceCents) }} cobrados por ano</span>
+                      }
+                      <span class="signup-plan-limit">{{ planLimitLabel(p) }}</span>
                     </button>
                   }
                 </div>
@@ -232,7 +285,9 @@ export class SignupComponent implements OnInit {
       annualPriceCents: 139320,
       currency: 'BRL',
       description: 'Para profissionais autônomos e consultórios menores.',
-      features: []
+      features: [],
+      dentistLimit: 1,
+      limitLabel: '1 dentista'
     },
     {
       code: 'PRO',
@@ -241,7 +296,9 @@ export class SignupComponent implements OnInit {
       annualPriceCents: 301320,
       currency: 'BRL',
       description: 'Para consultórios e clínicas que trabalham com equipe.',
-      features: []
+      features: [],
+      dentistLimit: 3,
+      limitLabel: 'Até 3 dentistas'
     },
     {
       code: 'CLINIC',
@@ -250,13 +307,20 @@ export class SignupComponent implements OnInit {
       annualPriceCents: 484920,
       currency: 'BRL',
       description: 'Para clínicas com vários profissionais e volume alto de atendimento.',
-      features: []
+      features: [],
+      dentistLimit: null,
+      limitLabel: 'Dentistas ilimitados'
     }
   ]
   billingInterval: 'MONTH' | 'YEAR' = 'MONTH'
   saving = false
   success = false
   message = ''
+
+  fieldErrors: Partial<Record<FieldName, string>> = {}
+  private touched: Partial<Record<FieldName, boolean>> = {}
+  /** Depois da primeira tentativa de envio, todos os erros aparecem — não só os dos campos já visitados. */
+  private submitted = false
 
   get isFreePlan() {
     return this.plans.find(item => item.code === this.plan)?.priceCents === 0
@@ -269,12 +333,115 @@ export class SignupComponent implements OnInit {
     })
   }
 
-  /** Preço exibido no card do plano, considerando o ciclo escolhido. */
-  displayPriceCents(p: Plan) {
-    return this.billingInterval === 'YEAR' ? p.annualPriceCents : p.priceCents
+  /**
+   * Todo card mostra o valor por mês, mesmo no ciclo anual — comparar "R$ 129/mês" com
+   * "R$ 1.393,20/ano" obriga o cliente a fazer conta de cabeça. O total anual aparece
+   * como linha de apoio logo abaixo.
+   */
+  monthlyEquivalentCents(p: Plan) {
+    return this.billingInterval === 'YEAR' ? Math.round(p.annualPriceCents / 12) : p.priceCents
+  }
+
+  planLimitLabel(p: Plan) {
+    if (p.limitLabel) return p.limitLabel
+    if (p.dentistLimit === null) return 'Dentistas ilimitados'
+    if (typeof p.dentistLimit === 'number') return p.dentistLimit === 1 ? '1 dentista' : `Até ${p.dentistLimit} dentistas`
+    return p.description
   }
 
   constructor(private readonly http: HttpClient, private readonly route: ActivatedRoute) {}
+
+  /* ── Validação ────────────────────────────────────────────── */
+
+  /** Regra de cada campo. Devolve a mensagem do erro ou `null` quando está válido. */
+  private ruleFor(field: FieldName): string | null {
+    switch (field) {
+      case 'clinicName': {
+        const value = this.clinicName.trim()
+        if (!value) return 'Informe o nome da clínica.'
+        if (value.length < 3) return 'O nome da clínica precisa ter ao menos 3 caracteres.'
+        return null
+      }
+      case 'adminName': {
+        const value = this.adminName.trim()
+        if (!value) return 'Informe o nome do responsável.'
+        if (value.length < 2) return 'O nome do responsável precisa ter ao menos 2 caracteres.'
+        return null
+      }
+      case 'adminEmail': {
+        const value = this.adminEmail.trim()
+        if (!value) return 'Informe o e-mail do administrador.'
+        if (!EMAIL_RE.test(value)) return 'Informe um e-mail válido — por exemplo, nome@clinica.com.'
+        return null
+      }
+      case 'adminPassword': {
+        if (!this.adminPassword) return 'Crie uma senha de acesso.'
+        if (this.adminPassword.length < 8) return 'A senha precisa ter ao menos 8 caracteres.'
+        return null
+      }
+      case 'adminPasswordConfirm': {
+        if (!this.adminPasswordConfirm) return 'Repita a senha para confirmar.'
+        if (this.adminPasswordConfirm !== this.adminPassword) return 'As senhas não coincidem.'
+        return null
+      }
+    }
+  }
+
+  private setFieldError(field: FieldName, message: string | null) {
+    if (message) this.fieldErrors[field] = message
+    else delete this.fieldErrors[field]
+  }
+
+  showError(field: FieldName) {
+    return Boolean(this.fieldErrors[field]) && (this.submitted || this.touched[field] === true)
+  }
+
+  onBlur(field: FieldName) {
+    this.touched[field] = true
+    this.setFieldError(field, this.ruleFor(field))
+  }
+
+  onFieldChange(field: FieldName) {
+    // Enquanto digita, o erro só é reavaliado se o campo já falhou uma vez — assim a
+    // mensagem some no instante em que o valor fica correto, sem acusar erro cedo demais.
+    if (this.submitted || this.touched[field]) this.setFieldError(field, this.ruleFor(field))
+    // Confirmar a senha depende da senha: mudar uma revalida a outra.
+    if (field === 'adminPassword' && (this.submitted || this.touched.adminPasswordConfirm)) {
+      this.setFieldError('adminPasswordConfirm', this.ruleFor('adminPasswordConfirm'))
+    }
+    if (this.message && !this.success) this.message = ''
+  }
+
+  /** Revalida tudo e devolve o primeiro campo inválido, ou `null` se o formulário está pronto. */
+  private firstInvalidField(): FieldName | null {
+    let first: FieldName | null = null
+    for (const field of FIELD_ORDER) {
+      const error = this.ruleFor(field)
+      this.setFieldError(field, error)
+      if (error && !first) first = field
+    }
+    return first
+  }
+
+  private focusField(field: FieldName) {
+    const input = document.getElementById(FIELD_INPUT_IDS[field]) as HTMLInputElement | null
+    input?.focus()
+    input?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }
+
+  /** Erros vindos do backend (`{ errors: { campo: mensagem } }`) aplicados aos campos correspondentes. */
+  private applyServerErrors(errors: unknown): FieldName | null {
+    if (!errors || typeof errors !== 'object') return null
+    let first: FieldName | null = null
+    for (const field of FIELD_ORDER) {
+      const message = (errors as Record<string, unknown>)[field]
+      if (typeof message === 'string' && message) {
+        this.setFieldError(field, message)
+        if (!first) first = field
+      }
+    }
+    return first
+  }
 
   ngOnInit() {
     this.route.queryParamMap.subscribe(params => {
@@ -290,7 +457,12 @@ export class SignupComponent implements OnInit {
     })
     this.http.get<Plan[]>('/api/public/plans').subscribe({
       next: plans => {
-        if (Array.isArray(plans) && plans.length) this.plans = plans
+        if (!Array.isArray(plans) || !plans.length) return
+        this.plans = plans
+        // `?plan=` pode apontar para um plano que este ambiente não vende (ex.: FREE fora
+        // do interno). Sem essa reconciliação o cartão fica sem seleção visível e o
+        // checkout só falharia no backend.
+        if (!plans.some(p => p.code === this.plan)) this.plan = plans[0].code
       },
       error: () => {
         this.success = false
@@ -302,11 +474,20 @@ export class SignupComponent implements OnInit {
   submit() {
     if (this.saving) return
     this.message = ''
-    if (this.adminPassword !== this.adminPasswordConfirm) {
+    this.submitted = true
+
+    const invalid = this.firstInvalidField()
+    if (invalid) {
       this.success = false
-      this.message = 'As senhas não coincidem.'
+      const count = Object.keys(this.fieldErrors).length
+      this.message =
+        count === 1
+          ? this.fieldErrors[invalid] || 'Revise o formulário para continuar.'
+          : `Revise ${count} campos destacados para continuar.`
+      this.focusField(invalid)
       return
     }
+
     this.saving = true
     this.http
       .post<{ checkoutUrl: string }>('/api/public/billing/checkout-session', {
@@ -330,10 +511,24 @@ export class SignupComponent implements OnInit {
         error: err => {
           this.saving = false
           this.success = false
+
+          const serverField = this.applyServerErrors(err?.error?.errors)
+          if (serverField) this.focusField(serverField)
+
           const msg = err.error?.message
           const asText = typeof err?.error === 'string' ? err.error : ''
-          if (err?.status === 502 || /502 Bad Gateway/i.test(asText)) {
-            this.message = 'Serviço de pagamento indisponível (502). Verifique se o backend está online e tente novamente.'
+          if (err?.status === 0) {
+            this.message = 'Não conseguimos falar com o servidor. Verifique sua conexão e tente novamente.'
+            return
+          }
+          if (err?.status === 429) {
+            this.message = 'Muitas tentativas seguidas. Aguarde um minuto e tente novamente.'
+            return
+          }
+          if (err?.status === 502 || err?.status === 503 || /502 Bad Gateway/i.test(asText)) {
+            this.message =
+              (typeof msg === 'string' && msg) ||
+              'Serviço de pagamento indisponível no momento. Tente novamente em instantes.'
             return
           }
           this.message = Array.isArray(msg) ? msg.join(' ') : msg || 'Falha ao iniciar o pagamento.'

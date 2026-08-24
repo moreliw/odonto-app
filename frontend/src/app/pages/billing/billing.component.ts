@@ -5,7 +5,17 @@ import { ActivatedRoute, Router } from '@angular/router'
 import { ToastService } from '../../services/toast.service'
 
 type PlanCode = 'FREE' | 'BASIC' | 'PRO' | 'CLINIC'
-type PublicPlan = { code: PlanCode; name: string; priceCents: number; currency: string; description: string; features: string[] }
+type PublicPlan = {
+  code: PlanCode
+  name: string
+  priceCents: number
+  currency: string
+  description: string
+  features: string[]
+  /** Limite de dentistas (`null` = ilimitado) — é o que de fato separa um plano do outro. */
+  dentistLimit?: number | null
+  limitLabel?: string
+}
 type Subscription = {
   plan: PlanCode
   planLabel: string
@@ -145,7 +155,7 @@ const STATUS_CLASS: Record<string, string> = {
             <article class="billing-plan-card" [class.is-current]="subscription?.plan === p.code">
               @if (p.code === 'PRO') { <span class="billing-plan-badge">Mais escolhido</span> }
               <h3>{{ p.name }}</h3>
-              <p class="muted text-sm">{{ p.description }}</p>
+              <p class="billing-plan-limit">{{ planLimitLabel(p) }}</p>
               <p class="billing-plan-price"><strong>R$ {{ (p.priceCents / 100).toFixed(2) }}</strong><span class="muted">/mês</span></p>
               <ul class="billing-plan-features">
                 @for (f of p.features; track f) {
@@ -235,6 +245,13 @@ export class BillingComponent implements OnInit {
       },
       error: () => { this.confirming = false }
     })
+  }
+
+  planLimitLabel(p: PublicPlan) {
+    if (p.limitLabel) return p.limitLabel
+    if (p.dentistLimit === null) return 'Dentistas ilimitados'
+    if (typeof p.dentistLimit === 'number') return p.dentistLimit === 1 ? '1 dentista' : `Até ${p.dentistLimit} dentistas`
+    return p.description
   }
 
   isDowngrade(target: PlanCode) {

@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common'
 import { Logger } from 'nestjs-pino'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { HttpAllExceptionsFilter } from './http-exception.filter'
+import { validationExceptionFactory } from './validation-errors'
 import helmet from 'helmet'
 
 async function bootstrap() {
@@ -13,7 +14,7 @@ async function bootstrap() {
   app.useLogger(app.get(Logger))
   app.setGlobalPrefix('api')
   app.useGlobalFilters(new HttpAllExceptionsFilter())
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, exceptionFactory: validationExceptionFactory }))
   if (process.env.APP_ENV !== 'production') {
     const config = new DocumentBuilder().setTitle('Odonto SaaS API').setVersion('0.1.0').addBearerAuth().build()
     const document = SwaggerModule.createDocument(app, config)

@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common'
-import { Component, HostListener, OnDestroy, OnInit, inject, signal, DOCUMENT } from '@angular/core'
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal, DOCUMENT } from '@angular/core'
 import { Meta, Title } from '@angular/platform-browser'
 import { RouterLink } from '@angular/router'
+import { CoverflowComponent } from '../../components/coverflow/coverflow.component'
+import { RevealDirective } from '../../components/reveal/reveal.directive'
 import {
   ANNUAL_BILLING_ENABLED,
   ANNUAL_DISCOUNT,
@@ -26,7 +28,7 @@ import {
 
 @Component({
     selector: 'app-landing',
-    imports: [CommonModule, RouterLink],
+    imports: [CommonModule, RouterLink, CoverflowComponent, RevealDirective],
     template: `
     <!-- Sprite de ícones: definido uma vez, referenciado via <use> -->
     <svg class="lp-sprite" aria-hidden="true" focusable="false">
@@ -166,18 +168,55 @@ import {
           </div>
         </section>
 
-        <!-- ──────────────────── FAIXA DE CONFIANÇA ──────────────────── -->
+        <!-- ──────────────────── FAIXA DE CONFIANÇA (BENTO) ──────────────────── -->
         <section class="lp-trust" aria-label="Por que o OdontoApp">
-          <div class="lp-shell lp-trust-grid">
-            @for (item of trustItems; track item.title) {
-              <article class="lp-trust-item">
-                <svg class="lp-trust-icon" aria-hidden="true" viewBox="0 0 24 24"><use [attr.href]="'#i-' + item.icon"/></svg>
+          <div class="lp-shell">
+            <div class="lp-bento">
+              <article class="lp-bento-tile lp-bento-tile--hero" appReveal>
+                <span class="lp-bento-texture" aria-hidden="true"></span>
+                <div class="lp-bento-hero-top">
+                  <span class="lp-bento-eyebrow">Teste grátis</span>
+                  <p class="lp-bento-figure">7 dias</p>
+                </div>
+                <p class="lp-bento-hero-text">
+                  Sem cartão de crédito. Crie sua clínica em minutos e use todos os módulos do sistema.
+                </p>
+              </article>
+
+              <article class="lp-bento-tile lp-bento-tile--wide" [appReveal]="80">
                 <div>
-                  <h3>{{ item.title }}</h3>
-                  <p>{{ item.description }}</p>
+                  <p class="lp-bento-label">Tudo em um só lugar</p>
+                  <p class="lp-bento-figure lp-bento-figure--sm">4 módulos</p>
+                </div>
+                <ul class="lp-bento-chips">
+                  <li>Agenda</li><li>Pacientes</li><li>Prontuário</li><li>Financeiro</li>
+                </ul>
+              </article>
+
+              <article class="lp-bento-tile lp-bento-tile--mini" [appReveal]="140">
+                <p class="lp-bento-figure lp-bento-figure--sm">100%</p>
+                <p class="lp-bento-label">Online</p>
+              </article>
+
+              <article class="lp-bento-tile lp-bento-tile--pair" [appReveal]="200">
+                <span class="lp-bento-badge" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+                </span>
+                <div>
+                  <p class="lp-bento-tile-title">Dados isolados</p>
+                  <p class="lp-bento-label">Um banco exclusivo por clínica</p>
                 </div>
               </article>
-            }
+            </div>
+
+            <ul class="lp-trust-pills">
+              @for (item of trustItems; track item.title) {
+                <li>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><use [attr.href]="'#i-' + item.icon"/></svg>
+                  <span>{{ item.title }}</span>
+                </li>
+              }
+            </ul>
           </div>
         </section>
 
@@ -189,7 +228,7 @@ import {
               <h2>Sua clínica não precisa depender de planilhas, papéis e processos manuais.</h2>
             </header>
             <div class="lp-compare">
-              <article class="lp-compare-card lp-compare-card--problem">
+              <article class="lp-compare-card lp-compare-card--problem" appReveal>
                 <h3>Como costuma ser hoje</h3>
                 <ul>
                   @for (p of problems; track p) {
@@ -197,7 +236,7 @@ import {
                   }
                 </ul>
               </article>
-              <article class="lp-compare-card lp-compare-card--solution">
+              <article class="lp-compare-card lp-compare-card--solution" [appReveal]="120">
                 <h3>Com o OdontoApp</h3>
                 <ul>
                   @for (s of solutions; track s) {
@@ -218,49 +257,28 @@ import {
               <p class="lp-section-sub">Navegue pelas áreas do sistema e veja o que cada uma resolve na rotina.</p>
             </header>
 
-            <div class="lp-tabs" role="tablist" aria-label="Áreas do sistema">
-              @for (tab of productTabs; track tab.id) {
-                <button
-                  type="button"
-                  role="tab"
-                  class="lp-tab"
-                  [class.is-active]="activeTab() === tab.id"
-                  [attr.aria-selected]="activeTab() === tab.id"
-                  [attr.tabindex]="activeTab() === tab.id ? 0 : -1"
-                  [id]="'tab-' + tab.id"
-                  [attr.aria-controls]="'panel-' + tab.id"
-                  (click)="selectTab(tab.id)"
-                  (keydown)="onTabKeydown($event)"
-                >
-                  {{ tab.label }}
-                </button>
-              }
-            </div>
+            <app-coverflow
+              [slides]="carouselSlides"
+              [slideTemplate]="appPreview"
+              [index]="activeTabIndex()"
+              (indexChange)="selectTabByIndex($event)"
+              label="Telas do sistema"
+            />
 
-            @for (tab of productTabs; track tab.id) {
-              @if (activeTab() === tab.id) {
-                <div
-                  class="lp-tab-panel"
-                  role="tabpanel"
-                  [id]="'panel-' + tab.id"
-                  [attr.aria-labelledby]="'tab-' + tab.id"
-                  tabindex="0"
-                >
-                  <div class="lp-tab-copy">
-                    <h3>{{ tab.title }}</h3>
-                    <p>{{ tab.description }}</p>
-                    <ul class="lp-outcomes">
-                      @for (o of tab.outcomes; track o) {
-                        <li><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#i-check"/></svg><span>{{ o }}</span></li>
-                      }
-                    </ul>
-                  </div>
-                  <div class="lp-tab-visual">
-                    <ng-container [ngTemplateOutlet]="appPreview" [ngTemplateOutletContext]="{ $implicit: tab.id }" />
-                  </div>
-                </div>
-              }
-            }
+            <div
+              class="lp-tab-caption"
+              role="tabpanel"
+              [id]="'cf-panel-' + activeTab()"
+              [attr.aria-labelledby]="'cf-tab-' + activeTab()"
+            >
+              <h3>{{ activeTabData().title }}</h3>
+              <p>{{ activeTabData().description }}</p>
+              <ul class="lp-outcomes">
+                @for (o of activeTabData().outcomes; track o) {
+                  <li><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#i-check"/></svg><span>{{ o }}</span></li>
+                }
+              </ul>
+            </div>
           </div>
         </section>
 
@@ -268,7 +286,7 @@ import {
         <section class="lp-section lp-features">
           <div class="lp-shell">
             @for (block of featureBlocks; track block.title; let i = $index) {
-              <article class="lp-feature-row" [class.is-reversed]="i % 2 === 1">
+              <article class="lp-feature-row" [class.is-reversed]="i % 2 === 1" appReveal>
                 <div class="lp-feature-copy">
                   <p class="lp-eyebrow">{{ block.eyebrow }}</p>
                   <h3>{{ block.title }}</h3>
@@ -320,8 +338,8 @@ import {
               <h2>Mais organização para a equipe. Mais tranquilidade para o dentista.</h2>
             </header>
             <div class="lp-benefit-grid">
-              @for (b of benefits; track b.title) {
-                <article class="lp-benefit-card">
+              @for (b of benefits; track b.title; let i = $index) {
+                <article class="lp-benefit-card" [appReveal]="i * 90">
                   <span class="lp-benefit-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><use [attr.href]="'#i-' + b.icon"/></svg>
                   </span>
@@ -341,8 +359,8 @@ import {
               <h2>Feito para a rotina de quem atende</h2>
             </header>
             <div class="lp-audience-grid">
-              @for (a of audiences; track a.title) {
-                <article class="lp-audience-card">
+              @for (a of audiences; track a.title; let i = $index) {
+                <article class="lp-audience-card" [appReveal]="i * 90">
                   <h3>{{ a.title }}</h3>
                   <p>{{ a.description }}</p>
                 </article>
@@ -359,8 +377,8 @@ import {
               <h2>Comece em três passos</h2>
             </header>
             <ol class="lp-step-grid">
-              @for (s of steps; track s.number) {
-                <li class="lp-step">
+              @for (s of steps; track s.number; let i = $index) {
+                <li class="lp-step" [appReveal]="i * 110">
                   <span class="lp-step-num" aria-hidden="true">{{ s.number }}</span>
                   <h3>{{ s.title }}</h3>
                   <p>{{ s.description }}</p>
@@ -384,8 +402,8 @@ import {
               </p>
             </header>
             <div class="lp-security-grid">
-              @for (s of securityItems; track s.title) {
-                <article class="lp-security-card">
+              @for (s of securityItems; track s.title; let i = $index) {
+                <article class="lp-security-card" [appReveal]="i * 70">
                   <svg class="lp-security-icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#i-lock"/></svg>
                   <h3>{{ s.title }}</h3>
                   <p>{{ s.description }}</p>
@@ -439,8 +457,8 @@ import {
             }
 
             <div class="lp-plan-grid">
-              @for (plan of plans; track plan.code) {
-                <article class="lp-plan" [class.is-featured]="plan.highlight">
+              @for (plan of plans; track plan.code; let i = $index) {
+                <article class="lp-plan" [class.is-featured]="plan.highlight" [appReveal]="i * 100">
                   @if (plan.highlight) {
                     <span class="lp-plan-badge">{{ plan.highlightLabel }}</span>
                   }
@@ -460,9 +478,9 @@ import {
                     <span class="lp-plan-period">/mês</span>
                   </p>
                   @if (annual()) {
-                    <p class="lp-plan-price-note">R$ {{ formatCents(plan.priceCents) }}/mês no plano mensal</p>
+                    <p class="lp-plan-price-note">R$ {{ annualTotal(plan) }} cobrados uma vez por ano</p>
                   } @else {
-                    <p class="lp-plan-price-note">R$ {{ annualPrice(plan) }}/mês no plano anual</p>
+                    <p class="lp-plan-price-note">R$ {{ annualPrice(plan) }}/mês pagando anual — economize R$ {{ annualSaving(plan) }}/ano</p>
                   }
 
                   <a
@@ -471,26 +489,21 @@ import {
                     [class.lp-btn-outline]="!plan.highlight"
                     routerLink="/signup"
                     [queryParams]="{ plan: plan.code, cycle: annual() && annualEnabled ? 'annual' : 'monthly' }"
-                  >Começar agora</a>
+                  >Começar teste grátis</a>
 
-                  <div class="lp-plan-groups">
-                    @for (group of plan.groups; track group.title) {
-                      <div class="lp-plan-group">
-                        <h4>{{ group.title }}</h4>
-                        <ul>
-                          @for (f of group.items; track f.label) {
-                            <li [class.is-soon]="f.status === 'soon'">
-                              <svg aria-hidden="true" viewBox="0 0 24 24">
-                                <use [attr.href]="f.status === 'ready' ? '#i-check' : '#i-clock'"/>
-                              </svg>
-                              <span>{{ f.label }}</span>
-                              @if (f.status === 'soon') { <span class="lp-soon">Em breve</span> }
-                            </li>
-                          }
-                        </ul>
-                      </div>
+                  <ul class="lp-plan-highlights">
+                    @for (f of plan.highlights; track f.label) {
+                      <li [class.is-soon]="f.status === 'soon'">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                          <use [attr.href]="f.status === 'ready' ? '#i-check' : '#i-clock'"/>
+                        </svg>
+                        <span>{{ f.label }}</span>
+                        @if (f.status === 'soon') { <span class="lp-soon">Em breve</span> }
+                      </li>
                     }
-                  </div>
+                  </ul>
+
+                  <a class="lp-plan-compare-link" href="#comparativo">Ver todos os recursos</a>
                 </article>
               }
             </div>
@@ -502,7 +515,7 @@ import {
             </ul>
 
             <!-- Comparativo completo -->
-            <div class="lp-compare-wrap">
+            <div class="lp-compare-wrap" id="comparativo">
               <h3 class="lp-compare-title">Comparativo completo dos planos</h3>
               <div class="lp-table-scroll" tabindex="0" role="region" aria-label="Tabela comparativa de planos">
                 <table class="lp-table">
@@ -789,6 +802,11 @@ export class LandingComponent implements OnInit, OnDestroy {
   readonly annual = signal(false)
   readonly openFaq = signal<number | null>(0)
 
+  /** As mesmas áreas do sistema, no formato que o carrossel consome. */
+  readonly carouselSlides = PRODUCT_TABS.map(tab => ({ id: tab.id, label: tab.label }))
+  readonly activeTabIndex = computed(() => this.productTabs.findIndex(tab => tab.id === this.activeTab()))
+  readonly activeTabData = computed(() => this.productTabs.find(tab => tab.id === this.activeTab()) ?? this.productTabs[0])
+
   readonly demoMailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Quero agendar uma demonstração do OdontoApp')}`
   readonly specialistMailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Quero falar com um especialista do OdontoApp')}`
   readonly supportMailto = `mailto:${CONTACT_EMAIL}`
@@ -806,26 +824,9 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.menuOpen.set(false)
   }
 
-  selectTab(id: ProductTabId) {
-    this.activeTab.set(id)
-  }
-
-  /** Setas esquerda/direita, Home e End navegam entre as tabs (padrão WAI-ARIA). */
-  onTabKeydown(event: KeyboardEvent) {
-    const keys = ['ArrowRight', 'ArrowLeft', 'Home', 'End']
-    if (!keys.includes(event.key)) return
-    event.preventDefault()
-
-    const ids = this.productTabs.map(t => t.id)
-    const current = ids.indexOf(this.activeTab())
-    let next = current
-    if (event.key === 'ArrowRight') next = (current + 1) % ids.length
-    if (event.key === 'ArrowLeft') next = (current - 1 + ids.length) % ids.length
-    if (event.key === 'Home') next = 0
-    if (event.key === 'End') next = ids.length - 1
-
-    this.activeTab.set(ids[next])
-    this.document.getElementById('tab-' + ids[next])?.focus()
+  selectTabByIndex(index: number) {
+    const tab = this.productTabs[index]
+    if (tab) this.activeTab.set(tab.id)
   }
 
   setAnnual(value: boolean) {
@@ -836,13 +837,27 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.openFaq.update(current => (current === index ? null : index))
   }
 
+  /** Formato monetário pt-BR: o total anual passa de mil, então precisa do separador de milhar. */
   formatCents(cents: number) {
-    return (cents / 100).toFixed(2).replace('.', ',')
+    return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
   /** 10% de desconto arredondado para baixo na dezena de centavos (79,90 → 71,90). */
+  private annualMonthlyCents(plan: PricingPlan) {
+    return Math.floor((plan.priceCents * (1 - ANNUAL_DISCOUNT)) / 10) * 10
+  }
+
   annualPrice(plan: PricingPlan) {
-    return this.formatCents(Math.floor((plan.priceCents * (1 - ANNUAL_DISCOUNT)) / 10) * 10)
+    return this.formatCents(this.annualMonthlyCents(plan))
+  }
+
+  /** Valor cobrado de uma vez no ciclo anual — espelha annualTotalCents do backend. */
+  annualTotal(plan: PricingPlan) {
+    return this.formatCents(this.annualMonthlyCents(plan) * 12)
+  }
+
+  annualSaving(plan: PricingPlan) {
+    return this.formatCents((plan.priceCents - this.annualMonthlyCents(plan)) * 12)
   }
 
   displayPrice(plan: PricingPlan) {

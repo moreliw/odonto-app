@@ -7,37 +7,37 @@ import { BillingService } from './billing.service'
 import { Throttle } from '@nestjs/throttler'
 
 class CreateCheckoutSessionDto {
-  @IsString()
-  @MinLength(3)
-  @MaxLength(120)
+  @IsString({ message: 'Informe o nome da clínica.' })
+  @MinLength(3, { message: 'O nome da clínica precisa ter ao menos 3 caracteres.' })
+  @MaxLength(120, { message: 'O nome da clínica pode ter no máximo 120 caracteres.' })
   clinicName: string
 
   @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(80)
+  @IsString({ message: 'Informe o nome do responsável.' })
+  @MinLength(2, { message: 'O nome do responsável precisa ter ao menos 2 caracteres.' })
+  @MaxLength(80, { message: 'O nome do responsável pode ter no máximo 80 caracteres.' })
   adminName?: string
 
   @IsOptional()
-  @IsString()
-  @MinLength(3)
-  @MaxLength(40)
-  @Matches(/^[a-z0-9-]+$/)
+  @IsString({ message: 'Endereço da clínica inválido.' })
+  @MinLength(3, { message: 'O endereço da clínica precisa ter ao menos 3 caracteres.' })
+  @MaxLength(40, { message: 'O endereço da clínica pode ter no máximo 40 caracteres.' })
+  @Matches(/^[a-z0-9-]+$/, { message: 'Use apenas letras minúsculas, números e hífen no endereço da clínica.' })
   subdomain?: string
 
-  @IsEmail()
+  @IsEmail({}, { message: 'Informe um e-mail válido.' })
   adminEmail: string
 
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @IsString({ message: 'Informe uma senha.' })
+  @MinLength(8, { message: 'A senha precisa ter ao menos 8 caracteres.' })
+  @MaxLength(128, { message: 'A senha pode ter no máximo 128 caracteres.' })
   adminPassword: string
 
-  @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
+  @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any, { message: 'Escolha um plano válido.' })
   plan: Plan
 
   @IsOptional()
-  @IsEnum(['MONTH', 'YEAR'] as any)
+  @IsEnum(['MONTH', 'YEAR'] as any, { message: 'Ciclo de cobrança inválido.' })
   billingInterval?: BillingInterval
 }
 
