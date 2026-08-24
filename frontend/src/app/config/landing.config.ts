@@ -165,20 +165,9 @@ export const COMPARISON_GROUPS: { title: string; rows: ComparisonRow[] }[] = [
    Faixa de confiança (logo abaixo do hero)
    ───────────────────────────────────────────────────────────── */
 
-export interface TrustItem {
-  title: string
-  description: string
-  icon: string
-}
-
-export const TRUST_ITEMS: TrustItem[] = [
-  { icon: 'cloud', title: '100% online', description: 'Acesse de onde estiver, sem servidor local.' },
-  { icon: 'shield', title: 'Dados protegidos', description: 'Cada clínica em um banco isolado.' },
-  { icon: 'devices', title: 'Computador ou celular', description: 'Interface adaptada a qualquer tela.' },
-  { icon: 'bolt', title: 'Implantação simples', description: 'Sua conta é criada em poucos minutos.' },
-  { icon: 'chat', title: 'Suporte próximo', description: 'Atendimento humano durante a configuração.' },
-  { icon: 'download', title: 'Sem instalação', description: 'Funciona direto no navegador.' }
-]
+/* A faixa de confiança virou a grade bento no template da landing: os mesmos
+   argumentos aparecem lá em quatro blocos, sem a lista de seis itens que
+   competia com o restante da dobra. */
 
 /* ─────────────────────────────────────────────────────────────
    Problema x Solução

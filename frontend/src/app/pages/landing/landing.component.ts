@@ -21,7 +21,6 @@ import {
   SECURITY_ITEMS,
   SOLUTIONS,
   STEPS,
-  TRUST_ITEMS,
   type PricingPlan,
   type ProductTabId
 } from '../../config/landing.config'
@@ -108,9 +107,17 @@ import {
       <main id="conteudo">
         <!-- ───────────────────────── HERO ───────────────────────── -->
         <section class="lp-hero">
+          <div class="lp-hero-bg" aria-hidden="true">
+            <span class="lp-hero-glow lp-hero-glow--a"></span>
+            <span class="lp-hero-glow lp-hero-glow--b"></span>
+            <span class="lp-hero-wordmark">OdontoApp</span>
+          </div>
           <div class="lp-shell lp-hero-grid">
             <div class="lp-hero-copy">
-              <p class="lp-eyebrow">Sistema de gestão para clínicas odontológicas</p>
+              <p class="lp-hero-badge">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><use href="#i-tooth"/></svg>
+                Sistema de gestão para clínicas odontológicas
+              </p>
               <h1>
                 Menos tarefas manuais.<br />
                 <span class="lp-hl">Mais tempo para cuidar dos seus pacientes.</span>
@@ -134,6 +141,23 @@ import {
             </div>
 
             <figure class="lp-hero-visual">
+              <!-- Cartões soltos sobre a moldura: dão profundidade e mostram dois momentos
+                   reais do produto (confirmação do paciente e receita do mês). -->
+              <div class="lp-hero-float lp-hero-float--confirm" aria-hidden="true">
+                <span class="lp-hero-float-icon is-ok"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span>
+                <div>
+                  <strong>Consulta confirmada</strong>
+                  <small>Ana Ribeiro · 09:30</small>
+                </div>
+              </div>
+              <div class="lp-hero-float lp-hero-float--revenue" aria-hidden="true">
+                <span class="lp-hero-float-icon"><svg viewBox="0 0 24 24"><use href="#i-chart"/></svg></span>
+                <div>
+                  <small>Receita do mês</small>
+                  <strong>R$ 18.240</strong>
+                </div>
+              </div>
+
               <div class="lp-app" aria-hidden="true">
                 <div class="lp-app-bar"><i></i><i></i><i></i><span>OdontoApp</span></div>
                 <div class="lp-app-body">
@@ -193,12 +217,7 @@ import {
                 </ul>
               </article>
 
-              <article class="lp-bento-tile lp-bento-tile--mini" [appReveal]="140">
-                <p class="lp-bento-figure lp-bento-figure--sm">100%</p>
-                <p class="lp-bento-label">Online</p>
-              </article>
-
-              <article class="lp-bento-tile lp-bento-tile--pair" [appReveal]="200">
+              <article class="lp-bento-tile lp-bento-tile--pair" [appReveal]="140">
                 <span class="lp-bento-badge" aria-hidden="true">
                   <svg viewBox="0 0 24 24"><use href="#i-shield"/></svg>
                 </span>
@@ -207,16 +226,17 @@ import {
                   <p class="lp-bento-label">Um banco exclusivo por clínica</p>
                 </div>
               </article>
-            </div>
 
-            <ul class="lp-trust-pills">
-              @for (item of trustItems; track item.title) {
-                <li>
-                  <svg aria-hidden="true" viewBox="0 0 24 24"><use [attr.href]="'#i-' + item.icon"/></svg>
-                  <span>{{ item.title }}</span>
-                </li>
-              }
-            </ul>
+              <article class="lp-bento-tile lp-bento-tile--pair" [appReveal]="200">
+                <span class="lp-bento-badge" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><use href="#i-devices"/></svg>
+                </span>
+                <div>
+                  <p class="lp-bento-tile-title">Computador ou celular</p>
+                  <p class="lp-bento-label">Sem instalar nada</p>
+                </div>
+              </article>
+            </div>
           </div>
         </section>
 
@@ -778,7 +798,6 @@ export class LandingComponent implements OnInit, OnDestroy {
   private previousDescription = ''
   private injectedNodes: HTMLElement[] = []
 
-  readonly trustItems = TRUST_ITEMS
   readonly problems = PROBLEMS
   readonly solutions = SOLUTIONS
   readonly productTabs = PRODUCT_TABS
