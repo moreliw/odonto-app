@@ -223,7 +223,7 @@ export class PatientsComponent implements OnInit {
   form: Partial<Patient> = {}
 
   constructor(private http: HttpClient, private toast: ToastService, auth: AuthService, private route: ActivatedRoute, private router: Router) {
-    this.isAdmin = auth.isAdmin()
+    this.isAdmin = auth.hasPermission('PATIENTS_MANAGE')
   }
 
   openPatient(patient: Patient) {

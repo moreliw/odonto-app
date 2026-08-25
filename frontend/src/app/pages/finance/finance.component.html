@@ -194,7 +194,7 @@
     <section class="finance-panel card" role="tabpanel">
       <header class="finance-panel-head">
         <div><h2>Cobranças e recebimentos</h2><p>Controle valores pagos, pendentes, parciais e vencidos.</p></div>
-        <button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">+ Nova cobrança</button>
+        @if (isAdmin) { <button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">+ Nova cobrança</button> }
       </header>
       <div class="finance-filterbar">
         <div class="finance-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" type="search" [(ngModel)]="search" (ngModelChange)="searchChanged()" placeholder="Buscar paciente ou cobrança" aria-label="Buscar cobranças" /></div>
@@ -218,15 +218,15 @@
                   <td><div class="audit-cell"><strong>{{ invoice.createdByName || 'Sistema' }}</strong><span>{{ invoice.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
                   <td><div class="audit-cell"><strong>{{ invoice.updatedByName || invoice.createdByName || 'Sistema' }}</strong><span>{{ invoice.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
                 }
-                <td><div class="finance-row-actions"><button type="button" (click)="openInvoiceDetails(invoice)">Detalhes</button>@if (!['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="finance-action-primary" (click)="openPayment(invoice)">Receber</button> <button type="button" (click)="openInvoice(invoice)" title="Editar cobrança">Editar</button> <button type="button" (click)="cancelInvoice(invoice)" title="Cancelar cobrança">Cancelar</button> } @if (isAdmin && invoice.paidAmount === 0) { <button type="button" class="danger" (click)="deleteInvoice(invoice)" title="Excluir cobrança">Excluir</button> }</div></td>
+                <td><div class="finance-row-actions"><button type="button" (click)="openInvoiceDetails(invoice)">Detalhes</button>@if (isAdmin && !['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="finance-action-primary" (click)="openPayment(invoice)">Receber</button> <button type="button" (click)="openInvoice(invoice)" title="Editar cobrança">Editar</button> <button type="button" (click)="cancelInvoice(invoice)" title="Cancelar cobrança">Cancelar</button> } @if (isAdmin && invoice.paidAmount === 0) { <button type="button" class="danger" (click)="deleteInvoice(invoice)" title="Excluir cobrança">Excluir</button> }</div></td>
               </tr>
-            } @empty { <tr><td [attr.colspan]="isAdmin ? 9 : 7"><div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>Crie uma cobrança ou ajuste os filtros.</span><button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">Criar cobrança</button></div></td></tr> }
+            } @empty { <tr><td [attr.colspan]="isAdmin ? 9 : 7"><div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>{{ isAdmin ? 'Crie uma cobrança ou ajuste os filtros.' : 'Ajuste os filtros para consultar outros lançamentos.' }}</span>@if (isAdmin) { <button class="btn btn-primary btn-sm" type="button" (click)="openInvoice()">Criar cobrança</button> }</div></td></tr> }
           </tbody>
         </table>
       </div>
       <div class="finance-mobile-records">
         @for (invoice of pagedInvoices; track invoice.id) {
-          <article><header><div class="finance-person"><span>{{ invoice.patient.name[0] }}</span><div><strong>{{ invoice.patient.name }}</strong><small>{{ invoice.description }}</small></div></div><span class="finance-status" [class]="statusClass(invoice.effectiveStatus)">{{ statusText(invoice.effectiveStatus) }}</span></header><div class="finance-record-values"><div><span>Total</span><strong>{{ money(invoice.amount) }}</strong></div><div><span>Saldo</span><strong>{{ money(invoice.remainingAmount) }}</strong></div><div><span>Vence em</span><strong>{{ invoice.dueDate | date:'dd/MM' }}</strong></div></div><footer>@if (!['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="btn btn-primary btn-sm" (click)="openPayment(invoice)">Registrar recebimento</button> }<button type="button" class="btn btn-outline btn-sm" (click)="openInvoiceDetails(invoice)">Detalhes</button></footer></article>
+          <article><header><div class="finance-person"><span>{{ invoice.patient.name[0] }}</span><div><strong>{{ invoice.patient.name }}</strong><small>{{ invoice.description }}</small></div></div><span class="finance-status" [class]="statusClass(invoice.effectiveStatus)">{{ statusText(invoice.effectiveStatus) }}</span></header><div class="finance-record-values"><div><span>Total</span><strong>{{ money(invoice.amount) }}</strong></div><div><span>Saldo</span><strong>{{ money(invoice.remainingAmount) }}</strong></div><div><span>Vence em</span><strong>{{ invoice.dueDate | date:'dd/MM' }}</strong></div></div><footer>@if (isAdmin && !['PAID','CANCELLED'].includes(invoice.status)) { <button type="button" class="btn btn-primary btn-sm" (click)="openPayment(invoice)">Registrar recebimento</button> }<button type="button" class="btn btn-outline btn-sm" (click)="openInvoiceDetails(invoice)">Detalhes</button></footer></article>
         } @empty { <div class="finance-empty"><strong>Nenhuma cobrança encontrada</strong><span>Crie uma cobrança para começar.</span></div> }
       </div>
       <app-pagination [page]="invoicePage" [pageSize]="pageSize" [totalItems]="invoices.length" (pageChange)="invoicePage=$event"></app-pagination>
@@ -358,7 +358,7 @@
       <section class="finance-detail-section"><header><div><strong>Histórico de recebimentos</strong><span>Pagamentos registrados nesta cobrança.</span></div></header>@if (selectedInvoice.payments.length) { <div class="finance-payment-history">@for (payment of selectedInvoice.payments; track payment.id) { <div><span class="finance-movement-icon">↗</span><div><strong>{{ money(payment.amount) }}</strong><small>{{ payment.paidAt | date:'dd/MM/yyyy' }} · {{ methodText(payment.method) }}</small></div>@if (isAdmin) { <button type="button" (click)="removeInvoicePayment(payment.id)" [disabled]="saving">Estornar</button> }</div> }</div> } @else { <div class="finance-empty compact"><strong>Nenhum recebimento registrado</strong><span>O saldo permanece totalmente em aberto.</span></div> }</section>
       @if (selectedInvoice.notes) { <section class="finance-detail-notes"><strong>Observações</strong><p>{{ selectedInvoice.notes }}</p></section> }
     </div>
-    <footer><button class="btn btn-ghost" type="button" (click)="invoiceDetailsModal=false">Fechar</button>@if (!['PAID','CANCELLED'].includes(selectedInvoice.status)) { <button class="btn btn-primary" type="button" (click)="invoiceDetailsModal=false; openPayment(selectedInvoice)">Registrar recebimento</button> }</footer>
+    <footer><button class="btn btn-ghost" type="button" (click)="invoiceDetailsModal=false">Fechar</button>@if (isAdmin && !['PAID','CANCELLED'].includes(selectedInvoice.status)) { <button class="btn btn-primary" type="button" (click)="invoiceDetailsModal=false; openPayment(selectedInvoice)">Registrar recebimento</button> }</footer>
   </section>
 }
 

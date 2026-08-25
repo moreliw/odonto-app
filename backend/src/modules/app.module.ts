@@ -18,6 +18,7 @@ import { MasterAdminModule } from './master-admin/master-admin.module'
 import { BillingModule } from './billing/billing.module'
 import { FinancialModule } from './financial/financial.module'
 import { HealthController } from '../health.controller'
+import { AccessControlModule } from './access-control/access-control.module'
 
 @Module({
   imports: [
@@ -43,7 +44,8 @@ import { HealthController } from '../health.controller'
     DashboardModule,
     MasterAdminModule,
     BillingModule,
-    FinancialModule
+    FinancialModule,
+    AccessControlModule
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }]

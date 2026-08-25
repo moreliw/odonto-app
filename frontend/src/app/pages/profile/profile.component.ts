@@ -197,7 +197,7 @@ export class ProfileComponent implements OnInit {
   saveInfo() {
     if (!this.me || this.savingInfo) return
     this.savingInfo = true
-    this.http.patch<Me>(`/api/users/${this.me.id}`, { name: this.infoForm.name, email: this.infoForm.email }).subscribe({
+    this.http.patch<Me>('/api/users/me', { name: this.infoForm.name, email: this.infoForm.email }).subscribe({
       next: res => {
         this.savingInfo = false
         this.me = res
@@ -218,7 +218,7 @@ export class ProfileComponent implements OnInit {
       return
     }
     this.savingPwd = true
-    this.http.patch(`/api/users/${this.me.id}`, { password: this.pwdForm.newPassword }).subscribe({
+    this.http.patch('/api/users/me', { password: this.pwdForm.newPassword }).subscribe({
       next: () => {
         this.savingPwd = false
         this.pwdForm = { newPassword: '', confirm: '' }

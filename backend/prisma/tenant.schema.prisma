@@ -64,6 +64,8 @@ model User {
   updatedByName String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  /// Exceções de acesso por usuário em JSON: { "FINANCE_VIEW": true, ... }.
+  accessOverrides String?
   refreshTokens RefreshToken[]
   appointments  Appointment[]  @relation("DentistAppointments")
   invoices      Invoice[]      @relation("DentistInvoices")
@@ -164,6 +166,16 @@ model File {
   notes         String?
   uploadedByName String?
   createdAt   DateTime @default(now())
+}
+
+model RoleAccessPolicy {
+  id            String   @id @default(uuid())
+  role          Role     @unique
+  /// Lista JSON das permissões concedidas ao perfil.
+  permissions   String
+  updatedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Invoice {

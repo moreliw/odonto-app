@@ -71,6 +71,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   error = ''
   isDentist = false
   isAdmin = false
+  canManageAppointments = false
+  canManageFinance = false
+  canAccessPatients = false
+  canAccessRecords = false
+  canManagePatients = false
+  canAccessTeam = false
   hideValues = false
   greetingName = 'Administrador'
   globalSearch = ''
@@ -105,7 +111,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly toast: ToastService
   ) {
     this.isDentist = this.auth.isDentist()
-    this.isAdmin = this.auth.isAdmin()
+    this.isAdmin = this.auth.hasPermission('FINANCE_VIEW')
+    this.canManageAppointments = this.auth.hasPermission('APPOINTMENTS_MANAGE')
+    this.canManageFinance = this.auth.hasPermission('FINANCE_MANAGE')
+    this.canAccessPatients = this.auth.hasPermission('PATIENTS_VIEW')
+    this.canAccessRecords = this.auth.hasPermission('RECORDS_VIEW')
+    this.canManagePatients = this.auth.hasPermission('PATIENTS_MANAGE')
+    this.canAccessTeam = this.auth.hasPermission('TEAM_VIEW')
     const name = this.auth.getUser()?.name?.trim()
     this.greetingName = name ? name.split(/\s+/)[0] : (this.isDentist ? 'Doutor(a)' : 'Administrador')
   }

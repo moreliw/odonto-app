@@ -30,6 +30,9 @@ export class PatientDetailsComponent implements OnInit {
   uploadOpen = false
   isAdmin = false
   isDentist = false
+  canViewFinance = false
+  canManagePatients = false
+  canManageRecords = false
   patientForm: Partial<PatientProfile> = {}
   treatmentForm = this.emptyTreatment()
   clinicalForm = this.emptyClinical()
@@ -53,7 +56,13 @@ export class PatientDetailsComponent implements OnInit {
     private readonly http: HttpClient,
     private readonly toast: ToastService,
     auth: AuthService
-  ) { this.isAdmin = auth.isAdmin(); this.isDentist = auth.isDentist() }
+  ) {
+    this.isAdmin = auth.isAdmin()
+    this.isDentist = auth.isDentist()
+    this.canViewFinance = auth.hasPermission('FINANCE_VIEW')
+    this.canManagePatients = auth.hasPermission('PATIENTS_MANAGE')
+    this.canManageRecords = auth.hasPermission('RECORDS_MANAGE')
+  }
 
   ngOnInit() {
     this.route.paramMap.subscribe(params => {
@@ -63,7 +72,7 @@ export class PatientDetailsComponent implements OnInit {
   }
 
   get patient() { return this.workspace?.patient || null }
-  get tabs() { return this.baseTabs.filter(tab => tab.id !== 'financial' || this.isAdmin) }
+  get tabs() { return this.baseTabs.filter(tab => tab.id !== 'financial' || this.canViewFinance) }
   get now() { return Date.now() }
   get upcomingAppointments() { return (this.workspace?.appointments || []).filter(item => item.status === 'SCHEDULED' && +new Date(item.startTime) >= this.now).sort((a,b) => +new Date(a.startTime) - +new Date(b.startTime)) }
   get previousAppointments() { return (this.workspace?.appointments || []).filter(item => +new Date(item.startTime) < this.now || item.status === 'COMPLETED').sort((a,b) => +new Date(b.startTime) - +new Date(a.startTime)) }
@@ -104,7 +113,7 @@ export class PatientDetailsComponent implements OnInit {
     const appointmentEvents = this.workspace.appointments.map(item => ({ id:`appointment-${item.id}`, date:item.startTime, type:'APPOINTMENT', title:this.appointmentHistoryTitle(item), detail:`${this.professionalName(item)}${item.notes ? ' · ' + item.notes : ''}` }))
     const recordEvents = this.workspace.records.map(item => ({ id:`record-${item.id}`, date:item.content?.clinicalDate || item.createdAt, type:item.content?.type || 'RECORD', title:this.recordTitle(item), detail:item.createdByName || 'Sistema' }))
     const fileEvents = this.workspace.files.map(item => ({ id:`file-${item.id}`, date:item.createdAt, type:'FILE', title:`Arquivo adicionado: ${item.originalName || 'Documento'}`, detail:item.uploadedByName || 'Sistema' }))
-    const invoiceEvents = this.isAdmin ? this.workspace.invoices.map(item => ({ id:`invoice-${item.id}`, date:item.issuedAt, type:'FINANCIAL', title:`Cobrança ${this.invoiceStatusLabel(item.status).toLowerCase()}`, detail:item.description })) : []
+    const invoiceEvents = this.canViewFinance ? this.workspace.invoices.map(item => ({ id:`invoice-${item.id}`, date:item.issuedAt, type:'FINANCIAL', title:`Cobrança ${this.invoiceStatusLabel(item.status).toLowerCase()}`, detail:item.description })) : []
     const created = [{ id:`patient-${this.workspace.patient.id}`, date:this.workspace.patient.createdAt, type:'PATIENT', title:'Paciente cadastrado', detail:this.workspace.patient.createdByName || 'Sistema' }]
     return [...appointmentEvents,...recordEvents,...fileEvents,...invoiceEvents,...created].sort((a,b) => +new Date(b.date) - +new Date(a.date))
   }

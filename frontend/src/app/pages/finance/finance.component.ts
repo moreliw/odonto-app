@@ -23,6 +23,7 @@ import { paginate } from '../../utils/pagination'
 type FinanceTab = 'overview' | 'receivables' | 'expenses' | 'services'
 type PatientOption = { id: string; name: string; phone?: string | null }
 type DentistOption = { id: string; name: string }
+type FinanceOptions = { patients: PatientOption[]; dentists: DentistOption[] }
 type InvoiceFormItem = { serviceId: string; description: string; quantity: number; unitPrice: number }
 
 const STATUS_LABEL: Record<EffectiveStatus, string> = {
@@ -128,7 +129,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
     private readonly toast: ToastService,
     private readonly route: ActivatedRoute
   ) {
-    this.isAdmin = this.auth.isAdmin()
+    this.isAdmin = this.auth.hasPermission('FINANCE_MANAGE')
   }
 
   ngOnInit() {
@@ -176,20 +177,19 @@ export class FinanceComponent implements OnInit, OnDestroy {
       summary: this.api.summary(this.from, this.to),
       invoices: this.api.invoices({ status: this.activeTab === 'receivables' ? this.statusFilter : 'ALL' }),
       services: this.api.services(this.isAdmin),
-      patients: this.http.get<PatientOption[]>('/api/patients'),
+      options: this.isAdmin ? this.http.get<FinanceOptions>('/api/financial/options') : of({ patients:[], dentists:[] } as FinanceOptions),
       expenses: this.isAdmin ? this.api.expenses() : of([] as Expense[]),
-      dentists: this.isAdmin ? this.http.get<DentistOption[]>('/api/users?role=DENTIST') : of([] as DentistOption[])
     }).subscribe({
       next: result => {
         this.summary = result.summary
         this.invoices = result.invoices
         this.services = result.services
-        this.patients = result.patients
+        this.patients = result.options.patients
         this.expenses = result.expenses
         this.invoicePage = 1
         this.expensePage = 1
         this.servicePage = 1
-        this.dentists = result.dentists
+        this.dentists = result.options.dentists
         this.loading = false
       },
       error: error => {

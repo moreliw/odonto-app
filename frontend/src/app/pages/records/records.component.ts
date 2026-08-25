@@ -58,6 +58,7 @@ export class RecordsComponent implements OnInit {
   saving = false
   isAdmin = false
   isDentist = false
+  canManageRecords = false
 
   showEvolutionModal = false
   evolutionPage = 1
@@ -135,6 +136,7 @@ export class RecordsComponent implements OnInit {
   ngOnInit() {
     this.isAdmin = this.auth.isAdmin()
     this.isDentist = this.auth.isDentist()
+    this.canManageRecords = this.auth.hasPermission('RECORDS_MANAGE')
     this.appointmentId = this.route.snapshot.queryParamMap.get('appointmentId') || ''
     this.http.get<Patient[]>('/api/patients').subscribe({
       next: patients => {
@@ -251,12 +253,14 @@ export class RecordsComponent implements OnInit {
   }
 
   openEvolution(type = 'EVOLUTION') {
+    if (!this.canManageRecords) return
     this.evolutionForm = this.newEvolutionForm()
     this.evolutionForm.type = type
     this.showEvolutionModal = true
   }
 
   async saveEvolution() {
+    if (!this.canManageRecords) return
     const form = this.evolutionForm
     if (!this.selectedPatientId || ![form.subjective, form.objective, form.assessment, form.plan, form.procedure].some(value => value.trim())) {
       this.toast.error('Informe ao menos um dado clínico antes de salvar')
@@ -275,6 +279,7 @@ export class RecordsComponent implements OnInit {
   }
 
   async saveAnamnesis() {
+    if (!this.canManageRecords) return
     if (!this.selectedPatientId) return
     if (!this.anamnesisForm.chiefComplaint.trim()) {
       this.toast.error('Informe a queixa principal')
@@ -285,6 +290,7 @@ export class RecordsComponent implements OnInit {
   }
 
   async savePlan() {
+    if (!this.canManageRecords) return
     if (!this.planForm.title.trim() || !this.planForm.procedures.trim()) {
       this.toast.error('Informe o título e os procedimentos do plano')
       return
@@ -296,6 +302,7 @@ export class RecordsComponent implements OnInit {
   }
 
   async saveOdontogram() {
+    if (!this.canManageRecords) return
     if (!this.odontogramFindings.length) {
       this.toast.error('Adicione ao menos um achado clínico ao odontograma')
       return
@@ -340,6 +347,7 @@ export class RecordsComponent implements OnInit {
   }
 
   saveOdontogramFinding() {
+    if (!this.canManageRecords) return
     if (!this.selectedTeeth.length) {
       this.toast.error('Selecione um ou mais dentes para este achado')
       return
@@ -361,6 +369,7 @@ export class RecordsComponent implements OnInit {
   }
 
   editOdontogramFinding(finding: OdontogramFinding) {
+    if (!this.canManageRecords) return
     this.editingOdontogramFindingId = finding.id
     this.selectedTeeth = [...finding.teeth]
     this.odontogramFindingForm = {
@@ -372,6 +381,7 @@ export class RecordsComponent implements OnInit {
   }
 
   removeOdontogramFinding(id: string) {
+    if (!this.canManageRecords) return
     this.odontogramFindings = this.odontogramFindings.filter(finding => finding.id !== id)
     if (this.editingOdontogramFindingId === id) this.cancelOdontogramFindingEdit()
     this.odontogramDirty = true
@@ -484,6 +494,7 @@ export class RecordsComponent implements OnInit {
   }
 
   async uploadDocument() {
+    if (!this.canManageRecords) return
     if (!this.selectedFile || !this.selectedPatientId || !this.documentTitle.trim()) {
       this.toast.error('Selecione um arquivo e informe o título')
       return

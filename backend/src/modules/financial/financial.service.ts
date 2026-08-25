@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 
-export type FinancialRequester = { userId: string; email?: string; role: 'ADMIN' | 'DENTIST' | 'USER' }
+export type FinancialRequester = { userId: string; email?: string; name?: string; role: 'ADMIN' | 'DENTIST' | 'USER' }
 
 type ListFilters = { search?: string; status?: string; from?: string; to?: string }
 type ItemInput = { serviceId?: string; description?: string; quantity?: number; unitPrice?: number }
@@ -53,20 +53,29 @@ export class FinancialService {
   }
 
   private assertFinancialAccess(requester: FinancialRequester) {
-    if (!requester || requester.role !== 'ADMIN') {
-      throw new ForbiddenException('Apenas o administrador da clínica possui acesso ao financeiro.')
+    if (!requester) {
+      throw new ForbiddenException('Usuário não autenticado.')
     }
   }
 
   private assertAdmin(requester: FinancialRequester) {
-    if (requester?.role !== 'ADMIN') {
-      throw new ForbiddenException('Apenas o administrador da clínica pode realizar esta operação.')
+    if (!requester) {
+      throw new ForbiddenException('Usuário não autenticado.')
     }
   }
 
   private invoiceScope(requester: FinancialRequester) {
     this.assertFinancialAccess(requester)
-    return {}
+    return requester.role === 'DENTIST' ? { dentistId: requester.userId } : {}
+  }
+
+  async options(requester: FinancialRequester) {
+    this.assertAdmin(requester)
+    const [patients, dentists] = await Promise.all([
+      this.prisma.patient.findMany({ select: { id: true, name: true, phone: true }, orderBy: { name: 'asc' } }),
+      this.prisma.user.findMany({ where: { role: 'DENTIST', active: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } })
+    ])
+    return { patients, dentists }
   }
 
   private startOfToday() {
@@ -92,7 +101,7 @@ export class FinancialService {
   }
 
   private actor(requester: FinancialRequester) {
-    return requester.email?.trim() || 'Sistema'
+    return requester.name?.trim() || requester.email?.trim() || 'Sistema'
   }
 
   private paymentTotal(invoice: any) {
@@ -244,8 +253,8 @@ export class FinancialService {
     if (input.issuedAt !== undefined) data.issuedAt = new Date(input.issuedAt)
     if (input.dueDate !== undefined) data.dueDate = new Date(input.dueDate)
     if (input.notes !== undefined) data.notes = input.notes.trim() || null
-    if (requester.role === 'ADMIN' && input.dentistId !== undefined) data.dentistId = input.dentistId || null
-    if (requester.role === 'ADMIN' && input.dentistName !== undefined) data.dentistName = input.dentistName?.trim() || null
+    if (requester.role !== 'DENTIST' && input.dentistId !== undefined) data.dentistId = input.dentistId || null
+    if (requester.role !== 'DENTIST' && input.dentistName !== undefined) data.dentistName = input.dentistName?.trim() || null
     // Conta vinculada e nome livre são mutuamente exclusivos.
     if (data.dentistId) data.dentistName = null
     else if (data.dentistName) data.dentistId = null
@@ -422,7 +431,7 @@ export class FinancialService {
 
   async listServices(requester: FinancialRequester, includeInactive = false) {
     this.assertFinancialAccess(requester)
-    const where = requester.role === 'ADMIN' && includeInactive ? {} : { active: true }
+    const where = requester.role !== 'DENTIST' && includeInactive ? {} : { active: true }
     const services = await this.prisma.clinicService.findMany({ where, orderBy: [{ active: 'desc' }, { name: 'asc' }] })
     return services.map((service: any) => ({ ...service, price: this.money(service.price) }))
   }
@@ -478,7 +487,7 @@ export class FinancialService {
     const { start, end } = this.dateRange(from, to)
     const [invoiceRows, expenseRows] = await Promise.all([
       this.prisma.invoice.findMany({ where: scope, include: invoiceInclude }),
-      requester.role === 'ADMIN' ? this.prisma.expense.findMany() : Promise.resolve([])
+      requester.role !== 'DENTIST' ? this.prisma.expense.findMany() : Promise.resolve([])
     ])
     const invoices = invoiceRows.map((invoice: any) => this.serializeInvoice(invoice))
     const expenses = expenseRows.map((expense: any) => this.serializeExpense(expense))

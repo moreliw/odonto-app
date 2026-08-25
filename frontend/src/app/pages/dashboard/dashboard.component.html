@@ -118,14 +118,18 @@
                 <span>{{ isDentist ? 'Consulta odontológica' : (appointment.dentistName || 'Sem dentista') }}</span>
               </div>
               <div class="dashboard-appointment-status">
-                <button type="button" class="dashboard-status-trigger" [class]="'dashboard-status-trigger status-' + appointment.status.toLowerCase()" (click)="$event.stopPropagation(); toggleStatusMenu(appointment)" [attr.aria-expanded]="openStatusMenuId === appointment.id" [disabled]="updatingAppointmentId === appointment.id">
-                  @if (updatingAppointmentId === appointment.id) {
-                    <i class="dashboard-spinner" aria-hidden="true"></i> Salvando
-                  } @else {
-                    {{ STATUS_LABELS[appointment.status] || appointment.status }}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
-                  }
-                </button>
+                @if (canManageAppointments) {
+                  <button type="button" class="dashboard-status-trigger" [class]="'dashboard-status-trigger status-' + appointment.status.toLowerCase()" (click)="$event.stopPropagation(); toggleStatusMenu(appointment)" [attr.aria-expanded]="openStatusMenuId === appointment.id" [disabled]="updatingAppointmentId === appointment.id">
+                    @if (updatingAppointmentId === appointment.id) {
+                      <i class="dashboard-spinner" aria-hidden="true"></i> Salvando
+                    } @else {
+                      {{ STATUS_LABELS[appointment.status] || appointment.status }}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
+                    }
+                  </button>
+                } @else {
+                  <span [class]="'dashboard-status-trigger status-' + appointment.status.toLowerCase()">{{ STATUS_LABELS[appointment.status] || appointment.status }}</span>
+                }
                 @if (openStatusMenuId === appointment.id) {
                   <div class="dashboard-status-menu" role="menu" aria-label="Alterar status da consulta">
                     <span>Alterar status</span>
@@ -206,16 +210,20 @@
     <section class="dashboard-panel dashboard-quick-actions" aria-labelledby="quick-actions-title">
       <header class="dashboard-panel-head"><div><h2 id="quick-actions-title">Ações rápidas</h2><p>Acesse as tarefas mais usadas</p></div></header>
       <div class="dashboard-quick-grid">
-        <a routerLink="/app/appointments" [queryParams]="{ new: '1' }"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13v5m-2.5-2.5h5"/></svg></span>Nova consulta</a>
-        @if (!isDentist) {
+        @if (canManageAppointments) {
+          <a routerLink="/app/appointments" [queryParams]="{ new: '1' }"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13v5m-2.5-2.5h5"/></svg></span>Nova consulta</a>
+        }
+        @if (canAccessPatients && canManagePatients) {
           <a routerLink="/app/patients"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg></span>Novo paciente</a>
         }
-        <a routerLink="/app/records"><span class="tone-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg></span>Abrir prontuário</a>
-        @if (isAdmin) {
+        @if (canAccessRecords) {
+          <a routerLink="/app/records"><span class="tone-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg></span>Abrir prontuário</a>
+        }
+        @if (canManageFinance) {
           <a routerLink="/app/finance"><span class="tone-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M16 8.5c-.8-1-2-1.5-4-1.5-2.2 0-3.5 1-3.5 2.5 0 4 7.5 1.5 7.5 5.5 0 1.5-1.4 2.5-3.8 2.5-2 0-3.5-.6-4.2-1.7M12 5v14"/></svg></span>Lançar pagamento</a>
+        }
+        @if (canAccessTeam) {
           <a routerLink="/app/team"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg></span>Gerenciar equipe</a>
-        } @else if (!isDentist) {
-          <a routerLink="/app/team"><span class="tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg></span>Equipe</a>
         }
       </div>
     </section>

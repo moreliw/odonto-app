@@ -34,15 +34,19 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
         <nav class="sidebar-nav">
           <p class="nav-section-title">Principal</p>
 
-          <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" aria-label="Dashboard">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-            <span>Dashboard</span>
-          </a>
+          @if (canAccessDashboard) {
+            <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" aria-label="Dashboard">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+              <span>Dashboard</span>
+            </a>
+          }
 
-          <a routerLink="/app/appointments" routerLinkActive="active" aria-label="Agenda">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span>Agenda</span>
-          </a>
+          @if (canAccessAppointments) {
+            <a routerLink="/app/appointments" routerLinkActive="active" aria-label="Agenda">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>Agenda</span>
+            </a>
+          }
 
           @if (canAccessPatients) {
             <a routerLink="/app/patients" routerLinkActive="active" aria-label="Pacientes">
@@ -51,10 +55,12 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
             </a>
           }
 
-          <a routerLink="/app/records" routerLinkActive="active" aria-label="Prontuário">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <span>Prontuário</span>
-          </a>
+          @if (canAccessRecords) {
+            <a routerLink="/app/records" routerLinkActive="active" aria-label="Prontuário">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span>Prontuário</span>
+            </a>
+          }
 
           @if (canAccessFinance) {
             <a routerLink="/app/finance" routerLinkActive="active" aria-label="Financeiro">
@@ -63,12 +69,18 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
             </a>
           }
 
-          @if (isAdmin || canManageTeam) {
+          @if (isAdmin || canManageTeam || canManageAccess) {
             <p class="nav-section-title">Gestão</p>
             @if (canManageTeam) {
               <a routerLink="/app/team" routerLinkActive="active" aria-label="Equipe">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span>Equipe</span>
+              </a>
+            }
+            @if (canManageAccess) {
+              <a routerLink="/app/access" routerLinkActive="active" aria-label="Gestão de acessos">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+                <span>Acessos</span>
               </a>
             }
             @if (isAdmin) {
@@ -161,14 +173,18 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
       </main>
 
       <nav class="mobile-bottom-nav" aria-label="Navegação principal">
-        <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" aria-label="Início">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 9.8V21h14V9.8"/><path d="M9 21v-7h6v7"/></svg>
-          <span>Início</span>
-        </a>
-        <a routerLink="/app/appointments" routerLinkActive="active" aria-label="Agenda">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <span>Agenda</span>
-        </a>
+        @if (canAccessDashboard) {
+          <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" aria-label="Início">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 9.8V21h14V9.8"/><path d="M9 21v-7h6v7"/></svg>
+            <span>Início</span>
+          </a>
+        }
+        @if (canAccessAppointments) {
+          <a routerLink="/app/appointments" routerLinkActive="active" aria-label="Agenda">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>Agenda</span>
+          </a>
+        }
         @if (canAccessPatients) {
           <a routerLink="/app/patients" routerLinkActive="active" aria-label="Pacientes">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
@@ -180,7 +196,7 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h4M6 9h4M6 15h7"/></svg>
             <span>Financeiro</span>
           </a>
-        } @else {
+        } @else if (canAccessRecords) {
           <a routerLink="/app/records" routerLinkActive="active" aria-label="Prontuário">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             <span>Prontuário</span>
@@ -208,7 +224,7 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               Meu perfil
             </a>
-            @if (canAccessFinance) {
+            @if (canAccessRecords) {
               <a routerLink="/app/records" (click)="mobileMoreOpen=false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 Prontuário
@@ -218,6 +234,12 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
               <a routerLink="/app/team" (click)="mobileMoreOpen=false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
                 Equipe
+              </a>
+            }
+            @if (canManageAccess) {
+              <a routerLink="/app/access" (click)="mobileMoreOpen=false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+                Gestão de acessos
               </a>
             }
             @if (isAdmin) {
@@ -244,9 +266,13 @@ export class ShellComponent {
   userRole = ''
   initial = ''
   isAdmin = false
+  canAccessDashboard = false
+  canAccessAppointments = false
   canAccessFinance = false
   canAccessPatients = false
+  canAccessRecords = false
   canManageTeam = false
+  canManageAccess = false
   supportSession: MasterSupportSession | null = null
   logoUrl: string | null = null
   clinicName: string | null = null
@@ -259,9 +285,9 @@ export class ShellComponent {
     this.userRole = ROLE_LABEL[user?.role || ''] || 'Equipe'
     this.initial = (this.userName[0] || 'U').toUpperCase()
     this.isAdmin = this.auth.isAdmin()
-    this.canAccessFinance = this.isAdmin
-    this.canAccessPatients = !this.auth.isDentist()
-    this.canManageTeam = this.isAdmin || this.auth.isUser()
+    this.syncAccess()
+    this.auth.accessChanges().subscribe(() => this.syncAccess())
+    this.auth.ensurePermissions().subscribe()
     if (typeof localStorage !== 'undefined') {
       const support = localStorage.getItem('masterSupportSession')
       if (support) {
@@ -273,6 +299,16 @@ export class ShellComponent {
       this.logoUrl = res.logoUrl
       this.clinicName = res.name
     })
+  }
+
+  private syncAccess() {
+    this.canAccessDashboard = this.auth.hasPermission('DASHBOARD_VIEW')
+    this.canAccessAppointments = this.auth.hasPermission('APPOINTMENTS_VIEW')
+    this.canAccessPatients = this.auth.hasPermission('PATIENTS_VIEW')
+    this.canAccessRecords = this.auth.hasPermission('RECORDS_VIEW')
+    this.canAccessFinance = this.auth.hasPermission('FINANCE_VIEW')
+    this.canManageTeam = this.auth.hasPermission('TEAM_VIEW')
+    this.canManageAccess = this.auth.hasPermission('ACCESS_MANAGE')
   }
 
   toggleSidebar() {

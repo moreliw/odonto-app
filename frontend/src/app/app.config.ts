@@ -26,6 +26,9 @@ import { MasterUsersComponent } from './pages/master/master-users.component'
 import { MasterAuditComponent } from './pages/master/master-audit.component'
 import { ShellComponent } from './shell/shell.component'
 import { authInterceptor } from './services/auth.interceptor'
+import { map } from 'rxjs'
+import { PermissionKey } from './models/access-control.model'
+import { AccessControlComponent } from './pages/access-control/access-control.component'
 
 const authGuard = () => {
   const router = inject(Router)
@@ -62,25 +65,17 @@ const adminOnlyGuard = () => {
   return auth.isAdmin() ? true : router.parseUrl('/app')
 }
 
-/** Equipe: administrador e equipe de apoio gerenciam o dia a dia (agendar dentistas, etc.); dentista não. */
-const teamAccessGuard = () => {
-  const router = inject(Router)
-  const auth = inject(AuthService)
-  return auth.isAdmin() || auth.isUser() ? true : router.parseUrl('/app')
-}
-
-/** O cadastro geral de pacientes é operacional: administrador e equipe de apoio. */
-const patientManagementGuard = () => {
-  const router = inject(Router)
-  const auth = inject(AuthService)
-  return auth.isAdmin() || auth.isUser() ? true : router.parseUrl('/app/records')
-}
-
-/** Dados financeiros são exclusivos do administrador da clínica. */
+/** Financeiro depende da política configurada pelo administrador da clínica. */
 const financeGuard = () => {
   const router = inject(Router)
   const auth = inject(AuthService)
-  return auth.isAdmin() ? true : router.parseUrl('/app')
+  return auth.ensurePermissions().pipe(map(() => auth.hasPermission('FINANCE_VIEW') ? true : router.parseUrl('/app/profile')))
+}
+
+const permissionGuard = (permission: PermissionKey) => () => {
+  const router = inject(Router)
+  const auth = inject(AuthService)
+  return auth.ensurePermissions().pipe(map(() => auth.hasPermission(permission) ? true : router.parseUrl('/app/profile')))
 }
 
 export const routes: Routes = [
@@ -113,14 +108,15 @@ export const routes: Routes = [
     component: ShellComponent,
     canActivate: [authGuard],
     children: [
-      { path: '', component: DashboardComponent },
+      { path: '', component: DashboardComponent, canActivate: [permissionGuard('DASHBOARD_VIEW')] },
       { path: 'profile', component: ProfileComponent },
-      { path: 'patients/:id', component: PatientDetailsComponent },
-      { path: 'patients', component: PatientsComponent, canActivate: [patientManagementGuard] },
-      { path: 'appointments', component: AppointmentsComponent },
-      { path: 'records', component: RecordsComponent },
+      { path: 'patients/:id', component: PatientDetailsComponent, canActivate: [permissionGuard('PATIENTS_VIEW')] },
+      { path: 'patients', component: PatientsComponent, canActivate: [permissionGuard('PATIENTS_VIEW')] },
+      { path: 'appointments', component: AppointmentsComponent, canActivate: [permissionGuard('APPOINTMENTS_VIEW')] },
+      { path: 'records', component: RecordsComponent, canActivate: [permissionGuard('RECORDS_VIEW')] },
       { path: 'finance', component: FinanceComponent, canActivate: [financeGuard] },
-      { path: 'team', component: TeamComponent, canActivate: [teamAccessGuard] },
+      { path: 'team', component: TeamComponent, canActivate: [permissionGuard('TEAM_VIEW')] },
+      { path: 'access', component: AccessControlComponent, canActivate: [permissionGuard('ACCESS_MANAGE')] },
       { path: 'billing', component: BillingComponent, canActivate: [adminOnlyGuard] }
     ]
   },

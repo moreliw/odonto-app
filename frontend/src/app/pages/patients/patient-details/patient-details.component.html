@@ -6,7 +6,7 @@
   } @else if (error) {
     <section class="patient-error"><div>!</div><h2>Não foi possível abrir a ficha</h2><p>{{ error }}</p><a class="btn btn-primary" routerLink="/app/patients">Voltar para pacientes</a></section>
   } @else if (patient; as p) {
-    <app-patient-header [patient]="p" [appointments]="workspace?.appointments || []" [canEdit]="!isDentist" (edit)="beginEdit()" />
+    <app-patient-header [patient]="p" [appointments]="workspace?.appointments || []" [canEdit]="canManagePatients" (edit)="beginEdit()" />
 
     <nav class="patient-tabs" aria-label="Seções da ficha do paciente">
       @for (tab of tabs; track tab.id) {
@@ -21,7 +21,7 @@
             <article><span>Próxima consulta</span><strong>{{ upcomingAppointments[0]?.startTime ? (upcomingAppointments[0].startTime | date:'dd/MM · HH:mm') : 'Não agendada' }}</strong><small>{{ upcomingAppointments[0] ? professionalName(upcomingAppointments[0]) : 'Agende pela agenda da clínica' }}</small></article>
             <article><span>Última consulta</span><strong>{{ previousAppointments[0]?.startTime ? (previousAppointments[0].startTime | date:'dd/MM/yyyy') : 'Sem consultas' }}</strong><small>{{ previousAppointments[0] ? appointmentStatusLabel(previousAppointments[0].status) : 'Nenhum atendimento registrado' }}</small></article>
             <article><span>Tratamentos em aberto</span><strong>{{ openTreatments }}</strong><small>{{ treatmentRecords.length }} registro(s) no total</small></article>
-            @if (isAdmin) { <article><span>Financeiro pendente</span><strong>{{ formatMoney(financialSummary.pending) }}</strong><small [class.danger-copy]="financialSummary.overdue > 0">{{ financialSummary.overdue ? formatMoney(financialSummary.overdue) + ' vencido' : 'Sem valores vencidos' }}</small></article> }
+            @if (canViewFinance) { <article><span>Financeiro pendente</span><strong>{{ formatMoney(financialSummary.pending) }}</strong><small [class.danger-copy]="financialSummary.overdue > 0">{{ financialSummary.overdue ? formatMoney(financialSummary.overdue) + ' vencido' : 'Sem valores vencidos' }}</small></article> }
           </div>
 
           <div class="overview-main">
@@ -76,27 +76,27 @@
       @if (activeTab === 'odontogram') { <app-patient-dental-chart [patientId]="p.id" [records]="workspace?.records || []" [professionals]="workspace?.professionals || []" (recordSaved)="onDentalRecordSaved($event)" /> }
 
       @if (activeTab === 'treatments') {
-        <section><header class="section-heading"><div><span>Plano clínico</span><h2>Tratamentos</h2><p>Procedimentos planejados e executados vinculados ao paciente.</p></div><button class="btn btn-primary" type="button" (click)="openTreatment()">＋ Novo tratamento</button></header>
-          @if (!treatmentRecords.length) { <div class="large-empty"><div>◇</div><h3>Nenhum tratamento registrado</h3><p>Crie o primeiro procedimento ou plano deste paciente.</p><button class="btn btn-primary" type="button" (click)="openTreatment()">Adicionar tratamento</button></div> }
+        <section><header class="section-heading"><div><span>Plano clínico</span><h2>Tratamentos</h2><p>Procedimentos planejados e executados vinculados ao paciente.</p></div>@if (canManageRecords) { <button class="btn btn-primary" type="button" (click)="openTreatment()">＋ Novo tratamento</button> }</header>
+          @if (!treatmentRecords.length) { <div class="large-empty"><div>◇</div><h3>Nenhum tratamento registrado</h3><p>Crie o primeiro procedimento ou plano deste paciente.</p>@if (canManageRecords) { <button class="btn btn-primary" type="button" (click)="openTreatment()">Adicionar tratamento</button> }</div> }
           @else { <div class="responsive-table"><table><thead><tr><th>Procedimento</th><th>Dente</th><th>Profissional</th><th>Data</th><th>Valor</th><th>Status</th></tr></thead><tbody>@for (record of treatmentRecords; track record.id) { <tr><td><strong>{{ record.content?.procedure || record.content?.title }}</strong>@if (record.content?.notes) { <small>{{ record.content.notes }}</small> }</td><td>{{ record.content?.tooth || (record.content?.teeth || []).join(', ') || '—' }}</td><td>{{ record.content?.professionalName || record.createdByName || '—' }}</td><td>{{ record.content?.clinicalDate || record.createdAt | date:'dd/MM/yyyy' }}</td><td>{{ record.content?.value ? formatMoney(record.content.value) : '—' }}</td><td><span [class]="'status-pill treatment-' + (record.content?.status || 'PLANNED').toLowerCase()">{{ treatmentStatusLabel(record.content?.status) }}</span></td></tr> }</tbody></table></div> }
         </section>
       }
 
       @if (activeTab === 'records') {
-        <section><header class="section-heading"><div><span>Histórico clínico</span><h2>Prontuário</h2><p>Evoluções e registros clínicos preservados cronologicamente.</p></div><button class="btn btn-primary" type="button" (click)="openClinicalRecord()">＋ Nova evolução</button></header>
-          @if (!clinicalRecords.length) { <div class="large-empty"><div>▤</div><h3>Nenhuma evolução registrada</h3><p>Documente o primeiro atendimento clínico do paciente.</p><button class="btn btn-primary" type="button" (click)="openClinicalRecord()">Registrar evolução</button></div> }
+        <section><header class="section-heading"><div><span>Histórico clínico</span><h2>Prontuário</h2><p>Evoluções e registros clínicos preservados cronologicamente.</p></div>@if (canManageRecords) { <button class="btn btn-primary" type="button" (click)="openClinicalRecord()">＋ Nova evolução</button> }</header>
+          @if (!clinicalRecords.length) { <div class="large-empty"><div>▤</div><h3>Nenhuma evolução registrada</h3><p>Documente o primeiro atendimento clínico do paciente.</p>@if (canManageRecords) { <button class="btn btn-primary" type="button" (click)="openClinicalRecord()">Registrar evolução</button> }</div> }
           @else { <div class="clinical-timeline">@for (record of clinicalRecords; track record.id) { <article><div class="timeline-date"><b>{{ record.content?.clinicalDate || record.createdAt | date:'dd' }}</b><span>{{ record.content?.clinicalDate || record.createdAt | date:'MMM yyyy' }}</span></div><div class="timeline-body"><header><div><h3>{{ recordTitle(record) }}</h3><span>{{ record.content?.clinicalDate || record.createdAt | date:'HH:mm' }} · {{ record.createdByName || 'Sistema' }}</span></div>@if (record.content?.teeth?.length) { <span class="tooth-chip">Dentes {{ record.content.teeth.join(', ') }}</span> }</header><p>{{ recordSummary(record) }}</p>@if (record.content?.procedure) { <div class="procedure-note"><span>Procedimento</span>{{ record.content.procedure }}</div> }</div></article> }</div> }
         </section>
       }
 
       @if (activeTab === 'files') {
-        <section><header class="section-heading"><div><span>Documentos clínicos</span><h2>Arquivos</h2><p>Radiografias, exames, fotos, receitas e termos do paciente.</p></div><button class="btn btn-primary" type="button" (click)="uploadOpen=true">＋ Adicionar arquivo</button></header>
-          @if (!workspace?.files?.length) { <div class="large-empty"><div>▧</div><h3>Nenhum arquivo adicionado</h3><p>Centralize imagens e documentos importantes nesta ficha.</p><button class="btn btn-primary" type="button" (click)="uploadOpen=true">Adicionar arquivo</button></div> }
-          @else { <div class="file-grid">@for (file of workspace?.files || []; track file.id) { <article><div class="file-icon">{{ file.contentType.includes('image') ? 'IMG' : file.contentType.includes('pdf') ? 'PDF' : 'DOC' }}</div><div><span>{{ fileCategoryLabel(file.category) }}</span><h3>{{ file.originalName || 'Arquivo do paciente' }}</h3><p>{{ formatSize(file.size) }} · {{ file.createdAt | date:'dd/MM/yyyy' }}</p><small>Enviado por {{ file.uploadedByName || 'Sistema' }}</small></div><div class="file-actions"><button class="btn btn-sm btn-outline" type="button" (click)="downloadFile(file)">Visualizar</button>@if (isAdmin) { <button class="btn btn-sm btn-ghost danger-copy" type="button" (click)="deleteFile(file)">Excluir</button> }</div></article> }</div> }
+        <section><header class="section-heading"><div><span>Documentos clínicos</span><h2>Arquivos</h2><p>Radiografias, exames, fotos, receitas e termos do paciente.</p></div>@if (canManageRecords) { <button class="btn btn-primary" type="button" (click)="uploadOpen=true">＋ Adicionar arquivo</button> }</header>
+          @if (!workspace?.files?.length) { <div class="large-empty"><div>▧</div><h3>Nenhum arquivo adicionado</h3><p>Centralize imagens e documentos importantes nesta ficha.</p>@if (canManageRecords) { <button class="btn btn-primary" type="button" (click)="uploadOpen=true">Adicionar arquivo</button> }</div> }
+          @else { <div class="file-grid">@for (file of workspace?.files || []; track file.id) { <article><div class="file-icon">{{ file.contentType.includes('image') ? 'IMG' : file.contentType.includes('pdf') ? 'PDF' : 'DOC' }}</div><div><span>{{ fileCategoryLabel(file.category) }}</span><h3>{{ file.originalName || 'Arquivo do paciente' }}</h3><p>{{ formatSize(file.size) }} · {{ file.createdAt | date:'dd/MM/yyyy' }}</p><small>Enviado por {{ file.uploadedByName || 'Sistema' }}</small></div><div class="file-actions"><button class="btn btn-sm btn-outline" type="button" (click)="downloadFile(file)">Visualizar</button>@if (canManageRecords) { <button class="btn btn-sm btn-ghost danger-copy" type="button" (click)="deleteFile(file)">Excluir</button> }</div></article> }</div> }
         </section>
       }
 
-      @if (activeTab === 'financial' && isAdmin) {
+      @if (activeTab === 'financial' && canViewFinance) {
         <section><header class="section-heading"><div><span>Financeiro do paciente</span><h2>Resumo financeiro</h2><p>Cobranças e pagamentos vinculados exclusivamente a este paciente.</p></div><a class="btn btn-outline" routerLink="/app/finance">Abrir financeiro</a></header>
           <div class="financial-kpis"><article><span>Total dos tratamentos</span><strong>{{ formatMoney(financialSummary.total) }}</strong></article><article><span>Total pago</span><strong class="success-copy">{{ formatMoney(financialSummary.paid) }}</strong></article><article><span>Pendente</span><strong>{{ formatMoney(financialSummary.pending) }}</strong></article><article><span>Vencido</span><strong class="danger-copy">{{ formatMoney(financialSummary.overdue) }}</strong></article></div>
           @if (!workspace?.invoices?.length) { <div class="large-empty"><div>R$</div><h3>Nenhuma cobrança vinculada</h3><p>As cobranças criadas no financeiro para este paciente aparecerão aqui.</p></div> }

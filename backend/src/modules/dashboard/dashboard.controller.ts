@@ -1,7 +1,10 @@
 import { Controller, ForbiddenException, Get, Req, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
+import { PermissionGuard } from '../access-control/permission.guard'
+import { RequirePermission } from '../access-control/require-permission.decorator'
 import { Request } from 'express'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
+import { AccessControlService } from '../access-control/access-control.service'
 
 const APP_TIME_ZONE = process.env.APP_TIMEZONE?.trim() || 'America/Sao_Paulo'
 
@@ -47,10 +50,14 @@ function monthStartInAppTimeZone(now: Date) {
   return localDateTimeToUtc(year, month, 1)
 }
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('DASHBOARD_VIEW')
 @Controller('dashboard')
 export class DashboardController {
-  constructor(private readonly prismaTenant: TenantPrismaService) {}
+  constructor(
+    private readonly prismaTenant: TenantPrismaService,
+    private readonly accessControl: AccessControlService
+  ) {}
 
   /** Visão geral da clínica: administrador e equipe de apoio. Dentistas usam /my-metrics (agenda própria). */
   @Get('metrics')
@@ -60,7 +67,7 @@ export class DashboardController {
     }
     const prisma: any = this.prismaTenant.getClient()
     const now = new Date()
-    const isAdmin = (req as any).user?.role === 'ADMIN'
+    const canViewFinancial = await this.accessControl.hasPermission((req as any).user, 'FINANCE_VIEW')
     const { start: startOfToday, end: endOfToday } = dayBoundsInAppTimeZone(now)
     const startOfMonth = monthStartInAppTimeZone(now)
     const nextSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -90,14 +97,14 @@ export class DashboardController {
       prisma.appointment.count({ where: { startTime: { gte: now }, status: 'SCHEDULED', confirmationStatus: 'PENDING' } }),
       prisma.appointment.count({ where: { startTime: { gte: now }, status: 'SCHEDULED', dentistId: null, dentistName: null } }),
       prisma.appointment.count({ where: { startTime: { gte: startOfMonth }, status: 'COMPLETED' } }),
-      isAdmin ? prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: { not: 'CANCELLED' } } }) : Promise.resolve({ _sum: { amount: 0 } }),
-      isAdmin ? prisma.invoicePayment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: startOfMonth } } }) : Promise.resolve({ _sum: { amount: 0 } }),
-      isAdmin ? prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: 'PAID', payments: { none: {} } } }) : Promise.resolve({ _sum: { amount: 0 } }),
-      isAdmin ? prisma.expense.aggregate({ _sum: { amount: true }, where: { status: 'PAID', paidAt: { gte: startOfMonth } } }) : Promise.resolve({ _sum: { amount: 0 } }),
-      isAdmin ? prisma.invoice.count({ where: { status: 'PENDING' } }) : Promise.resolve(0),
-      isAdmin ? prisma.invoice.count({ where: { status: 'PARTIAL' } }) : Promise.resolve(0),
-      isAdmin ? prisma.invoice.count({ where: { status: 'PAID' } }) : Promise.resolve(0),
-      isAdmin ? prisma.invoice.count({ where: { status: 'CANCELLED' } }) : Promise.resolve(0),
+      canViewFinancial ? prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: { not: 'CANCELLED' } } }) : Promise.resolve({ _sum: { amount: 0 } }),
+      canViewFinancial ? prisma.invoicePayment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: startOfMonth } } }) : Promise.resolve({ _sum: { amount: 0 } }),
+      canViewFinancial ? prisma.invoice.aggregate({ _sum: { amount: true }, where: { issuedAt: { gte: startOfMonth }, status: 'PAID', payments: { none: {} } } }) : Promise.resolve({ _sum: { amount: 0 } }),
+      canViewFinancial ? prisma.expense.aggregate({ _sum: { amount: true }, where: { status: 'PAID', paidAt: { gte: startOfMonth } } }) : Promise.resolve({ _sum: { amount: 0 } }),
+      canViewFinancial ? prisma.invoice.count({ where: { status: 'PENDING' } }) : Promise.resolve(0),
+      canViewFinancial ? prisma.invoice.count({ where: { status: 'PARTIAL' } }) : Promise.resolve(0),
+      canViewFinancial ? prisma.invoice.count({ where: { status: 'PAID' } }) : Promise.resolve(0),
+      canViewFinancial ? prisma.invoice.count({ where: { status: 'CANCELLED' } }) : Promise.resolve(0),
       prisma.appointment.findMany({
         where: { startTime: { gte: startOfToday, lt: endOfToday } },
         include: { patient: { select: { id: true, name: true } }, dentist: { select: { id: true, name: true } } },
@@ -126,7 +133,7 @@ export class DashboardController {
       pendingConfirmations,
       unassignedAppointments,
       completedThisMonth,
-      canViewFinancial: isAdmin,
+      canViewFinancial,
       billedThisMonth: Number(billedThisMonthAgg._sum.amount || 0),
       revenueThisMonth: receivedThisMonth,
       expensesThisMonth,

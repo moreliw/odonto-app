@@ -20,7 +20,17 @@ model User {
   updatedByName String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  accessOverrides String?
   refreshTokens RefreshToken[]
+}
+
+model RoleAccessPolicy {
+  id            String   @id @default(uuid())
+  role          String   @unique
+  permissions   String
+  updatedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model RefreshToken {

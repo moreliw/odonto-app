@@ -26,6 +26,8 @@ import {
   ValidateNested
 } from 'class-validator'
 import { FinancialService, FinancialRequester } from './financial.service'
+import { PermissionGuard } from '../access-control/permission.guard'
+import { RequirePermission } from '../access-control/require-permission.decorator'
 
 enum PaymentMethodDto {
   CASH = 'CASH',
@@ -292,7 +294,8 @@ class UpdateClinicServiceDto {
   active?: boolean
 }
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('FINANCE_VIEW')
 @Controller('financial')
 export class FinancialController {
   constructor(private readonly financial: FinancialService) {}
@@ -304,6 +307,12 @@ export class FinancialController {
   @Get('summary')
   summary(@Req() req: Request, @Query('from') from?: string, @Query('to') to?: string) {
     return this.financial.summary(this.requester(req), from, to)
+  }
+
+  @Get('options')
+  @RequirePermission('FINANCE_MANAGE')
+  options(@Req() req: Request) {
+    return this.financial.options(this.requester(req))
   }
 
   @Get('invoices')
@@ -318,31 +327,37 @@ export class FinancialController {
   }
 
   @Post('invoices')
+  @RequirePermission('FINANCE_MANAGE')
   createInvoice(@Req() req: Request, @Body() dto: CreateInvoiceDto) {
     return this.financial.createInvoice(this.requester(req), dto)
   }
 
   @Patch('invoices/:id')
+  @RequirePermission('FINANCE_MANAGE')
   updateInvoice(@Req() req: Request, @Param('id') id: string, @Body() dto: UpdateInvoiceDto) {
     return this.financial.updateInvoice(this.requester(req), id, dto)
   }
 
   @Post('invoices/:id/payments')
+  @RequirePermission('FINANCE_MANAGE')
   addPayment(@Req() req: Request, @Param('id') id: string, @Body() dto: PaymentDto) {
     return this.financial.addPayment(this.requester(req), id, dto)
   }
 
   @Delete('invoices/:invoiceId/payments/:paymentId')
+  @RequirePermission('FINANCE_MANAGE')
   removePayment(@Req() req: Request, @Param('invoiceId') invoiceId: string, @Param('paymentId') paymentId: string) {
     return this.financial.removePayment(this.requester(req), invoiceId, paymentId)
   }
 
   @Post('invoices/:id/cancel')
+  @RequirePermission('FINANCE_MANAGE')
   cancelInvoice(@Req() req: Request, @Param('id') id: string) {
     return this.financial.cancelInvoice(this.requester(req), id)
   }
 
   @Delete('invoices/:id')
+  @RequirePermission('FINANCE_MANAGE')
   deleteInvoice(@Req() req: Request, @Param('id') id: string) {
     return this.financial.deleteInvoice(this.requester(req), id)
   }
@@ -359,31 +374,37 @@ export class FinancialController {
   }
 
   @Post('expenses')
+  @RequirePermission('FINANCE_MANAGE')
   createExpense(@Req() req: Request, @Body() dto: ExpenseDto) {
     return this.financial.createExpense(this.requester(req), dto)
   }
 
   @Patch('expenses/:id')
+  @RequirePermission('FINANCE_MANAGE')
   updateExpense(@Req() req: Request, @Param('id') id: string, @Body() dto: UpdateExpenseDto) {
     return this.financial.updateExpense(this.requester(req), id, dto)
   }
 
   @Post('expenses/:id/pay')
+  @RequirePermission('FINANCE_MANAGE')
   payExpense(@Req() req: Request, @Param('id') id: string, @Body() dto: PayExpenseDto) {
     return this.financial.payExpense(this.requester(req), id, dto)
   }
 
   @Post('expenses/:id/reopen')
+  @RequirePermission('FINANCE_MANAGE')
   reopenExpense(@Req() req: Request, @Param('id') id: string) {
     return this.financial.reopenExpense(this.requester(req), id)
   }
 
   @Post('expenses/:id/cancel')
+  @RequirePermission('FINANCE_MANAGE')
   cancelExpense(@Req() req: Request, @Param('id') id: string) {
     return this.financial.cancelExpense(this.requester(req), id)
   }
 
   @Delete('expenses/:id')
+  @RequirePermission('FINANCE_MANAGE')
   deleteExpense(@Req() req: Request, @Param('id') id: string) {
     return this.financial.deleteExpense(this.requester(req), id)
   }
@@ -394,16 +415,19 @@ export class FinancialController {
   }
 
   @Post('services')
+  @RequirePermission('FINANCE_MANAGE')
   createService(@Req() req: Request, @Body() dto: ClinicServiceDto) {
     return this.financial.createService(this.requester(req), dto)
   }
 
   @Patch('services/:id')
+  @RequirePermission('FINANCE_MANAGE')
   updateService(@Req() req: Request, @Param('id') id: string, @Body() dto: UpdateClinicServiceDto) {
     return this.financial.updateService(this.requester(req), id, dto)
   }
 
   @Delete('services/:id')
+  @RequirePermission('FINANCE_MANAGE')
   deleteService(@Req() req: Request, @Param('id') id: string) {
     return this.financial.deleteService(this.requester(req), id)
   }

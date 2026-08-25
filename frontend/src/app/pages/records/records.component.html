@@ -5,7 +5,7 @@
       <h1>Prontuário</h1>
       <p>{{ isDentist ? 'Documentação dos pacientes vinculados à sua agenda' : 'Histórico clínico completo, organizado e seguro' }}</p>
     </div>
-    @if (selectedPatient) {
+    @if (selectedPatient && canManageRecords) {
       <div class="page-header-actions">
         <button class="btn btn-primary" type="button" (click)="openEvolution()">
           <span aria-hidden="true">＋</span> Nova evolução
@@ -148,17 +148,17 @@
                   }
                 </div>
               } @else {
-                <div class="record-inline-empty compact"><h4>Nenhuma evolução registrada</h4><p>Documente o primeiro atendimento clínico deste paciente.</p><button type="button" class="btn btn-primary btn-sm" (click)="openEvolution()">Nova evolução</button></div>
+                <div class="record-inline-empty compact"><h4>Nenhuma evolução registrada</h4><p>Documente o primeiro atendimento clínico deste paciente.</p>@if (canManageRecords) { <button type="button" class="btn btn-primary btn-sm" (click)="openEvolution()">Nova evolução</button> }</div>
               }
             </section>
 
-            <aside class="record-panel record-summary-quick">
+            @if (canManageRecords) { <aside class="record-panel record-summary-quick">
               <header class="record-panel-header"><div><span>Ações rápidas</span><h3>Documentar atendimento</h3></div></header>
               <button type="button" (click)="openEvolution('EVOLUTION')"><i class="quick-blue">E</i><span><strong>Nova evolução</strong><small>Registro clínico estruturado</small></span><b>›</b></button>
               <button type="button" (click)="openEvolution('INTERCURRENCE')"><i class="quick-red">!</i><span><strong>Intercorrência</strong><small>Evento ou reação inesperada</small></span><b>›</b></button>
               <button type="button" (click)="selectTab('plans')"><i class="quick-green">P</i><span><strong>Plano de tratamento</strong><small>Alternativas e procedimentos</small></span><b>›</b></button>
               <button type="button" (click)="selectTab('documents')"><i class="quick-violet">+</i><span><strong>Anexar documento</strong><small>Radiografia, foto ou termo</small></span><b>›</b></button>
-            </aside>
+            </aside> }
           </div>
         }
 
@@ -166,10 +166,10 @@
           <section class="record-panel">
             <header class="record-panel-header record-section-header">
               <div><span>Histórico imutável</span><h3>Evoluções e registros clínicos</h3><p>Cada entrada fica identificada com profissional, data e hora.</p></div>
-              <button type="button" class="btn btn-primary" (click)="openEvolution()">＋ Nova evolução</button>
+              @if (canManageRecords) { <button type="button" class="btn btn-primary" (click)="openEvolution()">＋ Nova evolução</button> }
             </header>
             @if (!timelineRecords.length) {
-              <div class="record-inline-empty"><div aria-hidden="true">≋</div><h4>O histórico começa aqui</h4><p>Use o formato SOAP para registrar achados e conduta com clareza.</p><button type="button" class="btn btn-primary btn-sm" (click)="openEvolution()">Criar primeiro registro</button></div>
+              <div class="record-inline-empty"><div aria-hidden="true">≋</div><h4>O histórico começa aqui</h4><p>Use o formato SOAP para registrar achados e conduta com clareza.</p>@if (canManageRecords) { <button type="button" class="btn btn-primary btn-sm" (click)="openEvolution()">Criar primeiro registro</button> }</div>
             } @else {
               <div class="record-timeline">
                 @for (record of pagedEvolutionRecords; track record.id) {
@@ -217,6 +217,7 @@
               <div><span>Histórico de saúde</span><h3>Anamnese</h3><p>Ao salvar, uma nova versão é adicionada ao histórico sem apagar a anterior.</p></div>
               @if (latestAnamnesis) { <span class="record-current-version">Revisada em {{ latestAnamnesis.createdAt | date:'dd/MM/yyyy' }}</span> }
             </header>
+            <fieldset class="record-readonly-fieldset" [disabled]="!canManageRecords">
             <div class="record-form-section">
               <div class="record-form-section-title"><b>01</b><span><strong>Motivo do atendimento</strong><small>Queixa e evolução relatadas pelo paciente</small></span></div>
               <div class="record-form-grid">
@@ -256,6 +257,7 @@
               <label><input type="checkbox" name="informationConfirmed" [(ngModel)]="anamnesisForm.informationConfirmed"><span><strong>Informações revisadas com o paciente</strong><small>Esta marcação registra uma conferência clínica; não substitui assinatura digital ou termo de consentimento.</small></span></label>
               <button class="btn btn-primary" type="submit" [disabled]="saving">@if (saving) {<span class="spinner"></span>} Salvar nova versão</button>
             </div>
+            </fieldset>
           </form>
         }
 
@@ -273,7 +275,7 @@
                 <div class="record-arch-label"><span>Direita do paciente</span><span>Esquerda do paciente</span></div>
                 <div class="record-tooth-row">
                   @for (tooth of (dentition === 'PERMANENT' ? upperPermanent : upperDeciduous); track tooth) {
-                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
+                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="!canManageRecords || isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
                       <app-odontogram-tooth [tooth]="tooth" [status]="primaryToothStatus(tooth)" [selected]="selectedTeeth.includes(tooth)" />
                       <b>{{ tooth }}</b>
                       @if (toothStatusesFor(tooth).length) {<span class="record-tooth-conditions" aria-hidden="true">@for (status of toothStatusesFor(tooth); track status) {<i [class]="'tooth-' + status.toLowerCase()"></i>}</span>}
@@ -283,7 +285,7 @@
                 <div class="record-mouth-divider"><span>Arcada superior</span><i></i><span>Arcada inferior</span></div>
                 <div class="record-tooth-row lower">
                   @for (tooth of (dentition === 'PERMANENT' ? lowerPermanent : lowerDeciduous); track tooth) {
-                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
+                    <button type="button" [class]="'record-tooth ' + toothClass(tooth)" [class.active]="selectedTeeth.includes(tooth)" [class.has-findings]="toothFindings(tooth).length" [disabled]="!canManageRecords || isViewingHistoricalOdontogram" (click)="toggleOdontogramTooth(tooth)" [attr.aria-pressed]="selectedTeeth.includes(tooth)" [attr.aria-label]="toothAriaLabel(tooth)" [attr.title]="toothAnatomicalName(tooth)">
                       <b>{{ tooth }}</b>
                       <app-odontogram-tooth [tooth]="tooth" [status]="primaryToothStatus(tooth)" [selected]="selectedTeeth.includes(tooth)" />
                       @if (toothStatusesFor(tooth).length) {<span class="record-tooth-conditions" aria-hidden="true">@for (status of toothStatusesFor(tooth); track status) {<i [class]="'tooth-' + status.toLowerCase()"></i>}</span>}
@@ -301,10 +303,10 @@
                 } @else {
                   <p class="record-selection-hint">Clique nos dentes do diagrama. Você pode selecionar quantos precisar para o mesmo achado.</p>
                 }
-                <label class="record-condition-field">Condição clínica<select class="select" [(ngModel)]="odontogramFindingForm.status" [disabled]="isViewingHistoricalOdontogram">@for (status of toothStatuses; track status.id) {<option [value]="status.id">{{ status.label }}</option>}</select></label>
-                <fieldset class="record-surface-field"><legend>Superfícies</legend><div class="record-surface-picker">@for (surface of surfaces; track surface) {<button type="button" [class.active]="odontogramFindingForm.surfaces.includes(surface)" [disabled]="isViewingHistoricalOdontogram" (click)="toggleOdontogramSurface(surface)">{{ surface }}</button>}</div></fieldset>
-                <label class="record-observation-field">Observação<textarea class="textarea" rows="3" [(ngModel)]="odontogramFindingForm.note" [disabled]="isViewingHistoricalOdontogram" placeholder="Achados, mobilidade, profundidade, conduta..."></textarea></label>
-                <button type="button" class="btn btn-primary record-add-finding" [disabled]="isViewingHistoricalOdontogram" (click)="saveOdontogramFinding()">{{ editingOdontogramFindingId ? 'Atualizar achado' : 'Adicionar achado' }}{{ selectedTeeth.length ? ' em ' + selectedTeeth.length + (selectedTeeth.length === 1 ? ' dente' : ' dentes') : '' }}</button>
+                <label class="record-condition-field">Condição clínica<select class="select" [(ngModel)]="odontogramFindingForm.status" [disabled]="!canManageRecords || isViewingHistoricalOdontogram">@for (status of toothStatuses; track status.id) {<option [value]="status.id">{{ status.label }}</option>}</select></label>
+                <fieldset class="record-surface-field"><legend>Superfícies</legend><div class="record-surface-picker">@for (surface of surfaces; track surface) {<button type="button" [class.active]="odontogramFindingForm.surfaces.includes(surface)" [disabled]="!canManageRecords || isViewingHistoricalOdontogram" (click)="toggleOdontogramSurface(surface)">{{ surface }}</button>}</div></fieldset>
+                <label class="record-observation-field">Observação<textarea class="textarea" rows="3" [(ngModel)]="odontogramFindingForm.note" [disabled]="!canManageRecords || isViewingHistoricalOdontogram" placeholder="Achados, mobilidade, profundidade, conduta..."></textarea></label>
+                @if (canManageRecords) { <button type="button" class="btn btn-primary record-add-finding" [disabled]="isViewingHistoricalOdontogram" (click)="saveOdontogramFinding()">{{ editingOdontogramFindingId ? 'Atualizar achado' : 'Adicionar achado' }}{{ selectedTeeth.length ? ' em ' + selectedTeeth.length + (selectedTeeth.length === 1 ? ' dente' : ' dentes') : '' }}</button> }
                 @if (editingOdontogramFindingId) {<button type="button" class="record-text-action" (click)="cancelOdontogramFindingEdit()">Cancelar edição</button>}
               </aside>
             </div>
@@ -316,7 +318,7 @@
                     <article>
                       <i [class]="'tooth-' + finding.status.toLowerCase()"></i>
                       <div><strong>{{ toothStatusLabel(finding.status) }}</strong><span>Dentes {{ finding.teeth.join(', ') }}@if (finding.surfaces.length) { · Faces {{ finding.surfaces.join(', ') }}}</span>@if (finding.note) {<p>{{ finding.note }}</p>}</div>
-                      <div class="record-finding-actions"><button type="button" [disabled]="isViewingHistoricalOdontogram" (click)="editOdontogramFinding(finding)">Editar</button><button type="button" class="danger" [disabled]="isViewingHistoricalOdontogram" (click)="removeOdontogramFinding(finding.id)">Remover</button></div>
+                      @if (canManageRecords) { <div class="record-finding-actions"><button type="button" [disabled]="isViewingHistoricalOdontogram" (click)="editOdontogramFinding(finding)">Editar</button><button type="button" class="danger" [disabled]="isViewingHistoricalOdontogram" (click)="removeOdontogramFinding(finding.id)">Remover</button></div> }
                     </article>
                   }
                 </div>
@@ -325,8 +327,8 @@
               }
             </section>
             <div class="record-odontogram-footer">
-              <label>Observações gerais<textarea class="textarea" [ngModel]="odontogramNotes" (ngModelChange)="odontogramNotes=$event; odontogramDirty=true" [readonly]="isViewingHistoricalOdontogram" rows="2" placeholder="Condição periodontal, oclusão, achados gerais..."></textarea></label>
-              <div><p>Cada salvamento cria uma nova fotografia clínica sem apagar as versões anteriores.</p><div class="record-save-actions">@if (odontogramDirty && viewingOdontogramId) {<button type="button" class="btn btn-outline" (click)="discardOdontogramChanges()">Descartar alterações</button>}<button type="button" class="btn btn-primary" [disabled]="saving || isViewingHistoricalOdontogram" (click)="saveOdontogram()">@if (saving) {<span class="spinner"></span>} Salvar nova versão</button></div></div>
+              <label>Observações gerais<textarea class="textarea" [ngModel]="odontogramNotes" (ngModelChange)="odontogramNotes=$event; odontogramDirty=true" [readonly]="!canManageRecords || isViewingHistoricalOdontogram" rows="2" placeholder="Condição periodontal, oclusão, achados gerais..."></textarea></label>
+              @if (canManageRecords) { <div><p>Cada salvamento cria uma nova fotografia clínica sem apagar as versões anteriores.</p><div class="record-save-actions">@if (odontogramDirty && viewingOdontogramId) {<button type="button" class="btn btn-outline" (click)="discardOdontogramChanges()">Descartar alterações</button>}<button type="button" class="btn btn-primary" [disabled]="saving || isViewingHistoricalOdontogram" (click)="saveOdontogram()">@if (saving) {<span class="spinner"></span>} Salvar nova versão</button></div></div> }
             </div>
             @if (odontogramRecords.length) {
               <section class="record-odontogram-history">
@@ -348,9 +350,9 @@
           <section class="record-panel">
             <header class="record-panel-header record-section-header">
               <div><span>Decisão compartilhada</span><h3>Planos de tratamento</h3><p>Registre diagnóstico, alternativas, riscos, benefícios e decisão do paciente.</p></div>
-              <button type="button" class="btn btn-primary" (click)="showPlanForm=!showPlanForm">{{ showPlanForm ? 'Fechar formulário' : '＋ Novo plano' }}</button>
+              @if (canManageRecords) { <button type="button" class="btn btn-primary" (click)="showPlanForm=!showPlanForm">{{ showPlanForm ? 'Fechar formulário' : '＋ Novo plano' }}</button> }
             </header>
-            @if (showPlanForm) {
+            @if (showPlanForm && canManageRecords) {
               <form class="record-plan-form" (ngSubmit)="savePlan()">
                 <div class="record-form-grid">
                   <label>Título do plano *<input class="input" name="planTitle" [(ngModel)]="planForm.title" placeholder="Ex.: Reabilitação do quadrante 1"></label>
@@ -388,7 +390,7 @@
         }
 
         @if (activeTab === 'documents') {
-          <section class="record-document-layout">
+          <section class="record-document-layout" [class.read-only]="!canManageRecords">
             <div class="record-panel">
               <header class="record-panel-header record-section-header"><div><span>Arquivos clínicos</span><h3>Documentos e imagens</h3><p>Radiografias, fotografias, exames, prescrições e termos.</p></div></header>
               @if (!documentRecords.length) {
@@ -406,7 +408,7 @@
                 <app-pagination [page]="documentPage" [pageSize]="documentPageSize" [totalItems]="documentRecords.length" (pageChange)="documentPage=$event"></app-pagination>
               }
             </div>
-            <aside class="record-panel record-upload-panel">
+            @if (canManageRecords) { <aside class="record-panel record-upload-panel">
               <header><span>Novo anexo</span><h3>Adicionar documento</h3></header>
               <div class="record-upload-drop" [class.dragging]="draggingFile" (dragover)="$event.preventDefault(); draggingFile=true" (dragleave)="draggingFile=false" (drop)="onFileDrop($event)" (click)="fileInput.click()">
                 <div aria-hidden="true">↑</div>
@@ -418,7 +420,7 @@
               <label>Observações<textarea class="textarea" [(ngModel)]="documentNotes" rows="3" placeholder="Data do exame, região, finalidade ou achados..."></textarea></label>
               @if (uploadProgress) {<div class="record-upload-progress"><span class="spinner spinner-dark"></span>{{ uploadProgress }}</div>}
               <button type="button" class="btn btn-primary btn-block" [disabled]="saving || !selectedFile" (click)="uploadDocument()">Anexar ao prontuário</button>
-            </aside>
+            </aside> }
           </section>
         }
       </main>

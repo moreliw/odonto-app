@@ -1,8 +1,10 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { UsersService } from './users.service'
 import { AuthGuard } from '@nestjs/passport'
 import { IsEmail, IsString, IsEnum, IsOptional, Matches, MinLength } from 'class-validator'
 import { Request } from 'express'
+import { PermissionGuard } from '../access-control/permission.guard'
+import { RequirePermission } from '../access-control/require-permission.decorator'
 enum RoleLocal { ADMIN='ADMIN', USER='USER', DENTIST='DENTIST' }
 
 class CreateUserDto {
@@ -37,22 +39,14 @@ class UpdateUserDto {
   password?: string
 }
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
-  /** Consultar a equipe (ex.: escolher o dentista de um agendamento) é diferente de gerenciá-la — equipe de apoio também precisa disso no dia a dia. */
-  private assertStaffAccess(req: Request) {
-    const role = (req as any).user?.role
-    if (role !== 'ADMIN' && role !== 'USER') {
-      throw new ForbiddenException('Você não tem acesso à listagem da equipe.')
-    }
-  }
-
   @Get()
-  list(@Req() req: Request, @Query('role') role?: RoleLocal) {
-    this.assertStaffAccess(req)
+  @RequirePermission('TEAM_VIEW')
+  list(@Query('role') role?: RoleLocal) {
     return this.users.list(role)
   }
 
@@ -65,24 +59,34 @@ export class UsersController {
 
   /** Quantos dentistas o plano permite e quantos já foram cadastrados. */
   @Get('dentist-quota')
-  dentistQuota(@Req() req: Request) {
-    this.assertStaffAccess(req)
+  @RequirePermission('TEAM_VIEW')
+  dentistQuota() {
     return this.users.dentistQuota()
   }
 
   @Post()
+  @RequirePermission('TEAM_MANAGE')
   create(@Req() req: Request, @Body() dto: CreateUserDto) {
     const user = (req as any).user
     return this.users.create(user, dto)
   }
 
+  /** Alterar os próprios dados não depende do acesso ao módulo Equipe. */
+  @Patch('me')
+  updateMe(@Req() req: Request, @Body() dto: UpdateUserDto) {
+    const user = (req as any).user
+    return this.users.update(user, user.userId, dto)
+  }
+
   @Patch(':id')
+  @RequirePermission('TEAM_MANAGE')
   update(@Req() req: Request, @Param('id') id: string, @Body() dto: UpdateUserDto) {
     const user = (req as any).user
     return this.users.update(user, id, dto)
   }
 
   @Delete(':id')
+  @RequirePermission('TEAM_MANAGE')
   remove(@Req() req: Request, @Param('id') id: string) {
     const user = (req as any).user
     return this.users.remove(user, id)

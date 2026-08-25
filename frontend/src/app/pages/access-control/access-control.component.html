@@ -1,0 +1,71 @@
+<div class="access-page">
+  <header class="page-header access-header">
+    <div class="page-header-left"><span class="access-eyebrow">Administração da clínica</span><h1>Gestão de acessos</h1><p>Defina com clareza o que cada perfil pode visualizar e alterar.</p></div>
+    <div class="admin-lock"><i>✓</i><span><strong>Administrador protegido</strong><small>Sempre possui acesso completo</small></span></div>
+  </header>
+
+  <section class="access-notice"><div>i</div><p><strong>Simples e seguro:</strong> configure primeiro o padrão do perfil. Se necessário, crie uma exceção apenas para uma pessoa específica.</p></section>
+
+  <nav class="access-tabs" aria-label="Tipo de configuração">
+    <button type="button" [class.active]="activeView === 'profiles'" (click)="activeView='profiles'">Permissões por perfil</button>
+    <button type="button" [class.active]="activeView === 'users'" (click)="activeView='users'">Exceções por pessoa</button>
+  </nav>
+
+  @if (loading) {
+    <div class="access-loading"><span class="spinner spinner-dark"></span><p>Carregando permissões…</p></div>
+  } @else if (activeView === 'profiles') {
+    <div class="access-layout">
+      <aside class="role-selector">
+        <span>Perfis da clínica</span>
+        <button type="button" [class.active]="selectedRole === 'USER'" (click)="selectedRole='USER'"><i>E</i><span><strong>Equipe de apoio</strong><small>Recepção e operação</small></span><b>›</b></button>
+        <button type="button" [class.active]="selectedRole === 'DENTIST'" (click)="selectedRole='DENTIST'"><i>D</i><span><strong>Dentista</strong><small>Atendimento clínico</small></span><b>›</b></button>
+        <div class="role-admin"><i>A</i><span><strong>Administrador</strong><small>Acesso completo e fixo</small></span><b>✓</b></div>
+      </aside>
+
+      <section class="permission-panel">
+        <header><div><span>Perfil selecionado</span><h2>{{ selectedRoleLabel }}</h2><p>As alterações valem para todos deste perfil, exceto quem possuir uma exceção individual.</p></div><span class="permission-count">{{ roleDraft[selectedRole].size }} permissões</span></header>
+        <div class="permission-list">
+          @for (module of modules; track module.id) {
+            <article [class.enabled]="roleHas(module.view)">
+              <div class="module-icon">{{ module.icon }}</div>
+              <div class="module-copy"><h3>{{ module.title }}</h3><p>{{ module.description }}</p></div>
+              <label class="access-switch"><input type="checkbox" [checked]="roleHas(module.view)" (change)="toggleRole(module.view, $any($event.target).checked)"><span></span><b>{{ roleHas(module.view) ? 'Acessa' : 'Sem acesso' }}</b></label>
+              @if (module.manage && roleHas(module.view)) {
+                <label class="manage-check"><input type="checkbox" [checked]="roleHas(module.manage)" (change)="toggleRole(module.manage, $any($event.target).checked)"><span><strong>Pode alterar</strong><small>Criar, editar, concluir ou excluir</small></span></label>
+              }
+            </article>
+          }
+        </div>
+        <footer><p>Usuários conectados recebem as novas regras na próxima atualização de tela.</p><button class="btn btn-primary" type="button" [disabled]="!!saving" (click)="saveRole()">@if (saving === 'role-' + selectedRole) { <span class="spinner"></span> } Salvar permissões do perfil</button></footer>
+      </section>
+    </div>
+  } @else {
+    <div class="access-layout user-layout">
+      <aside class="user-selector">
+        <label>Selecionar pessoa<select class="select" [ngModel]="selectedUserId" (ngModelChange)="selectUser($event)">@for (user of config?.users || []; track user.id) { <option [value]="user.id">{{ user.name }} · {{ user.role === 'USER' ? 'Equipe' : 'Dentista' }}</option> }</select></label>
+        @if (selectedUser; as user) { <div class="selected-user"><i>{{ user.name[0].toUpperCase() }}</i><div><strong>{{ user.name }}</strong><span>{{ user.email || 'Sem acesso ao sistema' }}</span><small>{{ user.role === 'USER' ? 'Equipe de apoio' : 'Dentista' }}</small></div></div> }
+        <p>Use exceções apenas quando essa pessoa precisar de um acesso diferente do restante do perfil.</p>
+      </aside>
+
+      <section class="permission-panel user-permissions">
+        <header><div><span>Exceções individuais</span><h2>{{ selectedUser?.name || 'Selecione uma pessoa' }}</h2><p>“Padrão do perfil” acompanha automaticamente qualquer alteração futura feita no perfil.</p></div></header>
+        @if (!selectedUser) { <div class="access-empty">Nenhum usuário disponível para configurar.</div> }
+        @else {
+          <div class="override-list">
+            @for (module of modules; track module.id) {
+              <article>
+                <div class="module-icon">{{ module.icon }}</div>
+                <div class="module-copy"><h3>{{ module.title }}</h3><p>{{ effectiveHas(module.view) ? 'Acesso efetivo liberado' : 'Acesso efetivo bloqueado' }}</p></div>
+                <div class="override-options"><button type="button" [class.active]="overrideState(module.view) === 'inherit'" (click)="setModuleOverride(module,module.view,'inherit')">Padrão</button><button type="button" class="allow" [class.active]="overrideState(module.view) === 'allow'" (click)="setModuleOverride(module,module.view,'allow')">Liberar</button><button type="button" class="deny" [class.active]="overrideState(module.view) === 'deny'" (click)="setModuleOverride(module,module.view,'deny')">Bloquear</button></div>
+                @if (module.manage && effectiveHas(module.view)) {
+                  <div class="override-manage"><span><strong>Permissão para alterar</strong><small>Criar, editar, concluir ou excluir</small></span><div class="override-options"><button type="button" [class.active]="overrideState(module.manage) === 'inherit'" (click)="setModuleOverride(module,module.manage,'inherit')">Padrão</button><button type="button" class="allow" [class.active]="overrideState(module.manage) === 'allow'" (click)="setModuleOverride(module,module.manage,'allow')">Liberar</button><button type="button" class="deny" [class.active]="overrideState(module.manage) === 'deny'" (click)="setModuleOverride(module,module.manage,'deny')">Bloquear</button></div></div>
+                }
+              </article>
+            }
+          </div>
+          <footer><p>{{ overrideCount }} exceção(ões) configurada(s).</p><button class="btn btn-primary" type="button" [disabled]="!!saving" (click)="saveUser()">@if (saving === 'user-' + selectedUserId) { <span class="spinner"></span> } Salvar exceções</button></footer>
+        }
+      </section>
+    </div>
+  }
+</div>

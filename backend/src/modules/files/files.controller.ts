@@ -4,21 +4,26 @@ import { AuthGuard } from '@nestjs/passport'
 import { IsString } from 'class-validator'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 import { Request, Response } from 'express'
+import { PermissionGuard } from '../access-control/permission.guard'
+import { RequirePermission } from '../access-control/require-permission.decorator'
 
 class PresignDto {
   @IsString()
   contentType: string
 }
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('RECORDS_VIEW')
 @Controller('files')
 export class FilesController {
   constructor(private readonly s3: S3Service, private readonly prismaTenant: TenantPrismaService) {}
   @Post('presign')
+  @RequirePermission('RECORDS_MANAGE')
   presign(@Body() dto: PresignDto) {
     return this.s3.presignPut(dto.contentType)
   }
   @Post('finalize')
+  @RequirePermission('RECORDS_MANAGE')
   async finalize(@Req() req: Request, @Body() dto: { key: string; url: string; contentType: string; size?: number; patientId?: string; originalName?: string; category?: string; notes?: string }) {
     const prisma = this.prismaTenant.getClient()
     const requester = (req as any).user
@@ -46,13 +51,18 @@ export class FilesController {
   }
 
   @Delete(':id')
+  @RequirePermission('RECORDS_MANAGE')
   async remove(@Req() req: Request, @Param('id') id: string) {
     const prisma = this.prismaTenant.getClient()
     const requester = (req as any).user
     const file = await prisma.file.findUnique({ where: { id } })
     if (!file) throw new NotFoundException('Arquivo não encontrado')
     if (requester?.role === 'DENTIST') {
-      throw new ForbiddenException('Somente a equipe administrativa pode excluir arquivos do paciente.')
+      const appointment = await prisma.appointment.findFirst({
+        where: { patientId: file.patientId, dentistId: requester.userId },
+        select: { id: true }
+      })
+      if (!appointment) throw new ForbiddenException('Você só pode excluir arquivos de pacientes vinculados à sua agenda.')
     }
     await this.s3.removeObject(file.key)
     await prisma.file.delete({ where: { id } })

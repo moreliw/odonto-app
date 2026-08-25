@@ -89,7 +89,7 @@ function colorIndexFor(id: string | null | undefined) {
           <p>{{ isDentist ? 'Seus atendimentos agendados' : 'Consultas e procedimentos agendados' }}</p>
         </div>
         <div class="page-header-actions">
-          @if (!isDentist) {
+          @if (!isDentist && canManageAppointments) {
             <button class="btn btn-primary" (click)="openCreate()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Nova consulta
@@ -280,7 +280,7 @@ function colorIndexFor(id: string | null | undefined) {
                       }
                       <td class="muted text-sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.notes || '—' }}</td>
                       <td>
-                        <div class="table-actions">
+                        @if (canManageAppointments) { <div class="table-actions">
                           @if (a.status === 'SCHEDULED') {
                             <button class="btn btn-sm btn-ghost whatsapp-action" [disabled]="sendingConfirmationId === a.id" (click)="openWhatsappConfirmation(a)" title="Abrir mensagem no WhatsApp">
                               @if (sendingConfirmationId === a.id) { <span class="spinner spinner-dark"></span> } @else {
@@ -297,7 +297,7 @@ function colorIndexFor(id: string | null | undefined) {
                           <button class="btn btn-sm btn-ghost" style="color:var(--danger);" (click)="confirmDelete(a)" title="Excluir consulta">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                           </button>
-                        </div>
+                        </div> }
                       </td>
                     </tr>
                   }
@@ -629,6 +629,7 @@ export class AppointmentsComponent implements OnInit {
 
   isDentist = false
   isAdmin = false
+  canManageAppointments = false
 
   constructor(
     private http: HttpClient,
@@ -640,6 +641,7 @@ export class AppointmentsComponent implements OnInit {
     for (let h = GRID_START_HOUR; h < GRID_END_HOUR; h++) this.hours.push(h)
     this.isDentist = this.auth.isDentist()
     this.isAdmin = this.auth.isAdmin()
+    this.canManageAppointments = this.auth.hasPermission('APPOINTMENTS_MANAGE')
   }
 
   ngOnInit() {
@@ -1033,6 +1035,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   openCreate(start?: Date, end?: Date) {
+    if (!this.canManageAppointments) return
     this.editingId = null
     this.editingAppointment = null
     this.form = {
@@ -1044,6 +1047,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   openEdit(a: Appointment) {
+    if (!this.canManageAppointments) return
     this.editingId = a.id
     this.editingAppointment = a
     this.form = {
@@ -1116,6 +1120,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   confirmDelete(a: Appointment, returnToEdit = false) {
+    if (!this.canManageAppointments) return
     this.deleteTarget = a
     this.deleteReturnToEdit = returnToEdit
   }

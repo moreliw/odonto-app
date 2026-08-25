@@ -3,6 +3,8 @@ import { AppointmentsService } from './appointments.service'
 import { AuthGuard } from '@nestjs/passport'
 import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator'
 import { Request } from 'express'
+import { PermissionGuard } from '../access-control/permission.guard'
+import { RequirePermission } from '../access-control/require-permission.decorator'
 
 enum AppointmentStatusLocal {
   SCHEDULED = 'SCHEDULED',
@@ -63,7 +65,8 @@ class UpdateAppointmentDto {
   notes?: string
 }
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('APPOINTMENTS_VIEW')
 @Controller('appointments')
 export class AppointmentsController {
   constructor(private readonly appointments: AppointmentsService) {}
@@ -80,6 +83,7 @@ export class AppointmentsController {
   }
 
   @Post()
+  @RequirePermission('APPOINTMENTS_MANAGE')
   create(@Req() req: Request, @Body() dto: AppointmentDto) {
     const user = (req as any).user
     return this.appointments.create(user, {
@@ -94,6 +98,7 @@ export class AppointmentsController {
   }
 
   @Put(':id')
+  @RequirePermission('APPOINTMENTS_MANAGE')
   update(@Req() req: Request, @Param('id') id: string, @Body() dto: UpdateAppointmentDto) {
     const user = (req as any).user
     const data: Record<string, unknown> = {}
@@ -109,12 +114,14 @@ export class AppointmentsController {
   }
 
   @Delete(':id')
+  @RequirePermission('APPOINTMENTS_MANAGE')
   remove(@Req() req: Request, @Param('id') id: string) {
     const user = (req as any).user
     return this.appointments.remove(user, id)
   }
 
   @Post(':id/prepare-whatsapp')
+  @RequirePermission('APPOINTMENTS_MANAGE')
   prepareWhatsappConfirmation(@Req() req: Request, @Param('id') id: string) {
     const user = (req as any).user
     return this.appointments.prepareWhatsappConfirmation(user, id)

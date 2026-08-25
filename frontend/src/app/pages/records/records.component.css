@@ -1,4 +1,5 @@
 :host { display: block; min-width: 0; }
+.record-readonly-fieldset { min-width:0; margin:0; padding:0; border:0; }
 
 .record-page { width: 100%; min-width: 0; }
 .record-eyebrow, .record-patient-kicker, .record-panel-header > div > span, .record-upload-panel > header span {
@@ -269,6 +270,7 @@
 .record-plan-list article > footer { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--border); color: var(--muted); font-size: 8.5px; }
 
 .record-document-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: 14px; }
+.record-document-layout.read-only { grid-template-columns: minmax(0, 1fr); }
 .record-document-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .record-document-grid article { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px; border: 1px solid var(--border); border-radius: 9px; }
 .record-document-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 9px; background: var(--danger-bg); color: var(--danger-text); font-size: 8px; font-weight: 800; }

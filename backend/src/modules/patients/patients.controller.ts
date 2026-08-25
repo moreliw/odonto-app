@@ -3,6 +3,8 @@ import { PatientsService } from './patients.service'
 import { AuthGuard } from '@nestjs/passport'
 import { IsOptional, IsString, IsEmail, IsDateString } from 'class-validator'
 import { Request } from 'express'
+import { PermissionGuard } from '../access-control/permission.guard'
+import { RequirePermission } from '../access-control/require-permission.decorator'
 
 class PatientDto {
   @IsString()
@@ -59,7 +61,8 @@ function patientData(dto: PatientDto, partial = false) {
   return data
 }
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('PATIENTS_VIEW')
 @Controller('patients')
 export class PatientsController {
   constructor(private readonly patients: PatientsService) {}
@@ -76,14 +79,17 @@ export class PatientsController {
     return this.patients.workspace((req as any).user, id)
   }
   @Post()
+  @RequirePermission('PATIENTS_MANAGE')
   create(@Req() req: Request, @Body() dto: PatientDto) {
     return this.patients.create((req as any).user, patientData(dto))
   }
   @Put(':id')
+  @RequirePermission('PATIENTS_MANAGE')
   update(@Req() req: Request, @Param('id') id: string, @Body() dto: PatientDto) {
     return this.patients.update((req as any).user, id, patientData(dto, true))
   }
   @Delete(':id')
+  @RequirePermission('PATIENTS_MANAGE')
   remove(@Req() req: Request, @Param('id') id: string) {
     return this.patients.remove((req as any).user, id)
   }

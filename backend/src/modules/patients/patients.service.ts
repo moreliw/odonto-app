@@ -1,15 +1,16 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { Prisma } from '@prisma/client-tenant'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
+import { AccessControlService } from '../access-control/access-control.service'
 
 type Requester = { userId: string; email?: string; name?: string; role: string }
 
 @Injectable()
 export class PatientsService {
-  constructor(private readonly prismaTenant: TenantPrismaService) {}
+  constructor(private readonly prismaTenant: TenantPrismaService, private readonly access: AccessControlService) {}
 
-  list(requester: Requester) {
-    if (requester.role === 'DENTIST') {
+  async list(requester: Requester) {
+    if (requester.role === 'DENTIST' && !(await this.access.hasPermission(requester as any, 'PATIENTS_MANAGE'))) {
       return this.prismaTenant.getClient().patient.findMany({
         where: { appointments: { some: { dentistId: requester.userId } } },
         select: { id: true, name: true },
@@ -19,7 +20,8 @@ export class PatientsService {
     return this.prismaTenant.getClient().patient.findMany({ orderBy: { createdAt: 'desc' } })
   }
   async get(requester: Requester, id: string) {
-    const patient = requester.role === 'DENTIST'
+    const restrictedDentist = requester.role === 'DENTIST' && !(await this.access.hasPermission(requester as any, 'PATIENTS_MANAGE'))
+    const patient = restrictedDentist
       ? await this.prismaTenant.getClient().patient.findFirst({
           where: { id, appointments: { some: { dentistId: requester.userId } } },
           select: { id: true, name: true }
@@ -41,7 +43,7 @@ export class PatientsService {
       prisma.record.findMany({ where: { patientId: id }, orderBy: { createdAt: 'desc' } }),
       prisma.file.findMany({ where: { patientId: id }, orderBy: { createdAt: 'desc' } }),
       prisma.user.findMany({ where: { role: 'DENTIST', active: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-      requester.role === 'ADMIN'
+      (await this.access.hasPermission(requester as any, 'FINANCE_VIEW'))
         ? prisma.invoice.findMany({
             where: { patientId: id },
             include: { items: true, payments: true, dentist: { select: { id: true, name: true } } },
@@ -67,29 +69,22 @@ export class PatientsService {
     }
   }
   async create(requester: Requester, data: any) {
-    this.assertCanManage(requester)
     const auditName = await this.actorName(requester)
     return this.prismaTenant.getClient().patient.create({ data: { ...data, createdByName: auditName, updatedByName: auditName } })
   }
   async update(requester: Requester, id: string, data: any) {
-    this.assertCanManage(requester)
     await this.assertPatientAccess(requester, id)
     return this.prismaTenant.getClient().patient.update({ where: { id }, data: { ...data, updatedByName: await this.actorName(requester) } })
   }
-  remove(requester: Requester, id: string) {
-    this.assertCanManage(requester)
+  async remove(requester: Requester, id: string) {
+    await this.assertPatientAccess(requester, id)
     return this.prismaTenant.getClient().patient.delete({ where: { id } })
-  }
-
-  private assertCanManage(requester: Requester) {
-    if (requester.role === 'DENTIST') {
-      throw new ForbiddenException('Dentistas não podem acessar ou alterar o cadastro geral de pacientes.')
-    }
   }
 
   private async assertPatientAccess(requester: Requester, patientId: string) {
     const prisma = this.prismaTenant.getClient()
-    const patient = requester.role === 'DENTIST'
+    const restrictedDentist = requester.role === 'DENTIST' && !(await this.access.hasPermission(requester as any, 'PATIENTS_MANAGE'))
+    const patient = restrictedDentist
       ? await prisma.patient.findFirst({ where: { id: patientId, appointments: { some: { dentistId: requester.userId } } }, select: { id: true } })
       : await prisma.patient.findUnique({ where: { id: patientId }, select: { id: true } })
     if (!patient) throw new NotFoundException('Paciente não encontrado')
