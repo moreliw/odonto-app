@@ -8,6 +8,7 @@ import { SearchableSelectComponent } from '../../components/searchable-select/se
 import { PaginationComponent } from '../../components/pagination/pagination.component'
 import { paginate } from '../../utils/pagination'
 import { ActivatedRoute, Router } from '@angular/router'
+import { ClinicInvoice, ClinicService, FinancialService, PaymentMethod } from '../../services/financial.service'
 
 type Patient = { id: string; name: string; email?: string | null; phone?: string | null }
 type Dentist = { id: string; name: string }
@@ -69,6 +70,10 @@ function sameDay(a: Date, b: Date) {
 function toLocalInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+function toLocalDateInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 /** Hash simples e estável do id para escolher uma cor consistente por dentista. */
 function colorIndexFor(id: string | null | undefined) {
@@ -407,6 +412,127 @@ function colorIndexFor(id: string | null | undefined) {
                 </div>
               </fieldset>
             }
+            @if (editingId && canViewFinance) {
+              <section class="appointment-finance" aria-labelledby="appointment-finance-title">
+                <div class="appointment-finance-header">
+                  <div class="appointment-finance-heading">
+                    <span class="appointment-finance-icon" aria-hidden="true">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M16 8.5c-.8-.7-2-1-3.2-1-1.7 0-2.8.8-2.8 2s1 1.7 3 2.1 3 1 3 2.4-1.2 2.5-3.1 2.5c-1.4 0-2.7-.4-3.6-1.2M12.8 5.5v2M12.8 16.5v2"/></svg>
+                    </span>
+                    <span>
+                      <strong id="appointment-finance-title">Financeiro da consulta</strong>
+                      <small>Valores vinculados a esta agenda e ao paciente</small>
+                    </span>
+                  </div>
+                  <div class="appointment-finance-summary">
+                    @if (!financeLoading && appointmentInvoices.length) {
+                      <span><small>Em aberto</small><strong>{{ appointmentFinanceOpen | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</strong></span>
+                    }
+                    @if (canManageFinance && !showFinanceEntry) {
+                      <button class="btn btn-primary btn-sm" type="button" [disabled]="financeLoading || financialContextChanged" (click)="startFinanceEntry()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+                        Lançar valor
+                      </button>
+                    }
+                  </div>
+                </div>
+
+                @if (financialContextChanged) {
+                  <div class="appointment-finance-notice" role="status">
+                    Salve a alteração de paciente ou dentista antes de lançar um valor.
+                  </div>
+                }
+
+                @if (financeLoading) {
+                  <div class="appointment-finance-loading"><span class="spinner spinner-dark"></span> Carregando valores...</div>
+                } @else {
+                  @if (appointmentInvoices.length) {
+                    <div class="appointment-invoice-list">
+                      @for (invoice of appointmentInvoices; track invoice.id) {
+                        <div class="appointment-invoice-row">
+                          <div class="appointment-invoice-copy">
+                            <strong>{{ invoice.description }}</strong>
+                            <span>Vence em {{ invoice.dueDate | date:'dd/MM/yyyy' }}</span>
+                          </div>
+                          <span class="appointment-invoice-status" [class]="financeStatusClass(invoice)">{{ financeStatusLabel(invoice) }}</span>
+                          <strong class="appointment-invoice-amount">{{ invoice.amount | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</strong>
+                        </div>
+                      }
+                    </div>
+                  } @else if (!showFinanceEntry) {
+                    <div class="appointment-finance-empty">
+                      <span>Nenhum valor lançado para esta consulta.</span>
+                      @if (!canManageFinance) { <small>Você possui acesso somente para visualizar o financeiro.</small> }
+                    </div>
+                  }
+                }
+
+                @if (showFinanceEntry && canManageFinance) {
+                  <div class="appointment-finance-entry" (keydown.enter)="$event.preventDefault(); saveAppointmentFinance()">
+                    <div class="appointment-finance-entry-title">
+                      <strong>Novo lançamento</strong>
+                      <span>Paciente: {{ editingAppointment?.patient?.name || 'Paciente' }}</span>
+                    </div>
+                    <div class="appointment-finance-fields">
+                      <div class="form-group">
+                        <label>Serviço <span class="muted">(opcional)</span></label>
+                        <select class="select" [(ngModel)]="financeForm.serviceId" name="financeServiceId" (ngModelChange)="selectFinanceService()">
+                          <option value="">Valor avulso</option>
+                          @for (service of financialServices; track service.id) {
+                            <option [value]="service.id">{{ service.name }} · {{ service.price | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="form-group appointment-finance-description">
+                        <label>Descrição *</label>
+                        <input class="input" [(ngModel)]="financeForm.description" name="financeDescription" placeholder="Ex.: Consulta e profilaxia" />
+                      </div>
+                      <div class="form-group">
+                        <label>Valor *</label>
+                        <div class="money-input"><span>R$</span><input class="input" [(ngModel)]="financeForm.amount" name="financeAmount" type="number" min="0.01" step="0.01" placeholder="0,00" /></div>
+                      </div>
+                      <div class="form-group">
+                        <label>Vencimento *</label>
+                        <input class="input" [(ngModel)]="financeForm.dueDate" name="financeDueDate" type="date" />
+                      </div>
+                    </div>
+                    <div class="appointment-finance-receipt">
+                      <label class="appointment-received-toggle">
+                        <input type="checkbox" [(ngModel)]="financeForm.received" name="financeReceived" />
+                        <span aria-hidden="true"></span>
+                        <strong>Recebido agora</strong>
+                        <small>{{ financeForm.received ? 'O pagamento será registrado junto com a cobrança.' : 'A cobrança ficará em aberto no financeiro.' }}</small>
+                      </label>
+                      @if (financeForm.received) {
+                        <div class="form-group">
+                          <label>Forma de pagamento</label>
+                          <select class="select" [(ngModel)]="financeForm.paymentMethod" name="financePaymentMethod">
+                            <option value="PIX">Pix</option>
+                            <option value="CASH">Dinheiro</option>
+                            <option value="CREDIT_CARD">Cartão de crédito</option>
+                            <option value="DEBIT_CARD">Cartão de débito</option>
+                            <option value="BANK_TRANSFER">Transferência</option>
+                            <option value="BOLETO">Boleto</option>
+                            <option value="OTHER">Outro</option>
+                          </select>
+                        </div>
+                      }
+                    </div>
+                    <div class="appointment-finance-entry-actions">
+                      <button class="btn btn-ghost btn-sm" type="button" [disabled]="financeSaving" (click)="cancelFinanceEntry()">Cancelar</button>
+                      <button class="btn btn-primary btn-sm" type="button" [disabled]="financeSaving || financialContextChanged" (click)="saveAppointmentFinance()">
+                        @if (financeSaving) { <span class="spinner"></span> }
+                        {{ financeSaving ? 'Lançando...' : (financeForm.received ? 'Lançar e receber' : 'Lançar cobrança') }}
+                      </button>
+                    </div>
+                  </div>
+                }
+
+                @if (appointmentInvoices.length) {
+                  <button class="appointment-finance-link" type="button" (click)="openFinancePage()">Ver financeiro completo <span aria-hidden="true">→</span></button>
+                }
+              </section>
+            }
             <div class="form-group">
               <label>Observações</label>
               <textarea class="textarea" [(ngModel)]="form.notes" name="notes" placeholder="Notas sobre a consulta..." rows="3"></textarea>
@@ -630,18 +756,36 @@ export class AppointmentsComponent implements OnInit {
   isDentist = false
   isAdmin = false
   canManageAppointments = false
+  canViewFinance = false
+  canManageFinance = false
+  appointmentInvoices: ClinicInvoice[] = []
+  financialServices: ClinicService[] = []
+  financeLoading = false
+  financeSaving = false
+  showFinanceEntry = false
+  financeForm: {
+    serviceId: string
+    description: string
+    amount: number | null
+    dueDate: string
+    received: boolean
+    paymentMethod: PaymentMethod
+  } = { serviceId: '', description: '', amount: null, dueDate: '', received: false, paymentMethod: 'PIX' }
 
   constructor(
     private http: HttpClient,
     private toast: ToastService,
     private auth: AuthService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private financial: FinancialService
   ) {
     for (let h = GRID_START_HOUR; h < GRID_END_HOUR; h++) this.hours.push(h)
     this.isDentist = this.auth.isDentist()
     this.isAdmin = this.auth.isAdmin()
     this.canManageAppointments = this.auth.hasPermission('APPOINTMENTS_MANAGE')
+    this.canViewFinance = this.auth.hasPermission('FINANCE_VIEW')
+    this.canManageFinance = this.auth.hasPermission('FINANCE_MANAGE')
   }
 
   ngOnInit() {
@@ -1038,6 +1182,7 @@ export class AppointmentsComponent implements OnInit {
     if (!this.canManageAppointments) return
     this.editingId = null
     this.editingAppointment = null
+    this.resetAppointmentFinance()
     this.form = {
       status: 'SCHEDULED',
       startTime: start ? toLocalInput(start) : undefined,
@@ -1061,6 +1206,147 @@ export class AppointmentsComponent implements OnInit {
       notes: a.notes,
     }
     this.showModal = true
+    if (this.canViewFinance) this.loadAppointmentFinance(a.id)
+  }
+
+  get appointmentFinanceOpen() {
+    return this.appointmentInvoices.reduce((total, invoice) => total + Number(invoice.remainingAmount || 0), 0)
+  }
+
+  get financialContextChanged() {
+    if (!this.editingAppointment) return false
+    const patientChanged = (this.form.patientId || '') !== this.editingAppointment.patientId
+    const dentistChanged = !this.isDentist && (this.form.dentistId || '') !== (this.editingAppointment.dentistId || '')
+    return patientChanged || dentistChanged
+  }
+
+  financeStatusLabel(invoice: ClinicInvoice) {
+    const labels: Record<string, string> = {
+      PENDING: 'Em aberto', PARTIAL: 'Parcial', PAID: 'Recebido', OVERDUE: 'Vencido', CANCELLED: 'Cancelado'
+    }
+    return labels[invoice.effectiveStatus || invoice.status] || invoice.status
+  }
+
+  financeStatusClass(invoice: ClinicInvoice) {
+    return `finance-${(invoice.effectiveStatus || invoice.status).toLowerCase()}`
+  }
+
+  private resetAppointmentFinance() {
+    this.appointmentInvoices = []
+    this.financeLoading = false
+    this.financeSaving = false
+    this.showFinanceEntry = false
+    this.financeForm = { serviceId: '', description: '', amount: null, dueDate: '', received: false, paymentMethod: 'PIX' }
+  }
+
+  private loadAppointmentFinance(appointmentId: string) {
+    this.resetAppointmentFinance()
+    this.financeLoading = true
+    this.financial.invoices({ appointmentId }).subscribe({
+      next: invoices => {
+        if (this.editingId !== appointmentId) return
+        this.appointmentInvoices = invoices
+        this.financeLoading = false
+      },
+      error: (err: any) => {
+        this.financeLoading = false
+        this.toast.error('Não foi possível carregar os valores da consulta', err.error?.message)
+      }
+    })
+    if (this.canManageFinance && !this.financialServices.length) {
+      this.financial.services(false).subscribe({
+        next: services => { this.financialServices = services },
+        error: () => { this.financialServices = [] }
+      })
+    }
+  }
+
+  startFinanceEntry() {
+    if (!this.canManageFinance || !this.editingAppointment || this.financialContextChanged) return
+    const appointmentDate = new Date(this.editingAppointment.startTime)
+    this.financeForm = {
+      serviceId: '',
+      description: 'Consulta odontológica',
+      amount: null,
+      dueDate: toLocalDateInput(appointmentDate),
+      received: false,
+      paymentMethod: 'PIX'
+    }
+    this.showFinanceEntry = true
+  }
+
+  cancelFinanceEntry() {
+    if (this.financeSaving) return
+    this.showFinanceEntry = false
+  }
+
+  selectFinanceService() {
+    const service = this.financialServices.find(item => item.id === this.financeForm.serviceId)
+    if (!service) return
+    this.financeForm.description = service.name
+    this.financeForm.amount = Number(service.price)
+  }
+
+  saveAppointmentFinance() {
+    const appointment = this.editingAppointment
+    const description = this.financeForm.description.trim()
+    const amount = Number(this.financeForm.amount)
+    if (!this.canManageFinance || !appointment || this.financialContextChanged) return
+    if (!description || !amount || amount <= 0 || !this.financeForm.dueDate) {
+      this.toast.error('Informe a descrição, o valor e o vencimento do lançamento.')
+      return
+    }
+    this.financeSaving = true
+    const payload: Record<string, unknown> = {
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      description,
+      amount,
+      dueDate: this.financeForm.dueDate,
+      items: [{
+        serviceId: this.financeForm.serviceId || undefined,
+        description,
+        quantity: 1,
+        unitPrice: amount
+      }]
+    }
+    this.financial.createInvoice(payload).subscribe({
+      next: invoice => {
+        if (this.financeForm.received) {
+          this.financial.addPayment(invoice.id, {
+            amount: invoice.remainingAmount,
+            paidAt: new Date().toISOString(),
+            method: this.financeForm.paymentMethod
+          }).subscribe({
+            next: paidInvoice => this.finishFinanceEntry(paidInvoice, 'Valor lançado e recebimento registrado.'),
+            error: (err: any) => {
+              this.financeSaving = false
+              this.appointmentInvoices = [invoice, ...this.appointmentInvoices]
+              this.showFinanceEntry = false
+              this.toast.error('Cobrança criada, mas o recebimento não foi registrado', err.error?.message)
+            }
+          })
+          return
+        }
+        this.finishFinanceEntry(invoice, 'Cobrança lançada na consulta.')
+      },
+      error: (err: any) => {
+        this.financeSaving = false
+        this.toast.error('Erro ao lançar valor', err.error?.message)
+      }
+    })
+  }
+
+  private finishFinanceEntry(invoice: ClinicInvoice, message: string) {
+    this.financeSaving = false
+    this.showFinanceEntry = false
+    this.appointmentInvoices = [invoice, ...this.appointmentInvoices.filter(item => item.id !== invoice.id)]
+    this.toast.success(message)
+  }
+
+  openFinancePage() {
+    this.showModal = false
+    void this.router.navigate(['/app/finance'], { queryParams: { tab: 'receivables', search: this.editingAppointment?.patient?.name || undefined } })
   }
 
   openPatientRecord() {

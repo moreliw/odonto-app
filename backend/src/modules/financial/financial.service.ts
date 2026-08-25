@@ -3,10 +3,11 @@ import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
 
 export type FinancialRequester = { userId: string; email?: string; name?: string; role: 'ADMIN' | 'DENTIST' | 'USER' }
 
-type ListFilters = { search?: string; status?: string; from?: string; to?: string }
+type ListFilters = { search?: string; status?: string; from?: string; to?: string; appointmentId?: string }
 type ItemInput = { serviceId?: string; description?: string; quantity?: number; unitPrice?: number }
 type InvoiceInput = {
   patientId?: string
+  appointmentId?: string
   dentistId?: string
   dentistName?: string
   description?: string
@@ -40,6 +41,7 @@ type ServiceInput = {
 const invoiceInclude = {
   patient: { select: { id: true, name: true, phone: true } },
   dentist: { select: { id: true, name: true } },
+  appointment: { select: { id: true, patientId: true, startTime: true, endTime: true, status: true } },
   items: { include: { service: { select: { id: true, name: true } } }, orderBy: { createdAt: 'asc' as const } },
   payments: { orderBy: { paidAt: 'desc' as const } }
 }
@@ -186,8 +188,23 @@ export class FinancialService {
     return this.money(base - discount)
   }
 
+  private async appointmentContext(requester: FinancialRequester, appointmentId: string, patientId: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { id: true, patientId: true, dentistId: true, dentistName: true }
+    })
+    if (!appointment || appointment.patientId !== patientId) {
+      throw new BadRequestException('A consulta informada não pertence a este paciente.')
+    }
+    if (requester.role === 'DENTIST' && appointment.dentistId !== requester.userId) {
+      throw new ForbiddenException('Você não pode lançar valores nesta consulta.')
+    }
+    return appointment
+  }
+
   async listInvoices(requester: FinancialRequester, filters: ListFilters = {}) {
     const where: any = { ...this.invoiceScope(requester) }
+    if (filters.appointmentId) where.appointmentId = filters.appointmentId
     if (filters.search?.trim()) {
       const search = filters.search.trim()
       where.OR = [
@@ -212,13 +229,18 @@ export class FinancialService {
     const patient = await this.prisma.patient.findUnique({ where: { id: input.patientId }, select: { id: true } })
     if (!patient) throw new BadRequestException('Paciente não encontrado.')
 
-    const dentistId = requester.role === 'DENTIST' ? requester.userId : (input.dentistId || null)
+    const appointment = input.appointmentId
+      ? await this.appointmentContext(requester, input.appointmentId, input.patientId)
+      : null
+    const dentistId = appointment
+      ? appointment.dentistId
+      : requester.role === 'DENTIST' ? requester.userId : (input.dentistId || null)
     if (dentistId) {
       const dentist = await this.prisma.user.findFirst({ where: { id: dentistId, role: 'DENTIST' }, select: { id: true } })
       if (!dentist) throw new BadRequestException('Dentista responsável não encontrado.')
     }
     // Nome livre só faz sentido quando não há conta vinculada — evita ambiguidade entre os dois.
-    const dentistName = dentistId ? null : input.dentistName?.trim() || null
+    const dentistName = dentistId ? null : appointment?.dentistName || input.dentistName?.trim() || null
 
     const items = await this.normalizeItems(input.items)
     const discount = this.money(input.discount)
@@ -226,6 +248,7 @@ export class FinancialService {
     const invoice = await this.prisma.invoice.create({
       data: {
         patientId: input.patientId,
+        appointmentId: appointment?.id || null,
         dentistId,
         dentistName,
         description: input.description?.trim() || items[0]?.description || 'Cobrança odontológica',
@@ -248,13 +271,24 @@ export class FinancialService {
     if (current.status === 'CANCELLED') throw new BadRequestException('Uma cobrança cancelada não pode ser alterada.')
     const data: any = {}
     data.updatedByName = this.actor(requester)
+    const targetPatientId = input.patientId || current.patientId
+    const targetAppointmentId = input.appointmentId || current.appointmentId
+    const appointment = targetAppointmentId
+      ? await this.appointmentContext(requester, targetAppointmentId, targetPatientId)
+      : null
     if (input.patientId !== undefined) data.patientId = input.patientId
+    if (input.appointmentId !== undefined) data.appointmentId = input.appointmentId
     if (input.description !== undefined) data.description = input.description.trim() || 'Cobrança odontológica'
     if (input.issuedAt !== undefined) data.issuedAt = new Date(input.issuedAt)
     if (input.dueDate !== undefined) data.dueDate = new Date(input.dueDate)
     if (input.notes !== undefined) data.notes = input.notes.trim() || null
-    if (requester.role !== 'DENTIST' && input.dentistId !== undefined) data.dentistId = input.dentistId || null
-    if (requester.role !== 'DENTIST' && input.dentistName !== undefined) data.dentistName = input.dentistName?.trim() || null
+    if (appointment) {
+      data.dentistId = appointment.dentistId
+      data.dentistName = appointment.dentistId ? null : appointment.dentistName
+    } else {
+      if (requester.role !== 'DENTIST' && input.dentistId !== undefined) data.dentistId = input.dentistId || null
+      if (requester.role !== 'DENTIST' && input.dentistName !== undefined) data.dentistName = input.dentistName?.trim() || null
+    }
     // Conta vinculada e nome livre são mutuamente exclusivos.
     if (data.dentistId) data.dentistName = null
     else if (data.dentistName) data.dentistId = null

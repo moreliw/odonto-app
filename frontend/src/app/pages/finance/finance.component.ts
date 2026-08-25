@@ -175,7 +175,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
     this.error = ''
     forkJoin({
       summary: this.api.summary(this.from, this.to),
-      invoices: this.api.invoices({ status: this.activeTab === 'receivables' ? this.statusFilter : 'ALL' }),
+      invoices: this.api.invoices({ search: this.search, status: this.activeTab === 'receivables' ? this.statusFilter : 'ALL' }),
       services: this.api.services(this.isAdmin),
       options: this.isAdmin ? this.http.get<FinanceOptions>('/api/financial/options') : of({ patients:[], dentists:[] } as FinanceOptions),
       expenses: this.isAdmin ? this.api.expenses() : of([] as Expense[]),
@@ -214,6 +214,8 @@ export class FinanceComponent implements OnInit, OnDestroy {
     if (status && ['ALL', 'OPEN', 'PENDING', 'PARTIAL', 'OVERDUE', 'PAID', 'CANCELLED'].includes(status)) {
       this.statusFilter = status
     }
+    const search = params.get('search')?.trim()
+    if (search) this.search = search
     const period = params.get('period')
     if (period && ['month', 'quarter', 'year'].includes(period)) this.period = period
   }

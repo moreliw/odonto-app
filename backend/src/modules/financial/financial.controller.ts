@@ -65,6 +65,10 @@ class CreateInvoiceDto {
 
   @IsOptional()
   @IsString()
+  appointmentId?: string
+
+  @IsOptional()
+  @IsString()
   dentistId?: string
 
   @IsOptional()
@@ -107,6 +111,10 @@ class UpdateInvoiceDto {
   @IsOptional()
   @IsString()
   patientId?: string
+
+  @IsOptional()
+  @IsString()
+  appointmentId?: string
 
   @IsOptional()
   @IsString()
@@ -321,9 +329,10 @@ export class FinancialController {
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('from') from?: string,
-    @Query('to') to?: string
+    @Query('to') to?: string,
+    @Query('appointmentId') appointmentId?: string
   ) {
-    return this.financial.listInvoices(this.requester(req), { search, status, from, to })
+    return this.financial.listInvoices(this.requester(req), { search, status, from, to, appointmentId })
   }
 
   @Post('invoices')

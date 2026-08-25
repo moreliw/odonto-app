@@ -629,13 +629,113 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 }
 .modal-footer-split { justify-content: space-between; flex-wrap: wrap; }
 .modal-footer-main { display: flex; gap: 10px; margin-left: auto; }
-.appointment-edit-modal { max-width: 720px; }
+.appointment-edit-modal { max-width: 780px; }
 .appointment-context-actions {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin-top: 4px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2);
 }
 .appointment-context-actions .btn { flex: 1; min-width: 190px; justify-content: center; background: var(--surface); }
 .appointment-edit-footer { align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.appointment-finance {
+  display: grid; gap: 12px; padding: 15px;
+  border: 1px solid #bfdbfe; border-radius: 12px; background: #f8fbff;
+}
+.appointment-finance-header {
+  min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+}
+.appointment-finance-heading { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.appointment-finance-heading > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.appointment-finance-heading strong { color: var(--text); font-size: 13px; line-height: 1.25; }
+.appointment-finance-heading small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.appointment-finance-icon {
+  width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center;
+  border-radius: 10px; background: #dbeafe; color: var(--primary);
+}
+.appointment-finance-summary { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.appointment-finance-summary > span { display: grid; gap: 1px; text-align: right; }
+.appointment-finance-summary small { color: var(--muted); font-size: 9px; }
+.appointment-finance-summary strong { color: var(--text); font-size: 13px; font-variant-numeric: tabular-nums; }
+.appointment-finance-notice {
+  padding: 8px 10px; border: 1px solid #fde68a; border-radius: 8px;
+  background: #fffbeb; color: #92400e; font-size: 10px; line-height: 1.4;
+}
+.appointment-finance-loading,
+.appointment-finance-empty {
+  min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px dashed var(--border); border-radius: 9px; background: var(--surface);
+  color: var(--muted); font-size: 11px; text-align: center;
+}
+.appointment-finance-empty { flex-direction: column; gap: 2px; }
+.appointment-finance-empty small { font-size: 9px; }
+.appointment-invoice-list {
+  max-height: 170px; overflow-y: auto; display: grid; gap: 6px; padding-right: 2px;
+}
+.appointment-invoice-row {
+  min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
+  padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface);
+}
+.appointment-invoice-copy { min-width: 0; display: grid; gap: 2px; }
+.appointment-invoice-copy strong { overflow: hidden; color: var(--text-2); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.appointment-invoice-copy span { color: var(--muted); font-size: 9px; }
+.appointment-invoice-status {
+  padding: 4px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted);
+  font-size: 9px; font-weight: 700; white-space: nowrap;
+}
+.appointment-invoice-status.finance-paid { background: #dcfce7; color: #15803d; }
+.appointment-invoice-status.finance-pending { background: #dbeafe; color: #1d4ed8; }
+.appointment-invoice-status.finance-partial { background: #ede9fe; color: #6d28d9; }
+.appointment-invoice-status.finance-overdue { background: #fee2e2; color: #b91c1c; }
+.appointment-invoice-status.finance-cancelled { background: #f1f5f9; color: #64748b; }
+.appointment-invoice-amount { min-width: 80px; color: var(--text); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.appointment-finance-entry {
+  display: grid; gap: 12px; padding: 13px; border: 1px solid #93c5fd; border-radius: 10px; background: var(--surface);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, .06);
+}
+.appointment-finance-entry-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.appointment-finance-entry-title strong { color: var(--text); font-size: 12px; }
+.appointment-finance-entry-title span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.appointment-finance-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.appointment-finance-fields .form-group { gap: 5px; }
+.appointment-finance-fields label,
+.appointment-finance-receipt label { font-size: 10px; }
+.appointment-finance-fields .input,
+.appointment-finance-fields .select,
+.appointment-finance-receipt .select { min-height: 38px; font-size: 11px; }
+.money-input { position: relative; }
+.money-input > span {
+  position: absolute; left: 11px; top: 50%; z-index: 1; transform: translateY(-50%);
+  color: var(--muted); font-size: 10px; font-weight: 700; pointer-events: none;
+}
+.money-input .input { padding-left: 34px; }
+.appointment-finance-receipt {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding-top: 10px; border-top: 1px dashed var(--border);
+}
+.appointment-finance-receipt > .form-group { width: min(220px, 48%); gap: 5px; }
+.appointment-received-toggle {
+  min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr); column-gap: 8px; align-items: center;
+  cursor: pointer;
+}
+.appointment-received-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.appointment-received-toggle > span {
+  grid-row: 1 / 3; position: relative; width: 34px; height: 20px; border-radius: 999px;
+  background: #cbd5e1; transition: background .15s ease;
+}
+.appointment-received-toggle > span::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .25); transition: transform .15s ease;
+}
+.appointment-received-toggle input:checked + span { background: var(--success); }
+.appointment-received-toggle input:checked + span::after { transform: translateX(14px); }
+.appointment-received-toggle input:focus-visible + span { outline: 3px solid var(--primary-100); outline-offset: 2px; }
+.appointment-received-toggle strong { color: var(--text-2); font-size: 10px; }
+.appointment-received-toggle small { overflow: hidden; color: var(--muted); font-size: 9px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.appointment-finance-entry-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.appointment-finance-link {
+  justify-self: end; padding: 0; border: 0; background: transparent; color: var(--primary);
+  font-size: 10px; font-weight: 650; cursor: pointer;
+}
+.appointment-finance-link:hover { text-decoration: underline; }
 .audit-cell { min-width: 118px; display: grid; gap: 3px; }
 .audit-cell--center { justify-items: center; text-align: center; }
 .audit-cell strong { max-width: 150px; color: var(--text-2); font-size: 11px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
@@ -731,6 +831,21 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   .appointment-delete-heading { gap: 12px; }
   .appointment-delete-icon { width: 44px; height: 44px; border-radius: 12px; }
   .appointment-delete-actions { grid-template-columns: 1fr; }
+  .appointment-finance { padding: 12px; }
+  .appointment-finance-header { align-items: flex-start; }
+  .appointment-finance-heading small { display: none; }
+  .appointment-finance-summary { align-items: flex-end; flex-direction: column; gap: 7px; }
+  .appointment-finance-summary .btn { width: 100%; }
+  .appointment-invoice-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .appointment-invoice-status { justify-self: end; }
+  .appointment-invoice-amount { grid-column: 2; min-width: 0; }
+  .appointment-finance-fields { grid-template-columns: 1fr; }
+  .appointment-finance-entry-title { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .appointment-finance-receipt { align-items: stretch; flex-direction: column; }
+  .appointment-finance-receipt > .form-group { width: 100%; }
+  .appointment-received-toggle small { white-space: normal; }
+  .appointment-finance-entry-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .appointment-finance-entry-actions .btn { min-width: 0; padding-inline: 8px; }
 }
 @keyframes modal-in {
   from { opacity: 0; transform: translateY(-10px) scale(0.98); }

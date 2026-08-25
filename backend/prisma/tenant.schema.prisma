@@ -51,24 +51,24 @@ enum PaymentMethod {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  username      String?        @unique
+  id              String         @id @default(uuid())
+  username        String?        @unique
   /// Nulo para um dentista cadastrado só como referência (sem acesso ao sistema).
-  email         String?        @unique
-  name          String
+  email           String?        @unique
+  name            String
   /// Nulo junto com email — sem os dois, a conta não consegue fazer login.
-  passwordHash  String?
-  role          Role
-  active        Boolean        @default(true)
-  createdByName String?
-  updatedByName String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  passwordHash    String?
+  role            Role
+  active          Boolean        @default(true)
+  createdByName   String?
+  updatedByName   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   /// Exceções de acesso por usuário em JSON: { "FINANCE_VIEW": true, ... }.
   accessOverrides String?
-  refreshTokens RefreshToken[]
-  appointments  Appointment[]  @relation("DentistAppointments")
-  invoices      Invoice[]      @relation("DentistInvoices")
+  refreshTokens   RefreshToken[]
+  appointments    Appointment[]  @relation("DentistAppointments")
+  invoices        Invoice[]      @relation("DentistInvoices")
 }
 
 model RefreshToken {
@@ -107,65 +107,66 @@ model Patient {
   medications           String?
   preexistingConditions String?
   medicalNotes          String?
-  createdByName String?
-  updatedByName String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  records      Record[]
-  appointments Appointment[]
-  invoices     Invoice[]
-  files        File[]        @relation("PatientFiles")
+  createdByName         String?
+  updatedByName         String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  records               Record[]
+  appointments          Appointment[]
+  invoices              Invoice[]
+  files                 File[]        @relation("PatientFiles")
 }
 
 model Appointment {
-  id        String            @id @default(uuid())
-  patient   Patient           @relation(fields: [patientId], references: [id])
-  patientId String
-  dentist   User?             @relation("DentistAppointments", fields: [dentistId], references: [id], onDelete: SetNull)
-  dentistId String?
+  id                      String             @id @default(uuid())
+  patient                 Patient            @relation(fields: [patientId], references: [id])
+  patientId               String
+  dentist                 User?              @relation("DentistAppointments", fields: [dentistId], references: [id], onDelete: SetNull)
+  dentistId               String?
   /// Nome do dentista sem conta no sistema (preenchido só quando dentistId é nulo).
-  dentistName String?
-  startTime DateTime
-  endTime   DateTime
-  status    AppointmentStatus @default(SCHEDULED)
-  notes     String?
+  dentistName             String?
+  startTime               DateTime
+  endTime                 DateTime
+  status                  AppointmentStatus  @default(SCHEDULED)
+  notes                   String?
   /// Resposta do paciente ao pedido de confirmação (link público, sem login).
-  confirmationStatus     ConfirmationStatus @default(PENDING)
-  confirmationToken      String?            @unique
-  confirmationSentAt     DateTime?
+  confirmationStatus      ConfirmationStatus @default(PENDING)
+  confirmationToken       String?            @unique
+  confirmationSentAt      DateTime?
   confirmationRespondedAt DateTime?
-  createdByName String?
-  updatedByName String?
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  createdByName           String?
+  updatedByName           String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  invoices                Invoice[]
 
   @@index([dentistId])
 }
 
 model Record {
-  id        String   @id @default(uuid())
-  patient   Patient  @relation(fields: [patientId], references: [id])
-  patientId String
-  content   Json
+  id            String   @id @default(uuid())
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  patientId     String
+  content       Json
   createdByName String?
   updatedByName String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model File {
-  id          String   @id @default(uuid())
-  patient     Patient  @relation("PatientFiles", fields: [patientId], references: [id])
-  patientId   String
-  key         String   @unique
-  url         String
-  contentType String
-  size        Int
-  originalName String?
-  category      String?
-  notes         String?
+  id             String   @id @default(uuid())
+  patient        Patient  @relation("PatientFiles", fields: [patientId], references: [id])
+  patientId      String
+  key            String   @unique
+  url            String
+  contentType    String
+  size           Int
+  originalName   String?
+  category       String?
+  notes          String?
   uploadedByName String?
-  createdAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
 }
 
 model RoleAccessPolicy {
@@ -179,28 +180,32 @@ model RoleAccessPolicy {
 }
 
 model Invoice {
-  id          String           @id @default(uuid())
-  patient     Patient          @relation(fields: [patientId], references: [id])
-  patientId   String
-  dentist     User?            @relation("DentistInvoices", fields: [dentistId], references: [id], onDelete: SetNull)
-  dentistId   String?
+  id            String           @id @default(uuid())
+  patient       Patient          @relation(fields: [patientId], references: [id])
+  patientId     String
+  /// Consulta que originou a cobrança. O histórico financeiro é preservado se a agenda for excluída.
+  appointment   Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  appointmentId String?
+  dentist       User?            @relation("DentistInvoices", fields: [dentistId], references: [id], onDelete: SetNull)
+  dentistId     String?
   /// Nome do dentista sem conta no sistema (preenchido só quando dentistId é nulo).
-  dentistName String?
-  description String           @default("Cobrança odontológica")
-  amount      Decimal          @db.Decimal(12, 2)
-  discount    Decimal          @default(0) @db.Decimal(12, 2)
-  status      InvoiceStatus    @default(PENDING)
-  issuedAt    DateTime         @default(now())
-  dueDate     DateTime         @default(now())
-  notes       String?
-  items       InvoiceItem[]
-  payments    InvoicePayment[]
+  dentistName   String?
+  description   String           @default("Cobrança odontológica")
+  amount        Decimal          @db.Decimal(12, 2)
+  discount      Decimal          @default(0) @db.Decimal(12, 2)
+  status        InvoiceStatus    @default(PENDING)
+  issuedAt      DateTime         @default(now())
+  dueDate       DateTime         @default(now())
+  notes         String?
+  items         InvoiceItem[]
+  payments      InvoicePayment[]
   createdByName String?
   updatedByName String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@index([patientId])
+  @@index([appointmentId])
   @@index([dentistId])
   @@index([status, dueDate])
 }

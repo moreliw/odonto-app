@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core'
 import { HttpClient, HttpParams } from '@angular/common/http'
 
-export type FinancialRole = 'ADMIN' | 'DENTIST'
+export type FinancialRole = 'ADMIN' | 'DENTIST' | 'USER'
 export type EffectiveStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE' | 'CANCELLED'
 export type PaymentMethod = 'CASH' | 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'BOLETO' | 'OTHER'
 
@@ -41,6 +41,8 @@ export type ClinicInvoice = {
   id: string
   patientId: string
   patient: { id: string; name: string; phone?: string | null }
+  appointmentId?: string | null
+  appointment?: { id: string; startTime: string; endTime: string; status: string } | null
   dentistId?: string | null
   dentist?: { id: string; name: string } | null
   /** Nome do dentista sem conta no sistema (só quando dentistId é nulo). */
@@ -112,7 +114,7 @@ export type FinancialSummary = {
   overdueReceivables: ClinicInvoice[]
 }
 
-export type FinancialFilters = { search?: string; status?: string; from?: string; to?: string }
+export type FinancialFilters = { search?: string; status?: string; from?: string; to?: string; appointmentId?: string }
 
 @Injectable({ providedIn: 'root' })
 export class FinancialService {
