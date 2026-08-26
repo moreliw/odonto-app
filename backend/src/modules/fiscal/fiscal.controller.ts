@@ -35,7 +35,7 @@ import { FiscalRequester, FiscalService } from './fiscal.service'
 
 class FiscalSettingsDto {
   @IsBoolean() enabled: boolean
-  @IsIn(['SANDBOX', 'PRODUCTION']) environment: 'SANDBOX' | 'PRODUCTION'
+  @IsIn(['PRODUCTION']) environment: 'PRODUCTION'
   @IsIn(['NATIONAL', 'MUNICIPAL']) providerMode: 'NATIONAL' | 'MUNICIPAL'
   @IsString() @MinLength(11) @MaxLength(20) taxId: string
   @IsOptional() @IsString() @MaxLength(50) municipalRegistration?: string

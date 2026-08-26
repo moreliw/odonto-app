@@ -26,7 +26,7 @@
     <article><span class="kpi-icon blue">✓</span><div><small>Autorizadas</small><strong>{{ authorizedCount }}</strong><p>{{ money(totalAuthorized) }} emitidos</p></div></article>
     <article><span class="kpi-icon amber">↻</span><div><small>Em processamento</small><strong>{{ processingCount }}</strong><p>Aguardando retorno</p></div></article>
     <article [class.attention]="attentionCount"><span class="kpi-icon red">!</span><div><small>Precisam de atenção</small><strong>{{ attentionCount }}</strong><p>Rejeições ou falhas</p></div></article>
-    <article><span class="kpi-icon green">N</span><div><small>Ambiente atual</small><strong class="text-value">{{ environmentLabel(settings?.environment || 'SANDBOX') }}</strong><p>{{ settings?.providerMode === 'MUNICIPAL' ? 'Provedor municipal' : 'Padrão nacional' }}</p></div></article>
+    <article><span class="kpi-icon green">N</span><div><small>Emissão oficial</small><strong class="text-value">Produção</strong><p>{{ settings?.providerMode === 'MUNICIPAL' ? 'Provedor municipal' : 'Padrão nacional' }}</p></div></article>
   </section>
 
   <section class="fiscal-panel card">
@@ -50,7 +50,7 @@
                 <td><strong>{{ note.number ? 'NFS-e ' + note.number : 'Emissão ' + (note.reference | slice:-8) }}</strong><small>{{ note.serviceDescription }}</small></td>
                 <td><strong>{{ note.serviceDate | date:'dd/MM/yyyy':'UTC' }}</strong><small>{{ note.createdAt | date:'dd/MM/yyyy HH:mm' }}</small></td>
                 <td><strong>{{ money(note.amount) }}</strong><small>ISS {{ note.issWithheld ? 'retido' : 'não retido' }}</small></td>
-                <td><span class="fiscal-status" [class]="statusClass(note.status)">{{ statusLabel[note.status] }}</span><small class="status-message" [title]="note.lastMessage || ''">{{ note.lastMessage || environmentLabel(note.environment) }}</small></td>
+                <td><span class="fiscal-status" [class]="statusClass(note.status)">{{ statusLabel[note.status] }}</span><small class="status-message" [title]="note.lastMessage || ''">{{ note.lastMessage || 'Emissão oficial' }}</small></td>
                 <td><div class="audit-cell"><strong>{{ note.updatedByName || note.createdByName || 'Sistema' }}</strong><span>{{ note.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
                 <td><div class="row-actions">
                   @if (['AUTHORIZED','CANCEL_PENDING','CANCELLED'].includes(note.status)) { <button type="button" (click)="download(note,'pdf')" [disabled]="saving === 'pdf-' + note.id">PDF</button><button type="button" (click)="download(note,'xml')" [disabled]="saving === 'xml-' + note.id">XML</button> }
@@ -65,7 +65,7 @@
       </div>
       <div class="fiscal-mobile-list">
         @for (note of pagedNotes; track note.id) {
-          <article><header><div><strong>{{ note.customerName }}</strong><small>{{ note.number ? 'NFS-e ' + note.number : document(note.customerDocument) }}</small></div><span class="fiscal-status" [class]="statusClass(note.status)">{{ statusLabel[note.status] }}</span></header><div class="mobile-values"><div><span>Valor</span><strong>{{ money(note.amount) }}</strong></div><div><span>Competência</span><strong>{{ note.serviceDate | date:'dd/MM/yy':'UTC' }}</strong></div><div><span>Ambiente</span><strong>{{ environmentLabel(note.environment) }}</strong></div></div><p>{{ note.lastMessage || note.serviceDescription }}</p><footer>@if (['AUTHORIZED','CANCEL_PENDING','CANCELLED'].includes(note.status)) { <button class="btn btn-outline btn-sm" type="button" (click)="download(note,'pdf')">PDF</button><button class="btn btn-outline btn-sm" type="button" (click)="download(note,'xml')">XML</button> }@if (canManage && ['PROCESSING','ERROR','CANCEL_PENDING'].includes(note.status)) { <button class="btn btn-outline btn-sm" type="button" (click)="syncNote(note)">Sincronizar</button> }@if (canManage && note.status === 'AUTHORIZED') { <button class="btn btn-danger-soft btn-sm" type="button" (click)="openCancel(note)">Cancelar</button> }</footer></article>
+          <article><header><div><strong>{{ note.customerName }}</strong><small>{{ note.number ? 'NFS-e ' + note.number : document(note.customerDocument) }}</small></div><span class="fiscal-status" [class]="statusClass(note.status)">{{ statusLabel[note.status] }}</span></header><div class="mobile-values"><div><span>Valor</span><strong>{{ money(note.amount) }}</strong></div><div><span>Competência</span><strong>{{ note.serviceDate | date:'dd/MM/yy':'UTC' }}</strong></div><div><span>Documento</span><strong>NFS-e oficial</strong></div></div><p>{{ note.lastMessage || note.serviceDescription }}</p><footer>@if (['AUTHORIZED','CANCEL_PENDING','CANCELLED'].includes(note.status)) { <button class="btn btn-outline btn-sm" type="button" (click)="download(note,'pdf')">PDF</button><button class="btn btn-outline btn-sm" type="button" (click)="download(note,'xml')">XML</button> }@if (canManage && ['PROCESSING','ERROR','CANCEL_PENDING'].includes(note.status)) { <button class="btn btn-outline btn-sm" type="button" (click)="syncNote(note)">Sincronizar</button> }@if (canManage && note.status === 'AUTHORIZED') { <button class="btn btn-danger-soft btn-sm" type="button" (click)="openCancel(note)">Cancelar</button> }</footer></article>
         }
       </div>
       @if (filteredNotes.length > pageSize) { <footer class="fiscal-pagination"><span>{{ filteredNotes.length }} documentos</span><div><button type="button" [disabled]="page === 1" (click)="page=page-1">‹</button><b>{{ page }} de {{ totalPages }}</b><button type="button" [disabled]="page === totalPages" (click)="page=page+1">›</button></div></footer> }
@@ -118,12 +118,11 @@
         <div [class.done]="readiness?.certificateValid"><i>{{ readiness?.certificateValid ? '✓' : '3' }}</i><span><strong>Certificado A1</strong><small>{{ readiness?.certificateValid ? 'Válido' : 'Aguardando envio' }}</small></span></div>
       </div>
 
-      <section class="settings-section"><header><div><span>1</span><h3>Ambiente e ativação</h3></div></header><div class="form-grid">
+      <section class="settings-section"><header><div><span>1</span><h3>Ativação da emissão</h3></div></header><div class="form-grid">
         <label class="check-field field-wide"><input type="checkbox" [(ngModel)]="settingsForm.enabled" /><span><strong>Emissão fiscal ativa</strong><small>Permite que usuários autorizados emitam NFS-e.</small></span></label>
-        <label class="field"><span>Ambiente *</span><select class="select" [(ngModel)]="settingsForm.environment"><option value="SANDBOX">Homologação (testes)</option><option value="PRODUCTION">Produção (valor fiscal)</option></select></label>
         <label class="field"><span>Canal de emissão *</span><select class="select" [(ngModel)]="settingsForm.providerMode"><option value="NATIONAL">Padrão nacional</option><option value="MUNICIPAL">Provedor da prefeitura</option></select></label>
         @if (settingsForm.providerMode === 'MUNICIPAL') { <label class="field"><span>Login da prefeitura</span><input class="input" autocomplete="off" [(ngModel)]="municipalLogin" /></label><label class="field"><span>Senha da prefeitura</span><input class="input" type="password" autocomplete="new-password" [(ngModel)]="municipalPassword" /></label><label class="field field-wide"><span>Token da prefeitura (quando exigido)</span><input class="input" type="password" autocomplete="new-password" [(ngModel)]="municipalToken" /><small>Senha e token são enviados ao provedor na sincronização e não ficam gravados no OdontoApp.</small></label> }
-        @if (settingsForm.environment === 'PRODUCTION') { <div class="production-warning field-wide"><strong>Ambiente de produção</strong><span>As próximas emissões terão validade fiscal. Valide os códigos e alíquotas com a contabilidade.</span></div> }
+        <div class="production-warning field-wide"><strong>Emissão oficial</strong><span>Os documentos emitidos têm validade fiscal. Confirme os códigos e alíquotas com a contabilidade antes de ativar.</span></div>
       </div></section>
 
       <section class="settings-section"><header><div><span>2</span><h3>Dados do prestador</h3></div></header><div class="form-grid">

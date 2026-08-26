@@ -434,7 +434,7 @@ export const SECURITY_ITEMS: SecurityItem[] = [
   },
   {
     title: 'Boas práticas de LGPD',
-    description: 'O tratamento dos dados segue os princípios da LGPD, com termos de uso e política de privacidade públicos.'
+    description: 'Controles de acesso e práticas de proteção ajudam a clínica a tratar dados pessoais com responsabilidade.'
   }
 ]
 
@@ -472,11 +472,6 @@ export const FAQS: Faq[] = [
     question: 'Posso acessar pelo celular?',
     answer:
       'Sim. A interface se adapta a celular, tablet e computador. Não existe aplicativo para instalar — o acesso é pelo navegador.'
-  },
-  {
-    question: 'O período de teste exige cartão de crédito?',
-    answer:
-      'Não pedimos cartão para iniciar o teste e não há cobrança automática durante o período gratuito. A cobrança só começa quando você contrata um plano.'
   },
   {
     question: 'Posso cancelar quando quiser?',

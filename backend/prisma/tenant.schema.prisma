@@ -232,7 +232,7 @@ model Invoice {
 model FiscalSettings {
   id                         String             @id @default("default")
   enabled                    Boolean            @default(false)
-  environment                FiscalEnvironment  @default(SANDBOX)
+  environment                FiscalEnvironment  @default(PRODUCTION)
   providerMode               String             @default("NATIONAL")
   taxId                      String?
   municipalRegistration      String?

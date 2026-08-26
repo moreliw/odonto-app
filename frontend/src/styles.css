@@ -1862,8 +1862,6 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .lp-security-icon { width: 24px; height: 24px; margin-bottom: 16px; fill: none; stroke: #7dd3fc; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .lp-security-card h3 { font-size: 17px; color: #fff; margin-bottom: 9px; }
 .lp-security-card p { font-size: 14.5px; color: #94a3b8; }
-.lp-security-note { margin-top: 32px; text-align: center; font-size: 14px; color: #94a3b8; display: flex; gap: 12px; justify-content: center; }
-.lp-security-note a { color: #7dd3fc; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ─────────────── Planos ─────────────── */
 .lp-cycle {
@@ -1993,7 +1991,7 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 
 /* ─────────────── Footer ─────────────── */
 .lp-footer { background: var(--ink); color: #94a3b8; padding: 64px 0 28px; }
-.lp-footer-grid { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: 40px 28px; }
+.lp-footer-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)); gap: 40px 28px; }
 .lp-footer .lp-brand { color: #fff; margin-bottom: 16px; }
 .lp-footer-brand p { font-size: 14.5px; max-width: 40ch; }
 .lp-footer nav { display: grid; gap: 11px; align-content: start; }
@@ -2007,6 +2005,7 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 }
 .lp-footer-bottom a { text-decoration: underline; text-underline-offset: 3px; }
 .lp-footer-bottom a:hover { color: #fff; }
+.lp-footer-legal { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px 20px; }
 
 /* ─────────────── CTA fixo mobile ─────────────── */
 .lp-sticky-cta {
@@ -2073,12 +2072,12 @@ label { font-size: 13px; font-weight: 500; color: var(--text-2); }
   .lp-sticky-cta { display: block; }
   .lp-footer { padding-bottom: 96px; }
   .lp-footer-grid { grid-template-columns: 1fr; gap: 32px; }
-  /* Alvo de toque confortável nos links de texto do rodapé e da seção de segurança. */
+  /* Alvo de toque confortável nos links de texto do rodapé. */
   .lp-footer nav { gap: 2px; }
   .lp-footer nav a { display: inline-flex; align-items: center; min-height: 40px; }
-  .lp-security-note { flex-direction: column; gap: 0; }
-  .lp-security-note a { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; }
-  .lp-security-note span { display: none; }
+  .lp-footer-bottom { flex-direction: column; align-items: flex-start; }
+  .lp-footer-legal { justify-content: flex-start; }
+  .lp-footer-legal a { display: inline-flex; align-items: center; min-height: 36px; }
   .lp-section-head { margin-bottom: 34px; }
 }
 

@@ -114,10 +114,6 @@ import {
           </div>
           <div class="lp-shell lp-hero-grid">
             <div class="lp-hero-copy">
-              <p class="lp-hero-badge">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><use href="#i-tooth"/></svg>
-                Sistema de gestão para clínicas odontológicas
-              </p>
               <h1>
                 Menos tarefas manuais.<br />
                 <span class="lp-hl">Mais tempo para cuidar dos seus pacientes.</span>
@@ -134,7 +130,6 @@ import {
                 <a class="lp-btn lp-btn-outline lp-btn-lg" [href]="demoMailto">Agendar uma demonstração</a>
               </div>
               <ul class="lp-hero-assurances">
-                <li><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#i-check"/></svg> Sem cartão de crédito</li>
                 <li><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#i-check"/></svg> Cancele quando quiser</li>
                 <li><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#i-check"/></svg> Suporte humanizado</li>
               </ul>
@@ -203,7 +198,7 @@ import {
                   <p class="lp-bento-figure">7 dias</p>
                 </div>
                 <p class="lp-bento-hero-text">
-                  Sem cartão de crédito. Crie sua clínica em minutos e use todos os módulos do sistema.
+                  Crie sua clínica em minutos e conheça o fluxo completo do sistema durante o período gratuito.
                 </p>
               </article>
 
@@ -222,8 +217,8 @@ import {
                   <svg viewBox="0 0 24 24"><use href="#i-shield"/></svg>
                 </span>
                 <div>
-                  <p class="lp-bento-tile-title">Dados isolados</p>
-                  <p class="lp-bento-label">Um banco exclusivo por clínica</p>
+                  <p class="lp-bento-tile-title">Prontuário completo</p>
+                  <p class="lp-bento-label">Histórico clínico sempre organizado</p>
                 </div>
               </article>
 
@@ -244,7 +239,6 @@ import {
         <section class="lp-section lp-problem">
           <div class="lp-shell">
             <header class="lp-section-head">
-              <p class="lp-eyebrow">O problema</p>
               <h2>Sua clínica não precisa depender de planilhas, papéis e processos manuais.</h2>
             </header>
             <div class="lp-compare">
@@ -430,11 +424,6 @@ import {
                 </article>
               }
             </div>
-            <p class="lp-security-note">
-              <a href="/assets/politica-de-privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>
-              <span aria-hidden="true">·</span>
-              <a href="/assets/termos-de-uso.html" target="_blank" rel="noopener">Termos de uso</a>
-            </p>
           </div>
         </section>
 
@@ -657,10 +646,18 @@ import {
         <div class="lp-shell lp-footer-grid">
           <div class="lp-footer-brand">
             <a class="lp-brand" routerLink="/" aria-label="OdontoApp">
-              <span class="lp-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-tooth"/></svg></span>
+              <img
+                class="lp-brand-mark"
+                src="assets/logo-mark-96.png"
+                srcset="assets/logo-mark-96.png 1x, assets/logo-mark-192.png 2x"
+                width="40"
+                height="40"
+                alt=""
+                aria-hidden="true"
+              />
               <span class="lp-brand-name">Odonto<strong>App</strong></span>
             </a>
-            <p>Sistema de gestão para clínicas odontológicas que buscam mais organização, produtividade e crescimento.</p>
+            <p>Agenda, prontuário, pacientes e financeiro em uma plataforma simples para sua clínica crescer com organização.</p>
           </div>
 
           <nav aria-label="Produto">
@@ -671,25 +668,21 @@ import {
             <a href="#seguranca">Segurança</a>
           </nav>
 
-          <nav aria-label="Suporte">
-            <h2>Suporte</h2>
-            <a href="#faq">Perguntas frequentes</a>
-            <a [href]="supportMailto">Central de ajuda</a>
+          <nav aria-label="Comece agora">
+            <h2>Comece agora</h2>
+            <a routerLink="/signup">Testar grátis</a>
+            <a [href]="demoMailto">Agendar demonstração</a>
             <a [href]="specialistMailto">Falar com especialista</a>
-            <a routerLink="/login">Entrar no sistema</a>
-          </nav>
-
-          <nav aria-label="Institucional">
-            <h2>Institucional</h2>
-            <a href="/assets/termos-de-uso.html" target="_blank" rel="noopener">Termos de uso</a>
-            <a href="/assets/politica-de-privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>
-            <a href="/assets/politica-de-privacidade.html" target="_blank" rel="noopener">LGPD</a>
-            <a [href]="supportMailto">Contato</a>
+            <a routerLink="/login">Entrar</a>
           </nav>
         </div>
         <div class="lp-shell lp-footer-bottom">
           <p>© {{ year }} OdontoApp. Todos os direitos reservados.</p>
-          <p><a [href]="supportMailto">{{ contactEmail }}</a></p>
+          <div class="lp-footer-legal">
+            <a href="/assets/termos-de-uso.html" target="_blank" rel="noopener">Termos de uso</a>
+            <a href="/assets/politica-de-privacidade.html" target="_blank" rel="noopener">Privacidade</a>
+            <a [href]="supportMailto">{{ contactEmail }}</a>
+          </div>
         </div>
       </footer>
 

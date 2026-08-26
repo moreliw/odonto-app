@@ -285,7 +285,6 @@ export class FiscalComponent implements OnInit {
 
   money(value: number) { return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
   statusClass(status: FiscalStatus) { return status.toLowerCase().replace('_', '-') }
-  environmentLabel(value: string) { return value === 'PRODUCTION' ? 'Produção' : 'Homologação' }
   document(value: string) {
     const number = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
     if (number.length === 11) return number.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
@@ -305,7 +304,7 @@ export class FiscalComponent implements OnInit {
 
   private emptySettings(): FiscalSettings {
     return {
-      enabled: false, environment: 'SANDBOX', providerMode: 'NATIONAL', taxId: '', municipalRegistration: '', stateRegistration: '',
+      enabled: false, environment: 'PRODUCTION', providerMode: 'NATIONAL', taxId: '', municipalRegistration: '', stateRegistration: '',
       legalName: '', tradeName: '', email: '', phone: '', postalCode: '', street: '', number: '', complement: '', neighborhood: '',
       city: '', state: '', cityCode: '', simpleNationalOption: 3, simpleNationalTaxRegime: 1, specialTaxRegime: 0,
       fiscalIncentive: false, rpsSeries: '1', rpsBatch: 1, rpsNumber: 1, defaultNationalTaxCode: '',
@@ -323,7 +322,12 @@ export class FiscalComponent implements OnInit {
   }
 
   private normalizeSettings(settings: FiscalSettings): FiscalSettings {
-    return { ...this.emptySettings(), ...settings, defaultIssRate: settings.defaultIssRate == null ? null : Number(settings.defaultIssRate) }
+    return {
+      ...this.emptySettings(),
+      ...settings,
+      environment: 'PRODUCTION',
+      defaultIssRate: settings.defaultIssRate == null ? null : Number(settings.defaultIssRate)
+    }
   }
 
   private errorMessage(error: any, fallback = 'Tente novamente em instantes.') {

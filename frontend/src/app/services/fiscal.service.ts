@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 
-export type FiscalEnvironment = 'SANDBOX' | 'PRODUCTION'
+export type FiscalEnvironment = 'PRODUCTION'
 export type FiscalStatus = 'PROCESSING' | 'AUTHORIZED' | 'REJECTED' | 'ERROR' | 'CANCEL_PENDING' | 'CANCELLED'
 
 export type FiscalSettings = {

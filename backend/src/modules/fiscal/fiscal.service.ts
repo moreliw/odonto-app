@@ -11,7 +11,7 @@ export type FiscalRequester = { userId: string; email?: string; name?: string; r
 
 export type FiscalSettingsInput = {
   enabled: boolean
-  environment: FiscalEnvironmentValue
+  environment: 'PRODUCTION'
   providerMode: 'NATIONAL' | 'MUNICIPAL'
   taxId: string
   municipalRegistration?: string
@@ -89,6 +89,7 @@ export class FiscalService {
     this.validateSettings(input)
     const data = {
       ...input,
+      environment: 'PRODUCTION' as const,
       taxId: fiscalDocument(input.taxId),
       postalCode: digits(input.postalCode),
       phone: digits(input.phone),
@@ -111,7 +112,7 @@ export class FiscalService {
 
   async providerStatus() {
     const settings = await this.requireSettings(false)
-    const environment = settings.environment as FiscalEnvironmentValue
+    const environment: FiscalEnvironmentValue = 'PRODUCTION'
     const status: Record<string, unknown> = { readiness: this.readiness(settings), company: null, certificate: null, nfse: null, city: null }
     if (!this.nuvem.credentialsAvailable(environment)) return status
     const taxId = fiscalDocument(settings.taxId)
@@ -137,7 +138,7 @@ export class FiscalService {
 
   async syncProvider(requester: FiscalRequester, municipalCredentials?: { login?: string; password?: string; token?: string }) {
     const settings = await this.requireSettings(false)
-    const environment = settings.environment as FiscalEnvironmentValue
+    const environment: FiscalEnvironmentValue = 'PRODUCTION'
     this.ensureProviderCredentials(environment)
     const taxId = fiscalDocument(settings.taxId)
     const company = {
@@ -205,7 +206,7 @@ export class FiscalService {
     if (!file?.buffer?.length) throw new BadRequestException('Selecione um certificado A1 (.pfx ou .p12).')
     if (!password?.trim()) throw new BadRequestException('Informe a senha do certificado.')
     if (!/\.(pfx|p12)$/i.test(file.originalname || '')) throw new BadRequestException('O certificado deve estar no formato .pfx ou .p12.')
-    const environment = settings.environment as FiscalEnvironmentValue
+    const environment: FiscalEnvironmentValue = 'PRODUCTION'
     this.ensureProviderCredentials(environment)
     try {
       const certificate = await this.nuvem.put<Record<string, any>>(
@@ -294,7 +295,7 @@ export class FiscalService {
 
   async issue(requester: FiscalRequester, input: IssueFiscalInvoiceInput) {
     const settings = await this.requireSettings(true)
-    const environment = settings.environment as FiscalEnvironmentValue
+    const environment: FiscalEnvironmentValue = 'PRODUCTION'
     this.ensureProviderCredentials(environment)
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: input.invoiceId },
@@ -513,10 +514,10 @@ export class FiscalService {
     if (data.issRate !== undefined && data.issRate !== null) tribMun.pAliq = Number(data.issRate)
     return {
       provedor: settings.providerMode === 'MUNICIPAL' ? 'padrao' : 'nacional',
-      ambiente: providerEnvironment(settings.environment),
+      ambiente: 'producao',
       referencia: reference,
       infDPS: {
-        tpAmb: settings.environment === 'PRODUCTION' ? 1 : 2,
+        tpAmb: 1,
         dhEmi: new Date().toISOString(),
         verAplic: 'OdontoApp_1.0',
         dCompet: dateOnly(data.serviceDate),
@@ -603,12 +604,12 @@ export class FiscalService {
 
   private ensureProviderCredentials(environment: FiscalEnvironmentValue) {
     if (!this.nuvem.credentialsAvailable(environment)) {
-      throw new BadRequestException(`As credenciais fiscais de ${environment === 'PRODUCTION' ? 'produção' : 'homologação'} ainda não foram configuradas no servidor.`)
+      throw new BadRequestException('As credenciais fiscais de produção ainda não foram configuradas no servidor.')
     }
   }
 
   private readiness(settings: any) {
-    const environment = (settings?.environment || 'SANDBOX') as FiscalEnvironmentValue
+    const environment: FiscalEnvironmentValue = 'PRODUCTION'
     const currentTaxId = fiscalDocument(settings?.taxId)
     const companySynced = Boolean(settings?.providerCompanySyncedAt && settings?.providerCompanyEnvironment === environment && settings?.providerCompanyTaxId === currentTaxId)
     const certificateConfigured = Boolean(settings?.certificateExpiresAt && settings?.certificateEnvironment === environment && settings?.certificateTaxId === currentTaxId)
@@ -649,7 +650,7 @@ function cleanText(value: unknown, max: number) { return String(value || '').rep
 function compactCode(value: unknown) { return String(value || '').replace(/[^0-9A-Za-z]/g, '').trim() }
 function optionalCode(value: unknown) { const result = compactCode(value); return result || null }
 function roundMoney(value: number) { return Math.round((value + Number.EPSILON) * 100) / 100 }
-function providerEnvironment(value: FiscalEnvironmentValue) { return value === 'PRODUCTION' ? 'producao' : 'homologacao' }
+function providerEnvironment(_value: FiscalEnvironmentValue) { return 'producao' }
 function dateOnly(value: string | Date) { const date = value instanceof Date ? value : new Date(value); return date.toISOString().slice(0, 10) }
 function parseServiceDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) throw new BadRequestException('Informe uma data de competência válida.')

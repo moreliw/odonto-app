@@ -19,6 +19,7 @@ export class NuvemFiscalClient {
   private readonly tokens = new Map<FiscalEnvironmentValue, TokenCache>()
 
   credentialsAvailable(environment: FiscalEnvironmentValue) {
+    if (environment !== 'PRODUCTION') return false
     return Boolean(this.credentials(environment).clientId && this.credentials(environment).clientSecret)
   }
 
@@ -94,9 +95,7 @@ export class NuvemFiscalClient {
 
     const credentials = this.credentials(environment)
     if (!credentials.clientId || !credentials.clientSecret) {
-      throw new ServiceUnavailableException(
-        `Integração fiscal de ${environment === 'PRODUCTION' ? 'produção' : 'homologação'} ainda não configurada no servidor.`
-      )
+      throw new ServiceUnavailableException('A integração fiscal de produção ainda não foi configurada no servidor.')
     }
 
     const form = new URLSearchParams({
@@ -127,17 +126,18 @@ export class NuvemFiscalClient {
   }
 
   private credentials(environment: FiscalEnvironmentValue) {
-    const prefix = environment === 'PRODUCTION' ? 'NUVEM_FISCAL_PRODUCTION' : 'NUVEM_FISCAL_SANDBOX'
+    if (environment !== 'PRODUCTION') return { clientId: '', clientSecret: '' }
     return {
-      clientId: process.env[`${prefix}_CLIENT_ID`] || '',
-      clientSecret: process.env[`${prefix}_CLIENT_SECRET`] || ''
+      clientId: process.env.NUVEM_FISCAL_PRODUCTION_CLIENT_ID || '',
+      clientSecret: process.env.NUVEM_FISCAL_PRODUCTION_CLIENT_SECRET || ''
     }
   }
 
   private baseUrl(environment: FiscalEnvironmentValue) {
-    return environment === 'PRODUCTION'
-      ? 'https://api.nuvemfiscal.com.br'
-      : 'https://api.sandbox.nuvemfiscal.com.br'
+    if (environment !== 'PRODUCTION') {
+      throw new ServiceUnavailableException('O ambiente de testes foi desativado. A emissão fiscal opera somente em produção.')
+    }
+    return 'https://api.nuvemfiscal.com.br'
   }
 
   private async throwProviderError(response: Response): Promise<never> {

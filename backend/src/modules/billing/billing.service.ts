@@ -64,7 +64,7 @@ const PLAN_CATALOG: Partial<Record<Plan, PlanPublicInfo>> = {
     annualPriceCents: 0,
     currency: 'BRL',
     description: 'Uso interno para testar o fluxo completo de assinatura, sem cobrança.',
-    features: ['Todos os módulos liberados', 'Sem cartão de crédito', 'Ativação imediata']
+    features: ['Todos os módulos liberados', 'Acesso completo por 7 dias', 'Ativação imediata']
   },
   BASIC: {
     code: 'BASIC',

@@ -49,15 +49,13 @@ Produção exige chaves live e Price IDs mensais fixos para Essencial, Profissio
 
 ## Emissão de NFS-e
 
-O módulo **Notas fiscais** emite NFS-e a partir de uma cobrança, preservando o vínculo com paciente, consulta, valor e usuário responsável. A integração usa a Nuvem Fiscal e possui fluxos separados de homologação e produção, consulta de status, cancelamento, DANFSe (PDF), XML e trilha de eventos.
+O módulo **Notas fiscais** emite NFS-e oficial a partir de uma cobrança, preservando o vínculo com paciente, consulta, valor e usuário responsável. A integração usa a Nuvem Fiscal exclusivamente em produção, com consulta de status, cancelamento, DANFSe (PDF), XML e trilha de eventos.
 
-1. Crie credenciais de homologação e produção no provedor e configure no `.env` do backend:
-   `NUVEM_FISCAL_SANDBOX_CLIENT_ID`, `NUVEM_FISCAL_SANDBOX_CLIENT_SECRET`,
-   `NUVEM_FISCAL_PRODUCTION_CLIENT_ID` e `NUVEM_FISCAL_PRODUCTION_CLIENT_SECRET`.
+1. Crie as credenciais de produção no provedor e configure `NUVEM_FISCAL_PRODUCTION_CLIENT_ID` e `NUVEM_FISCAL_PRODUCTION_CLIENT_SECRET` no `.env` do backend.
 2. No OdontoApp, entre como administrador em **Notas fiscais > Configurar emissão**.
 3. Preencha os dados fiscais e códigos confirmados pela contabilidade e salve.
 4. Sincronize a empresa e envie o certificado A1 `.pfx`/`.p12`. O arquivo e a senha são enviados diretamente ao provedor e não são persistidos pelo OdontoApp.
-5. Valide emissões em homologação antes de selecionar produção e ativar a emissão fiscal.
+5. Revise os dados fiscais, códigos e alíquotas com a contabilidade antes de ativar a emissão oficial.
 
 As permissões `FISCAL_VIEW`, `FISCAL_MANAGE` e `FISCAL_CONFIGURE` podem ser concedidas por perfil ou pessoa na Gestão de acessos. O administrador sempre mantém acesso completo.
 
