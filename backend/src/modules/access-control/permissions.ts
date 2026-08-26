@@ -8,6 +8,9 @@ export const PERMISSIONS = [
   'RECORDS_MANAGE',
   'FINANCE_VIEW',
   'FINANCE_MANAGE',
+  'FISCAL_VIEW',
+  'FISCAL_MANAGE',
+  'FISCAL_CONFIGURE',
   'TEAM_VIEW',
   'TEAM_MANAGE',
   'ACCESS_MANAGE',
@@ -40,6 +43,8 @@ export const MANAGE_DEPENDENCIES: Partial<Record<PermissionKey, PermissionKey>> 
   PATIENTS_MANAGE: 'PATIENTS_VIEW',
   RECORDS_MANAGE: 'RECORDS_VIEW',
   FINANCE_MANAGE: 'FINANCE_VIEW',
+  FISCAL_MANAGE: 'FISCAL_VIEW',
+  FISCAL_CONFIGURE: 'FISCAL_VIEW',
   TEAM_MANAGE: 'TEAM_VIEW'
 }
 
@@ -53,4 +58,3 @@ export function normalizePermissions(input: unknown): PermissionKey[] {
   }
   return PERMISSIONS.filter(permission => result.has(permission))
 }
-

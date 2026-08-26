@@ -33,6 +33,9 @@
               @if (module.manage && roleHas(module.view)) {
                 <label class="manage-check"><input type="checkbox" [checked]="roleHas(module.manage)" (change)="toggleRole(module.manage, $any($event.target).checked)"><span><strong>Pode alterar</strong><small>Criar, editar, concluir ou excluir</small></span></label>
               }
+              @if (module.configure && roleHas(module.view)) {
+                <label class="manage-check"><input type="checkbox" [checked]="roleHas(module.configure)" (change)="toggleRole(module.configure, $any($event.target).checked)"><span><strong>Pode configurar</strong><small>Dados fiscais, provedor e certificado digital</small></span></label>
+              }
             </article>
           }
         </div>
@@ -59,6 +62,9 @@
                 <div class="override-options"><button type="button" [class.active]="overrideState(module.view) === 'inherit'" (click)="setModuleOverride(module,module.view,'inherit')">Padrão</button><button type="button" class="allow" [class.active]="overrideState(module.view) === 'allow'" (click)="setModuleOverride(module,module.view,'allow')">Liberar</button><button type="button" class="deny" [class.active]="overrideState(module.view) === 'deny'" (click)="setModuleOverride(module,module.view,'deny')">Bloquear</button></div>
                 @if (module.manage && effectiveHas(module.view)) {
                   <div class="override-manage"><span><strong>Permissão para alterar</strong><small>Criar, editar, concluir ou excluir</small></span><div class="override-options"><button type="button" [class.active]="overrideState(module.manage) === 'inherit'" (click)="setModuleOverride(module,module.manage,'inherit')">Padrão</button><button type="button" class="allow" [class.active]="overrideState(module.manage) === 'allow'" (click)="setModuleOverride(module,module.manage,'allow')">Liberar</button><button type="button" class="deny" [class.active]="overrideState(module.manage) === 'deny'" (click)="setModuleOverride(module,module.manage,'deny')">Bloquear</button></div></div>
+                }
+                @if (module.configure && effectiveHas(module.view)) {
+                  <div class="override-manage"><span><strong>Permissão para configurar</strong><small>Dados fiscais, provedor e certificado digital</small></span><div class="override-options"><button type="button" [class.active]="overrideState(module.configure) === 'inherit'" (click)="setModuleOverride(module,module.configure,'inherit')">Padrão</button><button type="button" class="allow" [class.active]="overrideState(module.configure) === 'allow'" (click)="setModuleOverride(module,module.configure,'allow')">Liberar</button><button type="button" class="deny" [class.active]="overrideState(module.configure) === 'deny'" (click)="setModuleOverride(module,module.configure,'deny')">Bloquear</button></div></div>
                 }
               </article>
             }

@@ -69,6 +69,13 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
             </a>
           }
 
+          @if (canAccessFiscal) {
+            <a routerLink="/app/fiscal" routerLinkActive="active" aria-label="Notas fiscais">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6"/></svg>
+              <span>Notas fiscais</span>
+            </a>
+          }
+
           @if (isAdmin || canManageTeam || canManageAccess) {
             <p class="nav-section-title">Gestão</p>
             @if (canManageTeam) {
@@ -236,6 +243,12 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
                 Equipe
               </a>
             }
+            @if (canAccessFiscal) {
+              <a routerLink="/app/fiscal" (click)="mobileMoreOpen=false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6"/></svg>
+                Notas fiscais
+              </a>
+            }
             @if (canManageAccess) {
               <a routerLink="/app/access" (click)="mobileMoreOpen=false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
@@ -269,6 +282,7 @@ export class ShellComponent {
   canAccessDashboard = false
   canAccessAppointments = false
   canAccessFinance = false
+  canAccessFiscal = false
   canAccessPatients = false
   canAccessRecords = false
   canManageTeam = false
@@ -307,6 +321,7 @@ export class ShellComponent {
     this.canAccessPatients = this.auth.hasPermission('PATIENTS_VIEW')
     this.canAccessRecords = this.auth.hasPermission('RECORDS_VIEW')
     this.canAccessFinance = this.auth.hasPermission('FINANCE_VIEW')
+    this.canAccessFiscal = this.auth.hasPermission('FISCAL_VIEW')
     this.canManageTeam = this.auth.hasPermission('TEAM_VIEW')
     this.canManageAccess = this.auth.hasPermission('ACCESS_MANAGE')
   }

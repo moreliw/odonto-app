@@ -14,6 +14,7 @@ type AccessModule = {
   icon: string
   view: PermissionKey
   manage?: PermissionKey
+  configure?: PermissionKey
 }
 
 @Component({
@@ -39,6 +40,7 @@ export class AccessControlComponent implements OnInit {
     { id:'patients', title:'Pacientes', description:'Cadastro e ficha completa dos pacientes.', icon:'○', view:'PATIENTS_VIEW', manage:'PATIENTS_MANAGE' },
     { id:'records', title:'Prontuário', description:'Evoluções, odontograma, arquivos e tratamentos.', icon:'▤', view:'RECORDS_VIEW', manage:'RECORDS_MANAGE' },
     { id:'finance', title:'Financeiro', description:'Cobranças, recebimentos, despesas e serviços.', icon:'$', view:'FINANCE_VIEW', manage:'FINANCE_MANAGE' },
+    { id:'fiscal', title:'Notas fiscais', description:'Consultar, emitir e configurar NFS-e da clínica.', icon:'N', view:'FISCAL_VIEW', manage:'FISCAL_MANAGE', configure:'FISCAL_CONFIGURE' },
     { id:'team', title:'Equipe', description:'Profissionais e contas de acesso da clínica.', icon:'◇', view:'TEAM_VIEW', manage:'TEAM_MANAGE' }
   ]
 
@@ -69,10 +71,14 @@ export class AccessControlComponent implements OnInit {
     const draft = this.roleDraft[this.selectedRole]
     if (enabled) draft.add(permission)
     else draft.delete(permission)
-    const module = this.modules.find(item => item.view === permission || item.manage === permission)
+    const module = this.modules.find(item => item.view === permission || item.manage === permission || item.configure === permission)
     if (!module) return
     if (module.manage === permission && enabled) draft.add(module.view)
-    if (module.view === permission && !enabled && module.manage) draft.delete(module.manage)
+    if (module.configure === permission && enabled) draft.add(module.view)
+    if (module.view === permission && !enabled) {
+      if (module.manage) draft.delete(module.manage)
+      if (module.configure) draft.delete(module.configure)
+    }
     this.roleDraft = { ...this.roleDraft, [this.selectedRole]:new Set(draft) }
   }
 
@@ -103,6 +109,8 @@ export class AccessControlComponent implements OnInit {
     this.setOverride(permission, state)
     if (permission === module.view && state === 'deny' && module.manage) this.setOverride(module.manage, 'deny')
     if (permission === module.manage && state === 'allow') this.setOverride(module.view, 'allow')
+    if (permission === module.configure && state === 'allow') this.setOverride(module.view, 'allow')
+    if (permission === module.view && state === 'deny' && module.configure) this.setOverride(module.configure, 'deny')
   }
   inheritedHas(permission: PermissionKey) {
     const user = this.selectedUser

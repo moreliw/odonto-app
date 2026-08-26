@@ -29,6 +29,7 @@ import { authInterceptor } from './services/auth.interceptor'
 import { map } from 'rxjs'
 import { PermissionKey } from './models/access-control.model'
 import { AccessControlComponent } from './pages/access-control/access-control.component'
+import { FiscalComponent } from './pages/fiscal/fiscal.component'
 
 const authGuard = () => {
   const router = inject(Router)
@@ -115,6 +116,7 @@ export const routes: Routes = [
       { path: 'appointments', component: AppointmentsComponent, canActivate: [permissionGuard('APPOINTMENTS_VIEW')] },
       { path: 'records', component: RecordsComponent, canActivate: [permissionGuard('RECORDS_VIEW')] },
       { path: 'finance', component: FinanceComponent, canActivate: [financeGuard] },
+      { path: 'fiscal', component: FiscalComponent, canActivate: [permissionGuard('FISCAL_VIEW')] },
       { path: 'team', component: TeamComponent, canActivate: [permissionGuard('TEAM_VIEW')] },
       { path: 'access', component: AccessControlComponent, canActivate: [permissionGuard('ACCESS_MANAGE')] },
       { path: 'billing', component: BillingComponent, canActivate: [adminOnlyGuard] }
@@ -124,6 +126,7 @@ export const routes: Routes = [
   { path: 'appointments', redirectTo: '/app/appointments', pathMatch: 'full' },
   { path: 'records', redirectTo: '/app/records', pathMatch: 'full' },
   { path: 'finance', redirectTo: '/app/finance', pathMatch: 'full' },
+  { path: 'fiscal', redirectTo: '/app/fiscal', pathMatch: 'full' },
   { path: '**', redirectTo: '' }
 ]
 

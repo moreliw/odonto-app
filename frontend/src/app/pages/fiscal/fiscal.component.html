@@ -1,0 +1,161 @@
+<div class="fiscal-page">
+  <header class="fiscal-header">
+    <div><span>Documentos fiscais</span><h1>Notas fiscais de serviço</h1><p>Emita, acompanhe e cancele NFS-e ligadas às cobranças da clínica.</p></div>
+    <div class="header-actions">
+      @if (canConfigure) { <button class="btn btn-outline" type="button" (click)="openSettings()">⚙ Configurar emissão</button> }
+      @if (canManage) { <button class="btn btn-primary" type="button" (click)="openIssue()">+ Emitir NFS-e</button> }
+    </div>
+  </header>
+
+  @if (error) { <div class="fiscal-alert error"><div><strong>Não foi possível abrir as notas fiscais.</strong><span>{{ error }}</span></div><button class="btn btn-outline btn-sm" type="button" (click)="load()">Tentar novamente</button></div> }
+
+  @if (readiness && !readiness.readyToIssue) {
+    <section class="setup-banner" [class.warning]="readiness.settingsConfigured">
+      <div class="setup-icon">!</div>
+      <div><strong>{{ readiness.settingsConfigured ? 'Finalize a ativação da emissão fiscal' : 'Configure a emissão de NFS-e' }}</strong><p>
+        @if (!readiness.credentialsConfigured) { A integração do provedor precisa ser habilitada no servidor. }
+        @else if (!readiness.companySynced) { Sincronize os dados da clínica com o provedor fiscal. }
+        @else if (!readiness.certificateValid) { Envie um certificado digital A1 válido. }
+        @else if (!readiness.enabled) { Ative a emissão nas configurações fiscais. }
+      </p></div>
+      @if (canConfigure) { <button class="btn btn-primary btn-sm" type="button" (click)="openSettings()">Configurar agora</button> }
+    </section>
+  }
+
+  <section class="fiscal-kpis" aria-label="Resumo das notas fiscais">
+    <article><span class="kpi-icon blue">✓</span><div><small>Autorizadas</small><strong>{{ authorizedCount }}</strong><p>{{ money(totalAuthorized) }} emitidos</p></div></article>
+    <article><span class="kpi-icon amber">↻</span><div><small>Em processamento</small><strong>{{ processingCount }}</strong><p>Aguardando retorno</p></div></article>
+    <article [class.attention]="attentionCount"><span class="kpi-icon red">!</span><div><small>Precisam de atenção</small><strong>{{ attentionCount }}</strong><p>Rejeições ou falhas</p></div></article>
+    <article><span class="kpi-icon green">N</span><div><small>Ambiente atual</small><strong class="text-value">{{ environmentLabel(settings?.environment || 'SANDBOX') }}</strong><p>{{ settings?.providerMode === 'MUNICIPAL' ? 'Provedor municipal' : 'Padrão nacional' }}</p></div></article>
+  </section>
+
+  <section class="fiscal-panel card">
+    <header class="panel-head"><div><h2>Histórico de NFS-e</h2><p>Documentos e eventos preservados para auditoria.</p></div><button class="btn btn-ghost btn-sm" type="button" (click)="load(true)">↻ Atualizar</button></header>
+    <div class="fiscal-filters">
+      <label class="search-field"><span>⌕</span><input class="input" type="search" [(ngModel)]="search" (ngModelChange)="filterChanged()" placeholder="Buscar paciente, CPF/CNPJ ou número" /></label>
+      <select class="select" [(ngModel)]="statusFilter" (change)="filterChanged()" aria-label="Filtrar por status">
+        <option value="ALL">Todos os status</option><option value="AUTHORIZED">Autorizadas</option><option value="PROCESSING">Processando</option><option value="REJECTED">Rejeitadas</option><option value="ERROR">Falhas</option><option value="CANCEL_PENDING">Cancelando</option><option value="CANCELLED">Canceladas</option>
+      </select>
+    </div>
+
+    @if (loading) { <div class="fiscal-loading"><span class="spinner spinner-dark"></span><p>Carregando documentos fiscais…</p></div> }
+    @else {
+      <div class="fiscal-table-wrap">
+        <table class="fiscal-table">
+          <thead><tr><th>Paciente</th><th>NFS-e</th><th>Competência</th><th>Valor</th><th>Status</th><th>Última atualização</th><th><span class="sr-only">Ações</span></th></tr></thead>
+          <tbody>
+            @for (note of pagedNotes; track note.id) {
+              <tr>
+                <td><div class="person"><i>{{ note.customerName[0] }}</i><div><strong>{{ note.customerName }}</strong><small>{{ document(note.customerDocument) }}</small></div></div></td>
+                <td><strong>{{ note.number ? 'NFS-e ' + note.number : 'Emissão ' + (note.reference | slice:-8) }}</strong><small>{{ note.serviceDescription }}</small></td>
+                <td><strong>{{ note.serviceDate | date:'dd/MM/yyyy':'UTC' }}</strong><small>{{ note.createdAt | date:'dd/MM/yyyy HH:mm' }}</small></td>
+                <td><strong>{{ money(note.amount) }}</strong><small>ISS {{ note.issWithheld ? 'retido' : 'não retido' }}</small></td>
+                <td><span class="fiscal-status" [class]="statusClass(note.status)">{{ statusLabel[note.status] }}</span><small class="status-message" [title]="note.lastMessage || ''">{{ note.lastMessage || environmentLabel(note.environment) }}</small></td>
+                <td><div class="audit-cell"><strong>{{ note.updatedByName || note.createdByName || 'Sistema' }}</strong><span>{{ note.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span></div></td>
+                <td><div class="row-actions">
+                  @if (['AUTHORIZED','CANCEL_PENDING','CANCELLED'].includes(note.status)) { <button type="button" (click)="download(note,'pdf')" [disabled]="saving === 'pdf-' + note.id">PDF</button><button type="button" (click)="download(note,'xml')" [disabled]="saving === 'xml-' + note.id">XML</button> }
+                  @if (canManage && ['PROCESSING','ERROR','CANCEL_PENDING'].includes(note.status)) { <button type="button" (click)="syncNote(note)" [disabled]="saving === 'sync-' + note.id">Sincronizar</button> }
+                  @if (canManage && note.status === 'AUTHORIZED') { <button class="danger" type="button" (click)="openCancel(note)">Cancelar</button> }
+                  @if (note.publicUrl) { <a [href]="note.publicUrl" target="_blank" rel="noopener">Consultar</a> }
+                </div></td>
+              </tr>
+            } @empty { <tr><td colspan="7"><div class="fiscal-empty"><span>N</span><strong>Nenhuma nota fiscal encontrada</strong><p>{{ canManage ? 'Emita a primeira NFS-e a partir de uma cobrança da clínica.' : 'Os documentos emitidos aparecerão aqui.' }}</p>@if (canManage) { <button class="btn btn-primary btn-sm" type="button" (click)="openIssue()">Emitir primeira NFS-e</button> }</div></td></tr> }
+          </tbody>
+        </table>
+      </div>
+      <div class="fiscal-mobile-list">
+        @for (note of pagedNotes; track note.id) {
+          <article><header><div><strong>{{ note.customerName }}</strong><small>{{ note.number ? 'NFS-e ' + note.number : document(note.customerDocument) }}</small></div><span class="fiscal-status" [class]="statusClass(note.status)">{{ statusLabel[note.status] }}</span></header><div class="mobile-values"><div><span>Valor</span><strong>{{ money(note.amount) }}</strong></div><div><span>Competência</span><strong>{{ note.serviceDate | date:'dd/MM/yy':'UTC' }}</strong></div><div><span>Ambiente</span><strong>{{ environmentLabel(note.environment) }}</strong></div></div><p>{{ note.lastMessage || note.serviceDescription }}</p><footer>@if (['AUTHORIZED','CANCEL_PENDING','CANCELLED'].includes(note.status)) { <button class="btn btn-outline btn-sm" type="button" (click)="download(note,'pdf')">PDF</button><button class="btn btn-outline btn-sm" type="button" (click)="download(note,'xml')">XML</button> }@if (canManage && ['PROCESSING','ERROR','CANCEL_PENDING'].includes(note.status)) { <button class="btn btn-outline btn-sm" type="button" (click)="syncNote(note)">Sincronizar</button> }@if (canManage && note.status === 'AUTHORIZED') { <button class="btn btn-danger-soft btn-sm" type="button" (click)="openCancel(note)">Cancelar</button> }</footer></article>
+        }
+      </div>
+      @if (filteredNotes.length > pageSize) { <footer class="fiscal-pagination"><span>{{ filteredNotes.length }} documentos</span><div><button type="button" [disabled]="page === 1" (click)="page=page-1">‹</button><b>{{ page }} de {{ totalPages }}</b><button type="button" [disabled]="page === totalPages" (click)="page=page+1">›</button></div></footer> }
+    }
+  </section>
+</div>
+
+@if (issueModal) {
+  <div class="modal-backdrop" (click)="issueModal=false"></div>
+  <section class="fiscal-modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="issue-title">
+    <header><div><span>Nova emissão</span><h2 id="issue-title">Emitir NFS-e</h2><p>Documento fiscal vinculado à cobrança e ao paciente.</p></div><button type="button" (click)="issueModal=false" aria-label="Fechar">×</button></header>
+    <div class="modal-body">
+      @if (!readiness?.readyToIssue) { <div class="inline-warning"><strong>Configuração incompleta</strong><span>Conclua a sincronização da empresa e do certificado antes de emitir.</span></div> }
+      <label class="field field-wide"><span>Cobrança *</span><select class="select" [(ngModel)]="issueForm.invoiceId" (change)="invoiceChanged()"><option value="">Selecione uma cobrança</option>@for (invoice of eligible; track invoice.id) { <option [value]="invoice.id" [disabled]="!!invoice.activeFiscalInvoice">{{ invoice.patient.name }} · {{ money(invoice.amount) }}{{ invoice.activeFiscalInvoice ? ' · já emitida' : '' }}</option> }</select></label>
+      @if (selectedInvoice) {
+        <div class="source-summary"><div><span>Tomador</span><strong>{{ selectedInvoice.patient.name }}</strong><small>{{ document(issueForm.customerDocument) }}</small></div><div><span>Valor da nota</span><strong>{{ money(selectedInvoice.amount) }}</strong><small>Valor líquido da cobrança</small></div></div>
+      }
+      <div class="form-grid">
+        <label class="field"><span>Competência *</span><input class="input" type="date" [(ngModel)]="issueForm.serviceDate" /></label>
+        <label class="field"><span>Código tributário nacional *</span><input class="input" [(ngModel)]="issueForm.nationalTaxCode" placeholder="Ex.: 040101" /></label>
+        <label class="field field-wide"><span>Descrição do serviço *</span><textarea class="textarea" rows="3" [(ngModel)]="issueForm.serviceDescription" placeholder="Procedimentos realizados"></textarea></label>
+        <label class="field"><span>Código municipal</span><input class="input" [(ngModel)]="issueForm.municipalTaxCode" /></label>
+        <label class="field"><span>CNAE</span><input class="input" [(ngModel)]="issueForm.cnae" /></label>
+        <label class="field"><span>NBS</span><input class="input" [(ngModel)]="issueForm.nbs" /></label>
+        <label class="field"><span>Alíquota ISS (%)</span><input class="input" type="number" min="0" max="100" step="0.01" [(ngModel)]="issueForm.issRate" /></label>
+        <label class="check-field field-wide"><input type="checkbox" [(ngModel)]="issueForm.issWithheld" /><span><strong>ISS retido pelo tomador</strong><small>Marque somente quando houver retenção tributária.</small></span></label>
+      </div>
+      <details class="customer-details"><summary>Dados fiscais do paciente <span>Revisar</span></summary><div class="form-grid">
+        <label class="field"><span>CPF/CNPJ *</span><input class="input" [(ngModel)]="issueForm.customerDocument" /></label><label class="field"><span>E-mail</span><input class="input" type="email" [(ngModel)]="issueForm.customerEmail" /></label>
+        <label class="field"><span>Telefone</span><input class="input" [(ngModel)]="issueForm.customerPhone" /></label><label class="field"><span>CEP</span><input class="input" [(ngModel)]="issueForm.customerPostalCode" /></label>
+        <label class="field field-wide"><span>Logradouro</span><input class="input" [(ngModel)]="issueForm.customerStreet" /></label><label class="field"><span>Número</span><input class="input" [(ngModel)]="issueForm.customerNumber" /></label>
+        <label class="field"><span>Complemento</span><input class="input" [(ngModel)]="issueForm.customerComplement" /></label><label class="field"><span>Bairro</span><input class="input" [(ngModel)]="issueForm.customerNeighborhood" /></label>
+        <label class="field"><span>Cidade</span><input class="input" [(ngModel)]="issueForm.customerCity" /></label><label class="field"><span>UF</span><input class="input" maxlength="2" [(ngModel)]="issueForm.customerState" /></label>
+        <label class="field"><span>Código IBGE</span><input class="input" maxlength="7" [(ngModel)]="issueForm.customerCityCode" placeholder="7 dígitos" /></label>
+      </div></details>
+      <label class="fiscal-confirm"><input type="checkbox" [(ngModel)]="emissionConfirmed" /><span><strong>Revisei os dados e confirmo a emissão fiscal.</strong><small>Uma NFS-e autorizada só pode ser desfeita por cancelamento fiscal.</small></span></label>
+    </div>
+    <footer><button class="btn btn-ghost" type="button" (click)="issueModal=false">Voltar</button><button class="btn btn-primary" type="button" [disabled]="saving === 'issue' || !emissionConfirmed || !issueForm.invoiceId || !readiness?.readyToIssue" (click)="issue()">@if (saving === 'issue') { <span class="spinner"></span> } Emitir NFS-e de {{ money(selectedInvoice?.amount || 0) }}</button></footer>
+  </section>
+}
+
+@if (settingsModal) {
+  <div class="modal-backdrop" (click)="settingsModal=false"></div>
+  <section class="fiscal-modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <header><div><span>Administrador da clínica</span><h2 id="settings-title">Configuração de NFS-e</h2><p>Dados do prestador, tributação e certificado digital.</p></div><button type="button" (click)="settingsModal=false" aria-label="Fechar">×</button></header>
+    <div class="modal-body settings-body">
+      <div class="readiness-grid">
+        <div [class.done]="readiness?.credentialsConfigured"><i>{{ readiness?.credentialsConfigured ? '✓' : '1' }}</i><span><strong>Integração</strong><small>{{ readiness?.credentialsConfigured ? 'Credenciais ativas' : 'Configurar no servidor' }}</small></span></div>
+        <div [class.done]="readiness?.companySynced"><i>{{ readiness?.companySynced ? '✓' : '2' }}</i><span><strong>Empresa</strong><small>{{ readiness?.companySynced ? 'Sincronizada' : 'Aguardando sincronização' }}</small></span></div>
+        <div [class.done]="readiness?.certificateValid"><i>{{ readiness?.certificateValid ? '✓' : '3' }}</i><span><strong>Certificado A1</strong><small>{{ readiness?.certificateValid ? 'Válido' : 'Aguardando envio' }}</small></span></div>
+      </div>
+
+      <section class="settings-section"><header><div><span>1</span><h3>Ambiente e ativação</h3></div></header><div class="form-grid">
+        <label class="check-field field-wide"><input type="checkbox" [(ngModel)]="settingsForm.enabled" /><span><strong>Emissão fiscal ativa</strong><small>Permite que usuários autorizados emitam NFS-e.</small></span></label>
+        <label class="field"><span>Ambiente *</span><select class="select" [(ngModel)]="settingsForm.environment"><option value="SANDBOX">Homologação (testes)</option><option value="PRODUCTION">Produção (valor fiscal)</option></select></label>
+        <label class="field"><span>Canal de emissão *</span><select class="select" [(ngModel)]="settingsForm.providerMode"><option value="NATIONAL">Padrão nacional</option><option value="MUNICIPAL">Provedor da prefeitura</option></select></label>
+        @if (settingsForm.providerMode === 'MUNICIPAL') { <label class="field"><span>Login da prefeitura</span><input class="input" autocomplete="off" [(ngModel)]="municipalLogin" /></label><label class="field"><span>Senha da prefeitura</span><input class="input" type="password" autocomplete="new-password" [(ngModel)]="municipalPassword" /></label><label class="field field-wide"><span>Token da prefeitura (quando exigido)</span><input class="input" type="password" autocomplete="new-password" [(ngModel)]="municipalToken" /><small>Senha e token são enviados ao provedor na sincronização e não ficam gravados no OdontoApp.</small></label> }
+        @if (settingsForm.environment === 'PRODUCTION') { <div class="production-warning field-wide"><strong>Ambiente de produção</strong><span>As próximas emissões terão validade fiscal. Valide os códigos e alíquotas com a contabilidade.</span></div> }
+      </div></section>
+
+      <section class="settings-section"><header><div><span>2</span><h3>Dados do prestador</h3></div></header><div class="form-grid">
+        <label class="field"><span>CNPJ/CPF *</span><input class="input" [(ngModel)]="settingsForm.taxId" /></label><label class="field"><span>Inscrição municipal</span><input class="input" [(ngModel)]="settingsForm.municipalRegistration" /></label>
+        <label class="field"><span>Inscrição estadual</span><input class="input" [(ngModel)]="settingsForm.stateRegistration" /></label>
+        <label class="field field-wide"><span>Razão social *</span><input class="input" [(ngModel)]="settingsForm.legalName" /></label><label class="field"><span>Nome fantasia</span><input class="input" [(ngModel)]="settingsForm.tradeName" /></label>
+        <label class="field"><span>E-mail fiscal *</span><input class="input" type="email" [(ngModel)]="settingsForm.email" /></label><label class="field"><span>Telefone</span><input class="input" [(ngModel)]="settingsForm.phone" /></label>
+        <label class="field"><span>CEP *</span><input class="input" [(ngModel)]="settingsForm.postalCode" /></label><label class="field"><span>Logradouro *</span><input class="input" [(ngModel)]="settingsForm.street" /></label>
+        <label class="field"><span>Número *</span><input class="input" [(ngModel)]="settingsForm.number" /></label><label class="field"><span>Complemento</span><input class="input" [(ngModel)]="settingsForm.complement" /></label>
+        <label class="field"><span>Bairro *</span><input class="input" [(ngModel)]="settingsForm.neighborhood" /></label><label class="field"><span>Cidade *</span><input class="input" [(ngModel)]="settingsForm.city" /></label>
+        <label class="field"><span>UF *</span><input class="input" maxlength="2" [(ngModel)]="settingsForm.state" /></label><label class="field"><span>Código IBGE *</span><input class="input" maxlength="7" [(ngModel)]="settingsForm.cityCode" placeholder="7 dígitos" /></label>
+      </div></section>
+
+      <section class="settings-section"><header><div><span>3</span><h3>Tributação padrão</h3></div><small>Confirme estes dados com a contabilidade</small></header><div class="form-grid">
+        <label class="field"><span>Enquadramento no Simples *</span><select class="select" [(ngModel)]="settingsForm.simpleNationalOption"><option [ngValue]="1">Não optante</option><option [ngValue]="2">MEI</option><option [ngValue]="3">ME/EPP optante</option></select></label>
+        @if (settingsForm.simpleNationalOption === 3) { <label class="field"><span>Apuração no Simples *</span><select class="select" [(ngModel)]="settingsForm.simpleNationalTaxRegime"><option [ngValue]="1">Federais e ISS pelo Simples</option><option [ngValue]="2">Federais pelo Simples; ISS por fora</option><option [ngValue]="3">Federais e ISS por fora</option></select></label> }
+        <label class="field"><span>Regime especial</span><select class="select" [(ngModel)]="settingsForm.specialTaxRegime"><option [ngValue]="0">Nenhum</option><option [ngValue]="1">Ato cooperado</option><option [ngValue]="2">Estimativa</option><option [ngValue]="3">Microempresa municipal</option><option [ngValue]="4">Notário ou registrador</option><option [ngValue]="5">Profissional autônomo</option><option [ngValue]="6">Sociedade de profissionais</option></select></label>
+        <label class="field"><span>Código tributário nacional *</span><input class="input" [(ngModel)]="settingsForm.defaultNationalTaxCode" placeholder="Ex.: 040101" /></label><label class="field"><span>Código tributário municipal</span><input class="input" [(ngModel)]="settingsForm.defaultMunicipalTaxCode" /></label>
+        <label class="field"><span>CNAE</span><input class="input" [(ngModel)]="settingsForm.defaultCnae" /></label><label class="field"><span>NBS</span><input class="input" [(ngModel)]="settingsForm.defaultNbs" /></label>
+        <label class="field"><span>Alíquota ISS (%)</span><input class="input" type="number" min="0" max="100" step="0.01" [(ngModel)]="settingsForm.defaultIssRate" /></label>
+        <label class="check-field"><input type="checkbox" [(ngModel)]="settingsForm.defaultIssWithheld" /><span><strong>ISS retido por padrão</strong><small>Pode ser alterado por nota.</small></span></label>
+        <label class="check-field"><input type="checkbox" [(ngModel)]="settingsForm.fiscalIncentive" /><span><strong>Incentivo fiscal</strong><small>Marque apenas quando aplicável à clínica.</small></span></label>
+        <label class="field"><span>Série do RPS *</span><input class="input" [(ngModel)]="settingsForm.rpsSeries" /></label><label class="field"><span>Próximo lote</span><input class="input" type="number" min="0" [(ngModel)]="settingsForm.rpsBatch" /></label><label class="field"><span>Próximo RPS</span><input class="input" type="number" min="0" [(ngModel)]="settingsForm.rpsNumber" /></label>
+      </div></section>
+
+      <section class="settings-section certificate-section"><header><div><span>4</span><h3>Certificado digital A1</h3></div>@if (settings?.certificateExpiresAt) { <small>Válido até {{ settings?.certificateExpiresAt | date:'dd/MM/yyyy' }}</small> }</header><p>O arquivo e a senha são enviados diretamente ao provedor fiscal. O OdontoApp não armazena nenhum dos dois.</p><div class="certificate-form"><label><span>Arquivo .pfx ou .p12</span><input type="file" accept=".pfx,.p12,application/x-pkcs12" (change)="selectCertificate($event)" /></label><label><span>Senha do certificado</span><input class="input" type="password" autocomplete="new-password" [(ngModel)]="certificatePassword" /></label><button class="btn btn-outline" type="button" [disabled]="!certificateFile || !certificatePassword || saving === 'certificate' || !readiness?.companySynced" (click)="uploadCertificate()">@if (saving === 'certificate') { <span class="spinner spinner-dark"></span> } Enviar certificado</button></div>@if (!readiness?.companySynced) { <small class="certificate-hint">Salve e sincronize a empresa antes de enviar o certificado.</small> }</section>
+    </div>
+    <footer class="settings-footer"><div><button class="btn btn-ghost" type="button" (click)="settingsModal=false">Fechar</button></div><div><button class="btn btn-outline" type="button" [disabled]="saving === 'provider' || !readiness?.credentialsConfigured" (click)="syncProvider()">@if (saving === 'provider') { <span class="spinner spinner-dark"></span> } Sincronizar empresa</button><button class="btn btn-primary" type="button" [disabled]="saving === 'settings'" (click)="saveSettings()">@if (saving === 'settings') { <span class="spinner"></span> } Salvar configuração</button></div></footer>
+  </section>
+}
+
+@if (cancelModal && cancellingNote) {
+  <div class="modal-backdrop" (click)="cancelModal=false"></div>
+  <section class="fiscal-modal cancel-modal" role="alertdialog" aria-modal="true" aria-labelledby="cancel-title"><header><div><span>Ação fiscal</span><h2 id="cancel-title">Cancelar NFS-e {{ cancellingNote.number }}</h2><p>O pedido será enviado ao município.</p></div><button type="button" (click)="cancelModal=false">×</button></header><div class="modal-body"><div class="cancel-warning"><strong>Esta ação não cancela a cobrança financeira.</strong><span>O cancelamento fiscal segue as regras e prazos do município emissor.</span></div><label class="field"><span>Código do motivo *</span><input class="input" maxlength="20" [(ngModel)]="cancellationCode" /><small>O código aceito depende do município; normalmente é 1.</small></label><label class="field cancel-reason"><span>Motivo do cancelamento *</span><textarea class="textarea" rows="4" maxlength="255" [(ngModel)]="cancellationReason" placeholder="Explique o motivo com pelo menos 15 caracteres"></textarea><small>{{ cancellationReason.trim().length }}/255 caracteres</small></label></div><footer><button class="btn btn-ghost" type="button" (click)="cancelModal=false">Voltar</button><button class="btn btn-danger" type="button" [disabled]="!cancellationCode.trim() || cancellationReason.trim().length < 15 || saving === 'cancel'" (click)="cancel()">@if (saving === 'cancel') { <span class="spinner"></span> } Confirmar cancelamento</button></footer></section>
+}

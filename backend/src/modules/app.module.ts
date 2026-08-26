@@ -19,6 +19,7 @@ import { BillingModule } from './billing/billing.module'
 import { FinancialModule } from './financial/financial.module'
 import { HealthController } from '../health.controller'
 import { AccessControlModule } from './access-control/access-control.module'
+import { FiscalModule } from './fiscal/fiscal.module'
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { AccessControlModule } from './access-control/access-control.module'
     MasterAdminModule,
     BillingModule,
     FinancialModule,
+    FiscalModule,
     AccessControlModule
   ],
   controllers: [HealthController],

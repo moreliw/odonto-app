@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common'
 import { Component, OnDestroy, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
-import { ActivatedRoute } from '@angular/router'
+import { ActivatedRoute, Router } from '@angular/router'
 import { forkJoin, of, Subscription } from 'rxjs'
 import { AuthService } from '../../services/auth.service'
 import {
@@ -58,6 +58,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
   readonly serviceCategories = ['Consulta', 'Prevenção', 'Dentística', 'Endodontia', 'Periodontia', 'Prótese', 'Implantodontia', 'Ortodontia', 'Cirurgia', 'Estética', 'Outros']
 
   isAdmin = false
+  canManageFiscal = false
   activeTab: FinanceTab = 'overview'
   loading = false
   saving = false
@@ -127,9 +128,11 @@ export class FinanceComponent implements OnInit, OnDestroy {
     private readonly auth: AuthService,
     readonly privacy: PrivacyService,
     private readonly toast: ToastService,
-    private readonly route: ActivatedRoute
+    private readonly route: ActivatedRoute,
+    private readonly router: Router
   ) {
     this.isAdmin = this.auth.hasPermission('FINANCE_MANAGE')
+    this.canManageFiscal = this.auth.hasPermission('FISCAL_MANAGE')
   }
 
   ngOnInit() {
@@ -202,6 +205,10 @@ export class FinanceComponent implements OnInit, OnDestroy {
   refreshList() {
     if (this.activeTab === 'receivables') this.loadInvoices()
     if (this.activeTab === 'expenses' && this.isAdmin) this.loadExpenses()
+  }
+
+  issueFiscal(invoice: ClinicInvoice) {
+    this.router.navigate(['/app/fiscal'], { queryParams: { invoiceId: invoice.id } })
   }
 
   private applyRouteFilters() {

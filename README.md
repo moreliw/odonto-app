@@ -47,6 +47,20 @@ npm run build
 
 Produção exige chaves live e Price IDs mensais fixos para Essencial, Profissional e Clínica. Desenvolvimento aceita apenas chaves de teste. O plano gratuito interno é controlado por `ALLOW_FREE_SIGNUP` e deve permanecer desativado em produção.
 
+## Emissão de NFS-e
+
+O módulo **Notas fiscais** emite NFS-e a partir de uma cobrança, preservando o vínculo com paciente, consulta, valor e usuário responsável. A integração usa a Nuvem Fiscal e possui fluxos separados de homologação e produção, consulta de status, cancelamento, DANFSe (PDF), XML e trilha de eventos.
+
+1. Crie credenciais de homologação e produção no provedor e configure no `.env` do backend:
+   `NUVEM_FISCAL_SANDBOX_CLIENT_ID`, `NUVEM_FISCAL_SANDBOX_CLIENT_SECRET`,
+   `NUVEM_FISCAL_PRODUCTION_CLIENT_ID` e `NUVEM_FISCAL_PRODUCTION_CLIENT_SECRET`.
+2. No OdontoApp, entre como administrador em **Notas fiscais > Configurar emissão**.
+3. Preencha os dados fiscais e códigos confirmados pela contabilidade e salve.
+4. Sincronize a empresa e envie o certificado A1 `.pfx`/`.p12`. O arquivo e a senha são enviados diretamente ao provedor e não são persistidos pelo OdontoApp.
+5. Valide emissões em homologação antes de selecionar produção e ativar a emissão fiscal.
+
+As permissões `FISCAL_VIEW`, `FISCAL_MANAGE` e `FISCAL_CONFIGURE` podem ser concedidas por perfil ou pessoa na Gestão de acessos. O administrador sempre mantém acesso completo.
+
 ## Confirmações por WhatsApp
 
 Na agenda, a ação **Abrir mensagem no WhatsApp** prepara gratuitamente uma conversa com o paciente pelo link oficial `wa.me`. O WhatsApp Desktop ou Web abre com uma mensagem pronta contendo clínica, profissional, data, hora e o link público de confirmação.
