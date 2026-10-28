@@ -37,17 +37,25 @@ is_root() { [[ "$(id -u)" == "0" ]]; }
 
 # Acesso: o usuário é criado só na primeira vez. A senha fica apenas no servidor
 # (arquivo do root, permissão 600) e nunca aparece nos logs do deploy.
+#
+# Só cria o htpasswd quando dá para guardar a senha em claro. Sem root, gerar o
+# hash deixaria o painel trancado com uma senha que ninguém conhece — e, como o
+# htpasswd passaria a existir, nenhuma publicação futura tentaria de novo. Sem
+# arquivo, /painel/ responde 500 (ninguém entra) até a próxima publicação com root.
+#
+# Para trocar a senha: apague o htpasswd e publique de novo.
+#   rm /opt/odonto-app/data/painel/auth/htpasswd
 if [[ ! -s "$auth_dir/htpasswd" ]]; then
-  password="$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-20)"
-  printf 'odontoapp:%s\n' "$(openssl passwd -apr1 "$password")" > "$auth_dir/htpasswd"
-  # O nginx roda dentro do container com outro uid, então o hash precisa ser
-  # legível por todos; o texto da senha fica só no arquivo do root abaixo.
-  chmod 0644 "$auth_dir/htpasswd"
   if is_root; then
+    password="$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-20)"
+    printf 'odontoapp:%s\n' "$(openssl passwd -apr1 "$password")" > "$auth_dir/htpasswd"
+    # O nginx roda dentro do container com outro uid, então o hash precisa ser
+    # legível por todos; o texto da senha fica só no arquivo do root abaixo.
+    chmod 0644 "$auth_dir/htpasswd"
     (umask 077; printf 'Painel: https://odontoapp.morelidev.com/painel/\nUsuário: odontoapp\nSenha: %s\n' "$password" > "$credentials")
     echo "Acesso ao painel criado. Credenciais em $credentials (somente no servidor)."
   else
-    echo "Acesso ao painel criado para o usuário 'odontoapp'. Rode como root para salvar a senha em $credentials." >&2
+    echo "Aviso: sem root não há onde guardar a senha; o acesso ao painel não foi criado." >&2
   fi
 fi
 
