@@ -29,6 +29,14 @@ fi
 compose=(docker compose -f "${COMPOSE_FILE}")
 
 mkdir -p data/postgres data/redis data/minio data/logs
+
+# Painel de acessos (deploy/painel). Precisa rodar antes do container do frontend,
+# que monta data/analytics e data/painel. É acessório ao produto: se falhar, avisa
+# e segue — uma métrica indisponível não pode impedir a publicação do sistema.
+if ! bash deploy/painel/setup.sh; then
+  echo "Aviso: painel de acessos não foi instalado nesta publicação." >&2
+fi
+
 "${compose[@]}" config --quiet
 "${compose[@]}" up -d "${POSTGRES_SERVICE}" "${REDIS_SERVICE}" "${MINIO_SERVICE}"
 
@@ -44,6 +52,14 @@ for attempt in $(seq 1 30); do
 done
 
 "${compose[@]}" build "${BACKEND_SERVICE}" "${FRONTEND_SERVICE}"
+
+# Um erro na configuração do nginx só aparece quando o container sobe — e aí o
+# site já saiu do ar. Testa a configuração da imagem recém-construída, com os
+# mesmos volumes montados, antes de trocar o que está rodando.
+if ! "${compose[@]}" run --rm --no-deps "${FRONTEND_SERVICE}" nginx -t; then
+  echo "Configuração do nginx do frontend inválida; publicação interrompida." >&2
+  exit 1
+fi
 
 "${compose[@]}" run --rm "${BACKEND_SERVICE}" \
   npx prisma db push --schema=prisma/master.schema.prisma --skip-generate

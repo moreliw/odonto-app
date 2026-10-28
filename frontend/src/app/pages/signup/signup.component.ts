@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ActivatedRoute, RouterLink } from '@angular/router'
+import { AnalyticsService } from '../../services/analytics.service'
 
 type Plan = {
   code: 'FREE' | 'BASIC' | 'PRO' | 'CLINIC'
@@ -349,7 +350,11 @@ export class SignupComponent implements OnInit {
     return p.description
   }
 
-  constructor(private readonly http: HttpClient, private readonly route: ActivatedRoute) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly route: ActivatedRoute,
+    private readonly analytics: AnalyticsService
+  ) {}
 
   /* ── Validação ────────────────────────────────────────────── */
 
@@ -402,6 +407,8 @@ export class SignupComponent implements OnInit {
   }
 
   onFieldChange(field: FieldName) {
+    // Começar a preencher é a etapa do funil entre abrir o cadastro e ir ao pagamento.
+    this.analytics.trackOnce('signup-start', 'fs')
     // Enquanto digita, o erro só é reavaliado se o campo já falhou uma vez — assim a
     // mensagem some no instante em que o valor fica correto, sem acusar erro cedo demais.
     if (this.submitted || this.touched[field]) this.setFieldError(field, this.ruleFor(field))
@@ -503,6 +510,8 @@ export class SignupComponent implements OnInit {
           this.saving = false
           this.success = true
           if (res.checkoutUrl) {
+            // Conversão do site: o cadastro foi aceito e o checkout abriu.
+            this.analytics.track('lead', { v: this.plan, o: this.isFreePlan ? 'MONTH' : this.billingInterval })
             location.href = res.checkoutUrl
             return
           }

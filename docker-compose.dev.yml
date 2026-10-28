@@ -113,6 +113,11 @@ services:
       - odonto-net-dev
     ports:
       - "${APP_HTTP_PORT:-8087}:8080"
+    volumes:
+      # Mesmos pontos de montagem do painel de acessos da produção.
+      - ./data/analytics:/var/log/nginx/odonto
+      - ./data/painel/www:/var/www/painel:ro
+      - ./data/painel/auth:/etc/nginx/painel:ro
 
 networks:
   odonto-net-dev:

@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Painel OdontoApp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f8fb;
+        --surface: #ffffff;
+        --surface-2: #eef2f8;
+        --ink: #0b1f33;
+        --ink-2: #475569;
+        --ink-3: #8595a8;
+        --line: rgba(11, 31, 51, 0.08);
+        --line-2: rgba(11, 31, 51, 0.16);
+        --accent: #2563eb;
+        --accent-soft: rgba(37, 99, 235, 0.1);
+        --teal: #14b8a6;
+        --up: #15803d;
+        --down: #c0392b;
+        --shadow: 0 1px 2px rgba(11, 31, 51, 0.04), 0 12px 32px -18px rgba(11, 31, 51, 0.2);
+        --radius: 18px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          color-scheme: dark;
+          --bg: #070b14;
+          --surface: #0e1524;
+          --surface-2: #162032;
+          --ink: #f1f5f9;
+          --ink-2: #b2bdd0;
+          --ink-3: #7b879d;
+          --line: rgba(241, 245, 249, 0.08);
+          --line-2: rgba(241, 245, 249, 0.16);
+          --accent: #5b8cff;
+          --accent-soft: rgba(91, 140, 255, 0.16);
+          --teal: #2dd4bf;
+          --up: #3fbf6a;
+          --down: #ef6b5b;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -20px rgba(0, 0, 0, 0.6);
+        }
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #070b14;
+        --surface: #0e1524;
+        --surface-2: #162032;
+        --ink: #f1f5f9;
+        --ink-2: #b2bdd0;
+        --ink-3: #7b879d;
+        --line: rgba(241, 245, 249, 0.08);
+        --line-2: rgba(241, 245, 249, 0.16);
+        --accent: #5b8cff;
+        --accent-soft: rgba(91, 140, 255, 0.16);
+        --teal: #2dd4bf;
+        --up: #3fbf6a;
+        --down: #ef6b5b;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -20px rgba(0, 0, 0, 0.6);
+      }
+
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        font-feature-settings: 'tnum';
+      }
+      button { font: inherit; color: inherit; }
+      .wrap { max-width: 1320px; margin: 0 auto; padding: 0 16px 64px; }
+      @media (min-width: 720px) { .wrap { padding: 0 32px 80px; } }
+
+      /* barra superior */
+      .top {
+        position: sticky; top: 0; z-index: 10;
+        background: color-mix(in srgb, var(--bg) 86%, transparent);
+        backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--line);
+      }
+      .top-inner {
+        max-width: 1320px; margin: 0 auto; padding: 14px 16px;
+        display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between;
+      }
+      @media (min-width: 720px) { .top-inner { padding: 16px 32px; } }
+      .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+      .brand-mark {
+        width: 36px; height: 36px; flex-shrink: 0; border-radius: 11px;
+        background: var(--accent); color: #fff; display: grid; place-items: center;
+      }
+      .brand-mark svg { width: 21px; height: 21px; }
+      .brand-name { font-weight: 800; letter-spacing: -0.02em; font-size: 16px; line-height: 1.2; }
+      .brand-name span { color: var(--accent); }
+      .brand-sub { color: var(--ink-3); font-size: 12.5px; }
+      .top-right { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+      .live {
+        display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+        padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+      }
+      .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); position: relative; }
+      .live-dot::after {
+        content: ''; position: absolute; inset: -4px; border-radius: 50%; background: var(--up); opacity: 0.25;
+        animation: pulse 2s ease-out infinite;
+      }
+      @keyframes pulse { from { transform: scale(0.6); opacity: 0.45; } to { transform: scale(1.6); opacity: 0; } }
+      .updated { color: var(--ink-3); font-size: 12.5px; }
+      .seg {
+        display: inline-flex; padding: 4px; border-radius: 999px; background: var(--surface);
+        border: 1px solid var(--line); gap: 2px; overflow-x: auto; max-width: 100%;
+      }
+      .seg button {
+        border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+        font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap;
+        transition: background-color 0.2s, color 0.2s;
+      }
+      .seg button:hover { color: var(--ink); }
+      .seg button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
+      @media (max-width: 719px) {
+        .top { position: static; }
+        .top-right { width: 100%; }
+        .live { order: 1; flex: 1; justify-content: center; }
+        .icon-btn { order: 2; }
+        .seg { order: 3; flex: 1 1 100%; min-width: 0; }
+        .seg button { padding: 7px 6px; flex: 1; }
+        .updated { display: none; }
+      }
+      .icon-btn {
+        width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface);
+        display: grid; place-items: center; cursor: pointer; color: var(--ink-2);
+      }
+      .icon-btn:hover { color: var(--ink); border-color: var(--line-2); }
+
+      /* título da página */
+      .hero { padding: 36px 0 22px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+      .hero h1 { margin: 0; font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.035em; font-weight: 700; line-height: 1.1; }
+      .hero p { margin: 6px 0 0; color: var(--ink-2); }
+      .range { color: var(--ink-3); font-size: 13px; font-weight: 600; }
+
+      /* grades e cards */
+      .grid { display: grid; gap: 16px; }
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      @media (min-width: 900px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+      .row-2-1 { grid-template-columns: 1fr; }
+      @media (min-width: 1000px) { .row-2-1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+      .row-3 { grid-template-columns: 1fr; }
+      @media (min-width: 760px) { .row-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (min-width: 1100px) { .row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      .row-2 { grid-template-columns: 1fr; }
+      @media (min-width: 900px) { .row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      .stack { display: grid; gap: 16px; margin-top: 16px; }
+
+      .card {
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 20px; min-width: 0;
+      }
+      @media (min-width: 720px) { .card { padding: 24px; } }
+      .card-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+      .card-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+      .card-sub { margin: 2px 0 0; color: var(--ink-3); font-size: 12.5px; }
+
+      .kpi { padding: 18px 18px 16px; }
+      @media (min-width: 720px) { .kpi { padding: 20px 22px; } }
+      .kpi-label { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+      .kpi-label svg { color: var(--accent); flex-shrink: 0; }
+      .kpi-value { font-size: clamp(26px, 3vw, 34px); font-weight: 700; letter-spacing: -0.04em; margin-top: 10px; line-height: 1; }
+      .kpi-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px; color: var(--ink-3); }
+      .kpi.highlight { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+      .delta { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; padding: 2px 7px; border-radius: 999px; font-size: 12px; }
+      .delta.up { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
+      .delta.down { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
+      .delta.flat { color: var(--ink-2); background: var(--surface-2); }
+
+      .tabs { display: inline-flex; gap: 4px; background: var(--surface-2); padding: 3px; border-radius: 999px; flex-wrap: wrap; }
+      .tabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+      .tabs button[aria-pressed='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+
+      /* gráficos */
+      .chart { position: relative; width: 100%; }
+      .chart svg { display: block; width: 100%; overflow: visible; }
+      .axis text { fill: var(--ink-3); font-size: 11px; font-family: inherit; }
+      .gridline { stroke: var(--line); stroke-width: 1; }
+      .tip {
+        position: absolute; pointer-events: none; z-index: 5; min-width: 120px;
+        background: var(--ink); color: var(--bg); border-radius: 12px; padding: 8px 12px;
+        font-size: 12.5px; line-height: 1.35; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+        opacity: 0; transform: translate(-50%, calc(-100% - 12px)); transition: opacity 0.12s; white-space: nowrap;
+      }
+      .tip b { font-size: 15px; letter-spacing: -0.02em; }
+      .tip span { opacity: 0.7; }
+
+      /* listas com barras */
+      .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      .bar-row { display: grid; gap: 6px; }
+      .bar-top { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+      .bar-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bar-val { color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+      .bar-val small { color: var(--ink-3); font-weight: 500; margin-left: 6px; }
+      .bar-track { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+      .bar-fill { height: 100%; border-radius: 999px; background: var(--accent); min-width: 4px; transition: width 0.6s cubic-bezier(0.19, 1, 0.22, 1); }
+      .bar-fill.teal { background: var(--teal); }
+
+      /* barra de participação */
+      .share { display: flex; height: 12px; border-radius: 999px; overflow: hidden; gap: 2px; margin-bottom: 16px; }
+      .share span:first-child { border-radius: 999px 0 0 999px; }
+      .share span:last-child { border-radius: 0 999px 999px 0; }
+      .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--ink-2); }
+      .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+      /* funil */
+      .funnel { display: grid; gap: 10px; }
+      .funnel-step { display: grid; gap: 6px; }
+      .funnel-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+      .funnel-top b { font-weight: 700; }
+      .funnel-bar { height: 30px; border-radius: 10px; background: var(--surface-2); overflow: hidden; }
+      .funnel-fill { height: 100%; border-radius: 10px; background: var(--accent); min-width: 6px; transition: width 0.7s cubic-bezier(0.19, 1, 0.22, 1); }
+      .funnel-conv { font-size: 12px; color: var(--ink-3); padding-left: 4px; }
+
+      /* destaques */
+      .insights { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+      .insights li {
+        display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start;
+        padding: 12px; border-radius: 14px; background: var(--surface-2); font-size: 13.5px; line-height: 1.45;
+      }
+      .insights .ico { width: 30px; height: 30px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+      .insights b { font-weight: 700; }
+
+      /* tabelas */
+      .table-wrap { overflow-x: auto; margin: 0 -4px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+      th {
+        text-align: left; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+        color: var(--ink-3); padding: 0 10px 10px; white-space: nowrap;
+      }
+      th.num, td.num { text-align: right; }
+      td { padding: 11px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
+      .row-name { font-weight: 650; }
+      .row-sub { color: var(--ink-3); font-size: 12px; }
+      .mini-bar { width: 120px; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+      .mini-bar span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+      .more-btn {
+        margin-top: 14px; border: 1px solid var(--line-2); background: transparent; padding: 9px 16px;
+        border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 13px;
+      }
+      .more-btn:hover { background: var(--surface-2); }
+
+      /* lista de números */
+      .stats-list { display: grid; gap: 0; }
+      .stats-list div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+      .stats-list div:first-child { border-top: 0; padding-top: 0; }
+      .stats-list b { font-weight: 700; }
+      .sub-title { margin: 20px 0 12px; font-size: 13.5px; }
+
+      /* visitas recentes */
+      .recent { list-style: none; margin: 0; padding: 0; }
+      .recent li { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+      .recent li:first-child { border-top: 0; padding-top: 0; }
+      .avatar { width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; color: var(--ink-2); }
+      .recent-main { min-width: 0; }
+      .recent-title { font-weight: 650; font-size: 13.5px; }
+      .recent-meta { color: var(--ink-3); font-size: 12.5px; }
+      .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .tag { font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+      .tag.hot { background: var(--accent-soft); color: var(--accent); }
+      .tag.win { background: color-mix(in srgb, var(--up) 14%, transparent); color: var(--up); }
+      .recent-time { color: var(--ink-3); font-size: 12px; text-align: right; white-space: nowrap; }
+
+      .empty { color: var(--ink-3); font-size: 13.5px; padding: 18px 0; text-align: center; }
+      .note { color: var(--ink-3); font-size: 12.5px; margin-top: 28px; text-align: center; line-height: 1.6; }
+      .link-btn { border: 0; background: none; padding: 0; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+      .data-table { margin-top: 14px; max-height: 260px; overflow: auto; }
+      .loading { min-height: 60vh; display: grid; place-items: center; color: var(--ink-3); }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="top-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3c-2 0-2.6 1-4.5 1S4 4.6 4 7.5c0 3.4 1.3 4.6 1.9 7.4.5 2.4.4 5.1 2.1 5.1 1.9 0 1.4-4.5 4-4.5s2.1 4.5 4 4.5c1.7 0 1.6-2.7 2.1-5.1.6-2.8 1.9-4 1.9-7.4C20 4.6 18.4 4 16.5 4S14 3 12 3z" />
+            </svg>
+          </span>
+          <div>
+            <div class="brand-name">Odonto<span>App</span></div>
+            <div class="brand-sub">Painel de acessos do site</div>
+          </div>
+        </div>
+        <div class="top-right">
+          <span class="live" id="live" hidden><span class="live-dot"></span><span id="live-text"></span></span>
+          <span class="updated" id="updated"></span>
+          <div class="seg" role="group" aria-label="Período" id="periods"></div>
+          <button class="icon-btn" id="theme" type="button" aria-label="Alternar tema claro/escuro"></button>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap" id="app">
+      <div class="loading">Carregando dados…</div>
+    </main>
+
+    <script>
+      'use strict'
+
+      const PERIODS = [
+        ['hoje', 'Hoje'],
+        ['7d', '7 dias'],
+        ['30d', '30 dias'],
+        ['90d', '90 dias'],
+        ['12m', '12 meses'],
+      ]
+      const WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+      const WEEKDAYS_FULL = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
+      const SECTION_NAMES = {
+        produto: 'O produto', recursos: 'Agenda', clinicas: 'Para clínicas',
+        'como-funciona': 'Como funciona', planos: 'Planos',
+      }
+      const PLACE_NAMES = {
+        header: 'Menu do topo', conteudo: 'Topo da home', planos: 'Seção de planos',
+        'como-funciona': 'Como funciona', clinicas: 'Para clínicas', recursos: 'Agenda',
+        produto: 'O produto', footer: 'Rodapé', 'oa-mobile': 'Menu (celular)',
+        nav: 'Navegação', section: 'Outra seção', page: 'Outro lugar',
+      }
+      const placeName = (p) => PLACE_NAMES[p] || p
+
+      const ICONS = {
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+        cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/>',
+        pointer: '<path d="m9 9 5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/>',
+        repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+        trend: '<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
+        layers: '<path d="m12 2 10 5-10 5L2 7Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+        star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/>',
+        phone: '<rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/>',
+        monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/>',
+        tablet: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M12 18h.01"/>',
+        info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+      }
+      const icon = (name, size = 16) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`
+
+      const nf = new Intl.NumberFormat('pt-BR')
+      const fmt = (n) => (n == null ? '-' : nf.format(n))
+      const dec = (n) => (n == null ? '-' : n.toLocaleString('pt-BR', { maximumFractionDigits: 1 }))
+      const pct = (x, digits = 0) =>
+        x == null ? '-' : `${(x * 100).toLocaleString('pt-BR', { maximumFractionDigits: digits, minimumFractionDigits: digits })}%`
+      const share = (part, total) => (total ? part / total : 0)
+      const esc = (s) =>
+        String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+      const duration = (sec) => {
+        if (sec == null) return '-'
+        if (sec < 60) return `${sec}s`
+        const m = Math.floor(sec / 60)
+        const s = sec % 60
+        return s ? `${m}min ${s}s` : `${m}min`
+      }
+      const dayLabel = (iso) =>
+        new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
+      const hourLabel = (iso) =>
+        new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+      const ago = (iso) => {
+        const diff = (Date.now() - new Date(iso).getTime()) / 1000
+        if (diff < 60) return 'agora'
+        if (diff < 3600) return `há ${Math.floor(diff / 60)} min`
+        if (diff < 86400) return `há ${Math.floor(diff / 3600)} h`
+        const days = Math.floor(diff / 86400)
+        return days === 1 ? 'ontem' : `há ${days} dias`
+      }
+
+      const state = {
+        data: null,
+        period: (() => {
+          try { return localStorage.getItem('oa-painel-period') || '7d' } catch { return '7d' }
+        })(),
+        metric: 'visitors',
+        showAllPages: false,
+        deviceTab: 'devices',
+        showTable: false,
+      }
+
+      // -------------------------------------------------------------- tema
+      const themeBtn = document.getElementById('theme')
+      const currentTheme = () =>
+        document.documentElement.dataset.theme ||
+        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      const paintThemeBtn = () => { themeBtn.innerHTML = icon(currentTheme() === 'dark' ? 'sun' : 'moon', 17) }
+      try {
+        const saved = localStorage.getItem('oa-painel-theme')
+        if (saved) document.documentElement.dataset.theme = saved
+      } catch {}
+      paintThemeBtn()
+      themeBtn.addEventListener('click', () => {
+        const next = currentTheme() === 'dark' ? 'light' : 'dark'
+        document.documentElement.dataset.theme = next
+        try { localStorage.setItem('oa-painel-theme', next) } catch {}
+        paintThemeBtn()
+        render()
+      })
+
+      // ----------------------------------------------------------- períodos
+      const periodsEl = document.getElementById('periods')
+      periodsEl.innerHTML = PERIODS.map(([k, label]) => `<button type="button" data-period="${k}">${label}</button>`).join('')
+      periodsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-period]')
+        if (!btn) return
+        state.period = btn.dataset.period
+        try { localStorage.setItem('oa-painel-period', state.period) } catch {}
+        render()
+      })
+
+      // ----------------------------------------------------------- gráficos
+      const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+
+      function niceMax(v) {
+        if (v <= 4) return 4
+        const p = Math.pow(10, Math.floor(Math.log10(v)))
+        for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p
+        return 10 * p
+      }
+
+      function areaChart(el, points, { label }) {
+        const W = Math.max(el.clientWidth, 280)
+        const H = W < 560 ? 220 : 280
+        const pad = { l: 34, r: 12, t: 12, b: 28 }
+        const iw = W - pad.l - pad.r
+        const ih = H - pad.t - pad.b
+        const values = points.map((p) => p.v)
+        const max = niceMax(Math.max(...values, 0))
+        const x = (i) => pad.l + (points.length === 1 ? iw / 2 : (i / (points.length - 1)) * iw)
+        const y = (v) => pad.t + ih - (v / max) * ih
+        const accent = css('--accent')
+
+        let grid = ''
+        for (let i = 0; i <= 4; i++) {
+          const v = (max / 4) * i
+          const yy = y(v)
+          grid += `<line class="gridline" x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}"/>`
+          grid += `<text x="${pad.l - 8}" y="${yy + 4}" text-anchor="end">${fmt(Math.round(v))}</text>`
+        }
+        const ticks = Math.min(points.length, W < 560 ? 4 : 7)
+        let xl = ''
+        for (let k = 0; k < ticks; k++) {
+          const i = ticks === 1 ? 0 : Math.round((k / (ticks - 1)) * (points.length - 1))
+          const anchor = k === 0 ? 'start' : k === ticks - 1 ? 'end' : 'middle'
+          xl += `<text x="${x(i)}" y="${H - 8}" text-anchor="${anchor}">${esc(points[i].tick)}</text>`
+        }
+        const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('')
+        const area = `${line}L${x(points.length - 1)},${pad.t + ih}L${x(0)},${pad.t + ih}Z`
+        const gid = `g${Math.random().toString(36).slice(2, 7)}`
+
+        el.innerHTML = `
+          <svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(label)} ao longo do tempo">
+            <defs><linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="${accent}" stop-opacity="0.22"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/>
+            </linearGradient></defs>
+            <g class="axis">${grid}${xl}</g>
+            <path d="${area}" fill="url(#${gid})"/>
+            <path d="${line}" fill="none" stroke="${accent}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <line class="cross" x1="0" x2="0" y1="${pad.t}" y2="${pad.t + ih}" stroke="${css('--line-2')}" stroke-width="1" opacity="0"/>
+            <circle class="dot" r="5" fill="${accent}" stroke="${css('--surface')}" stroke-width="2" opacity="0"/>
+            <rect x="${pad.l}" y="0" width="${iw}" height="${H}" fill="transparent" class="hit"/>
+          </svg>
+          <div class="tip"></div>`
+
+        const svg = el.querySelector('svg')
+        const tip = el.querySelector('.tip')
+        const cross = el.querySelector('.cross')
+        const dot = el.querySelector('.dot')
+        const hit = el.querySelector('.hit')
+        const show = (clientX) => {
+          const rect = svg.getBoundingClientRect()
+          const px = ((clientX - rect.left) / rect.width) * W
+          const i = Math.max(0, Math.min(points.length - 1, Math.round(((px - pad.l) / iw) * (points.length - 1))))
+          const p = points[i]
+          cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('opacity', 1)
+          dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(p.v)); dot.setAttribute('opacity', 1)
+          tip.innerHTML = `<span>${esc(p.full)}</span><br><b>${fmt(p.v)}</b> ${esc(label.toLowerCase())}`
+          tip.style.left = `${(x(i) / W) * 100}%`
+          tip.style.top = `${(y(p.v) / H) * rect.height}px`
+          tip.style.opacity = 1
+        }
+        const hide = () => { tip.style.opacity = 0; cross.setAttribute('opacity', 0); dot.setAttribute('opacity', 0) }
+        hit.addEventListener('pointermove', (e) => show(e.clientX))
+        hit.addEventListener('pointerdown', (e) => show(e.clientX))
+        hit.addEventListener('pointerleave', hide)
+      }
+
+      function columnChart(el, values, labels, fullLabels, unit) {
+        const W = Math.max(el.clientWidth, 260)
+        const H = 170
+        const pad = { l: 4, r: 4, t: 8, b: 24 }
+        const iw = W - pad.l - pad.r
+        const ih = H - pad.t - pad.b
+        const max = Math.max(...values, 1)
+        const n = values.length
+        const gap = 2
+        const bw = Math.max(2, iw / n - gap)
+        const peak = values.indexOf(Math.max(...values))
+        const accent = css('--accent')
+        let bars = ''
+        values.forEach((v, i) => {
+          const h = v ? Math.max(4, (v / max) * ih) : 0
+          const bx = pad.l + i * (bw + gap)
+          const by = pad.t + ih - h
+          const r = Math.min(4, bw / 2, h)
+          const path = h
+            ? `M${bx},${by + h}V${by + r}Q${bx},${by} ${bx + r},${by}H${bx + bw - r}Q${bx + bw},${by} ${bx + bw},${by + r}V${by + h}Z`
+            : ''
+          bars += `<g data-i="${i}"><rect x="${bx - gap / 2}" y="${pad.t}" width="${bw + gap}" height="${ih}" fill="transparent"/>`
+          bars += `<rect x="${bx}" y="${pad.t + ih - 2}" width="${bw}" height="2" rx="1" fill="${css('--line-2')}"/>`
+          if (path) bars += `<path d="${path}" fill="${accent}" opacity="${i === peak ? 1 : 0.45}"/>`
+          bars += `</g>`
+        })
+        let xl = ''
+        labels.forEach((l, i) => {
+          if (l) xl += `<text x="${pad.l + i * (bw + gap) + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(l)}</text>`
+        })
+        el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Distribuição"><g class="axis">${xl}</g>${bars}</svg><div class="tip"></div>`
+        const tip = el.querySelector('.tip')
+        const svg = el.querySelector('svg')
+        svg.addEventListener('pointermove', (e) => {
+          const g = e.target.closest('g[data-i]')
+          if (!g) return (tip.style.opacity = 0)
+          const i = +g.dataset.i
+          const rect = svg.getBoundingClientRect()
+          const cx = pad.l + i * (bw + gap) + bw / 2
+          const h = values[i] ? Math.max(4, (values[i] / max) * ih) : 0
+          tip.innerHTML = `<span>${esc(fullLabels[i])}</span><br><b>${fmt(values[i])}</b> ${unit}`
+          tip.style.left = `${(cx / W) * 100}%`
+          tip.style.top = `${((pad.t + ih - h) / H) * rect.height}px`
+          tip.style.opacity = 1
+        })
+        svg.addEventListener('pointerleave', () => (tip.style.opacity = 0))
+      }
+
+      // ------------------------------------------------------------ auxiliares
+      function deltaBadge(cur, prev, { rate = false } = {}) {
+        if (cur == null || prev == null) return '<span class="delta flat">sem comparação</span>'
+        if (!prev && !cur) return '<span class="delta flat">=</span>'
+        if (!prev) return '<span class="delta up">novo</span>'
+        let diff
+        let text
+        if (rate) {
+          diff = cur - prev
+          text = `${diff >= 0 ? '+' : '−'}${Math.abs(diff * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} p.p.`
+        } else {
+          diff = (cur - prev) / prev
+          text = `${diff >= 0 ? '+' : '−'}${Math.abs(Math.round(diff * 100))}%`
+        }
+        if (Math.abs(diff) < 0.005) return '<span class="delta flat">estável</span>'
+        return `<span class="delta ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${text}</span>`
+      }
+
+      function barList(rows, total, { teal = false, limit = 8, unit = '' } = {}) {
+        if (!rows.length) return '<p class="empty">Sem dados no período.</p>'
+        const max = Math.max(...rows.map((r) => r[1]), 1)
+        return `<ul class="bars">${rows
+          .slice(0, limit)
+          .map(([name, v]) => `
+            <li class="bar-row">
+              <div class="bar-top"><span class="bar-name" title="${esc(name)}">${esc(name)}</span>
+                <span class="bar-val">${fmt(v)}${unit}${total ? `<small>${pct(share(v, total))}</small>` : ''}</span></div>
+              <div class="bar-track"><div class="bar-fill${teal ? ' teal' : ''}" style="width:${(v / max) * 100}%"></div></div>
+            </li>`)
+          .join('')}</ul>`
+      }
+
+      function card(title, sub, body, extraHead = '') {
+        return `<section class="card"><div class="card-head"><div><h2 class="card-title">${title}</h2>${sub ? `<p class="card-sub">${sub}</p>` : ''}</div>${extraHead}</div>${body}</section>`
+      }
+
+      // ----------------------------------------------------------- destaques
+      function insights(p) {
+        const k = p.kpis
+        const c = p.contacts
+        const out = []
+        if (!k.sessions) {
+          out.push(['info', 'Ainda não há visitas neste período. Os dados aparecem aqui assim que alguém abrir o site.'])
+          return out
+        }
+        if (p.prev.visitors) {
+          const d = (k.visitors - p.prev.visitors) / p.prev.visitors
+          if (Math.abs(d) >= 0.05)
+            out.push(['trend', `Visitantes <b>${d > 0 ? 'subiram' : 'caíram'} ${Math.abs(Math.round(d * 100))}%</b> em relação ao período anterior.`])
+        }
+        if (c.leads)
+          out.push(['cart', `<b>${fmt(c.leads)} ${c.leads === 1 ? 'cadastro seguiu' : 'cadastros seguiram'}</b> para o pagamento.`])
+        else if (c.formStarts)
+          out.push(['file', `<b>${fmt(c.formStarts)} ${c.formStarts === 1 ? 'pessoa começou' : 'pessoas começaram'}</b> o cadastro, mas ninguém concluiu ainda.`])
+        else if (c.signupViews)
+          out.push(['file', `<b>${fmt(c.signupViews)} ${c.signupViews === 1 ? 'visita abriu' : 'visitas abriram'}</b> a tela de cadastro sem preencher nada.`])
+        if (p.sources.length) {
+          const [name, v] = p.sources[0]
+          out.push(['target', `<b>${esc(name)}</b> é a principal origem, com ${pct(share(v, k.sessions))} das visitas.`])
+        }
+        const topPlan = p.plans[0]
+        if (topPlan)
+          out.push(['star', `<b>${esc(topPlan.label)}</b> é o plano mais clicado (${fmt(topPlan.clicks)} ${topPlan.clicks === 1 ? 'clique' : 'cliques'}${topPlan.leads ? `, ${fmt(topPlan.leads)} até o pagamento` : ''}).`])
+        const planReach = p.sections.find(([key]) => key === 'planos')
+        if (planReach && planReach[1] && p.homeVisits)
+          out.push(['layers', `<b>${pct(share(planReach[1], p.homeVisits))}</b> de quem abre a home rola até a seção de planos.`])
+        const peakH = p.hours.indexOf(Math.max(...p.hours))
+        const peakD = p.weekdays.indexOf(Math.max(...p.weekdays))
+        if (p.hours[peakH])
+          out.push(['clock', `Pico de acessos entre <b>${peakH}h e ${(peakH + 1) % 24}h</b>${state.period !== 'hoje' && p.weekdays[peakD] ? `, com destaque para <b>${WEEKDAYS_FULL[peakD]}</b>` : ''}.`])
+        if (k.mobileShare != null) out.push(['phone', `<b>${pct(k.mobileShare)}</b> das visitas são pelo celular.`])
+        return out.slice(0, 6)
+      }
+
+      // ------------------------------------------------------------- render
+      function render() {
+        const data = state.data
+        if (!data) return
+        if (!data.periods[state.period]) state.period = '7d'
+        const p = data.periods[state.period]
+        const k = p.kpis
+        const prev = p.prev
+        const c = p.contacts
+
+        periodsEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.period === state.period))
+        document.getElementById('live').hidden = false
+        document.getElementById('live-text').textContent = `${data.live} ${data.live === 1 ? 'visita' : 'visitas'} nos últimos 30 min`
+        document.getElementById('updated').textContent = `Atualizado ${ago(data.generatedAt)}`
+
+        const periodLabel = PERIODS.find(([key]) => key === state.period)[1]
+        const rangeText = state.period === 'hoje'
+          ? new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+          : `${dayLabel(p.start)} a ${dayLabel(p.series[p.series.length - 1].t)}`
+
+        const kpiTiles = [
+          ['users', 'Visitantes únicos', fmt(k.visitors), deltaBadge(k.visitors, prev.visitors)],
+          ['eye', 'Visitas', fmt(k.sessions), deltaBadge(k.sessions, prev.sessions)],
+          ['layers', 'Páginas por visita', dec(k.pagesPerVisit), deltaBadge(k.pagesPerVisit, prev.pagesPerVisit)],
+          ['clock', 'Tempo médio no site', duration(k.avgDuration), deltaBadge(k.avgDuration, prev.avgDuration)],
+          ['cart', 'Foram para o pagamento', fmt(k.leads), deltaBadge(k.leads, prev.leads), true],
+          ['file', 'Abriram o cadastro', fmt(k.signupViews), deltaBadge(k.signupViews, prev.signupViews)],
+          ['target', 'Taxa de conversão', pct(k.conversionRate, 1), deltaBadge(k.conversionRate, prev.conversionRate, { rate: true })],
+          ['repeat', 'Visitas engajadas', pct(k.engagedRate), deltaBadge(k.engagedRate, prev.engagedRate, { rate: true })],
+        ]
+        const hints = {
+          'Taxa de conversão': 'Visitas que concluíram o cadastro e seguiram para o checkout',
+          'Visitas engajadas': 'Ficaram 10s ou mais, viram mais de uma página ou interagiram',
+          'Foram para o pagamento': 'Cadastros aceitos que abriram a tela de pagamento',
+          'Abriram o cadastro': 'Visitas que chegaram à tela de criar clínica',
+        }
+
+        const metricTabs = [['visitors', 'Visitantes'], ['sessions', 'Visitas'], ['pageviews', 'Visualizações'], ['leads', 'Pagamentos']]
+        const metricLabel = metricTabs.find(([m]) => m === state.metric)[1]
+
+        const totalSessions = k.sessions
+        const devTabs = [['devices', 'Aparelho'], ['os', 'Sistema'], ['browsers', 'Navegador']]
+        const devRows = p[state.deviceTab]
+        const shareColors = [css('--accent'), css('--teal'), css('--ink-3')]
+
+        const funnelFirst = p.funnel[0][1] || 0
+        const funnel = p.funnel
+          .map(([name, v], i) => {
+            const prevV = i ? p.funnel[i - 1][1] : null
+            return `
+              <div class="funnel-step">
+                <div class="funnel-top"><span>${name}</span><b>${fmt(v)} <span style="color:var(--ink-3);font-weight:600">· ${pct(share(v, funnelFirst))}</span></b></div>
+                <div class="funnel-bar"><div class="funnel-fill" style="width:${funnelFirst ? Math.max((v / funnelFirst) * 100, v ? 3 : 0) : 0}%;opacity:${1 - i * 0.12}"></div></div>
+                ${i && prevV && v <= prevV ? `<div class="funnel-conv">${pct(share(v, prevV))} da etapa anterior</div>` : ''}
+              </div>`
+          })
+          .join('')
+
+        const pages = p.pages
+        const visiblePages = state.showAllPages ? pages : pages.slice(0, 10)
+        const maxViews = Math.max(...pages.map((r) => r.views), 1)
+        const pagesTable = pages.length
+          ? `<div class="table-wrap"><table>
+              <thead><tr><th>Página</th><th class="num">Visualizações</th><th class="num">Visitas</th><th class="num" style="min-width:130px"></th></tr></thead>
+              <tbody>${visiblePages
+                .map((r) => `
+                  <tr>
+                    <td><div class="row-name">${esc(r.label)}</div><div class="row-sub">${esc(r.path)}</div></td>
+                    <td class="num"><b>${fmt(r.views)}</b></td>
+                    <td class="num">${fmt(r.sessions)}</td>
+                    <td class="num"><div class="mini-bar" style="margin-left:auto"><span style="width:${(r.views / maxViews) * 100}%"></span></div></td>
+                  </tr>`)
+                .join('')}</tbody></table></div>
+              ${pages.length > 10 ? `<button class="more-btn" type="button" id="more-pages">${state.showAllPages ? 'Mostrar menos' : `Mostrar todas as ${pages.length}`}</button>` : ''}`
+          : '<p class="empty">Sem dados no período.</p>'
+
+        const plans = p.plans
+        const maxPlan = Math.max(...plans.map((r) => r.clicks), 1)
+        const plansTable = plans.length
+          ? `<div class="table-wrap"><table>
+              <thead><tr><th>Plano</th><th class="num">Cliques</th><th class="num">Foram ao pagamento</th><th class="num" style="min-width:130px"></th></tr></thead>
+              <tbody>${plans
+                .map((r) => `
+                  <tr>
+                    <td><div class="row-name">${esc(r.label)}</div><div class="row-sub">${esc(r.code)}</div></td>
+                    <td class="num"><b>${fmt(r.clicks)}</b></td>
+                    <td class="num">${fmt(r.leads)}</td>
+                    <td class="num"><div class="mini-bar" style="margin-left:auto"><span style="width:${(r.clicks / maxPlan) * 100}%"></span></div></td>
+                  </tr>`)
+                .join('')}</tbody></table></div>`
+          : '<p class="empty">Nenhum plano clicado no período.</p>'
+
+        const sectionRows = p.sections.map(([key, v]) => [SECTION_NAMES[key] || key, v])
+        const recent = data.recent
+
+        const app = document.getElementById('app')
+        app.innerHTML = `
+          <div class="hero">
+            <div>
+              <h1>Visão geral</h1>
+              <p>Quem visita o site do OdontoApp, de onde vem, o que vê e quantos criam uma clínica.</p>
+            </div>
+            <div class="range">${esc(periodLabel)} · ${esc(rangeText)}</div>
+          </div>
+
+          <div class="grid kpis">
+            ${kpiTiles
+              .map(([ic, label, value, delta, hl]) => `
+                <section class="card kpi${hl ? ' highlight' : ''}" ${hints[label] ? `title="${hints[label]}"` : ''}>
+                  <div class="kpi-label">${icon(ic)}${label}</div>
+                  <div class="kpi-value">${value}</div>
+                  <div class="kpi-foot">${delta}${delta.includes('delta') && !delta.includes('sem comparação') ? '<span>vs. período anterior</span>' : ''}</div>
+                </section>`)
+              .join('')}
+          </div>
+
+          <div class="stack"><div class="grid row-2-1">
+            ${card(
+              `${metricLabel} ${state.period === 'hoje' ? 'por hora' : 'por dia'}`,
+              state.period === 'hoje' ? 'Horário de Brasília' : 'Evolução no período selecionado',
+              `<div class="chart" id="main-chart"></div>
+               <button class="link-btn" type="button" id="toggle-table" style="margin-top:12px">${state.showTable ? 'Ocultar tabela' : 'Ver dados em tabela'}</button>
+               <div class="data-table" id="main-table" ${state.showTable ? '' : 'hidden'}></div>`,
+              `<div class="tabs" role="group" aria-label="Métrica">${metricTabs.map(([m, l]) => `<button type="button" data-metric="${m}" aria-pressed="${m === state.metric}">${l}</button>`).join('')}</div>`,
+            )}
+            ${card('Destaques', 'Leitura automática do período', `<ul class="insights">${insights(p).map(([ic, t]) => `<li><span class="ico">${icon(ic, 15)}</span><span>${t}</span></li>`).join('')}</ul>`)}
+          </div></div>
+
+          <div class="stack"><div class="grid row-3">
+            ${card('Origem das visitas', 'De onde as pessoas chegaram', barList(p.sources, totalSessions))}
+            ${card(
+              'Dispositivos',
+              'Como as pessoas acessam',
+              `${devRows.length ? `<div class="share">${devRows.slice(0, 3).map(([n, v], i) => `<span title="${esc(n)}: ${fmt(v)}" style="width:${share(v, totalSessions) * 100}%;background:${shareColors[i]}"></span>`).join('')}</div>
+                <div class="legend" style="margin-bottom:18px">${devRows.slice(0, 3).map(([n, v], i) => `<span><i style="background:${shareColors[i]}"></i>${esc(n)} <b>${pct(share(v, totalSessions))}</b></span>`).join('')}</div>
+                ${devRows.length > 3 ? barList(devRows.slice(3), totalSessions, { teal: true, limit: 5 }) : ''}` : '<p class="empty">Sem dados no período.</p>'}`,
+              `<div class="tabs" role="group" aria-label="Detalhe">${devTabs.map(([t, l]) => `<button type="button" data-dev="${t}" aria-pressed="${t === state.deviceTab}">${l}</button>`).join('')}</div>`,
+            )}
+            ${card('Localização', 'Cidade aproximada pelo provedor de internet', barList(p.cities, totalSessions, { teal: true }))}
+          </div></div>
+
+          <div class="stack"><div class="grid row-2">
+            ${card('Jornada até o pagamento', 'Quantas visitas avançam até criar a clínica', funnelFirst ? `<div class="funnel">${funnel}</div>` : '<p class="empty">Sem dados no período.</p>')}
+            ${card(
+              'Quando acessam',
+              'Visitas por hora do dia (Brasília)',
+              `<div class="chart" id="hours-chart"></div>
+               <h3 class="card-title sub-title">Por dia da semana</h3>
+               <div class="chart" id="week-chart"></div>`,
+            )}
+          </div></div>
+
+          <div class="stack"><div class="grid row-2-1">
+            ${card('Páginas mais vistas', 'Visualizações e visitas únicas por página', pagesTable)}
+            ${card('Páginas de entrada', 'Por onde as visitas começam', barList(p.entries, totalSessions, { teal: true }))}
+          </div></div>
+
+          <div class="stack">
+            ${card('Planos', 'Cliques em "começar" nos cards de plano e quantos chegaram ao pagamento', plansTable)}
+          </div>
+
+          <div class="stack"><div class="grid row-2">
+            ${card(
+              'Caminho até o cadastro',
+              'Cliques que levam da landing ao cadastro',
+              `<div class="stats-list">
+                 <div><span>Cliques em "começar gratuitamente"</span><b>${fmt(c.ctas)}</b></div>
+                 <div><span>Abriram a tela de cadastro</span><b>${fmt(c.signupViews)}</b></div>
+                 <div><span>Começaram a preencher</span><b>${fmt(c.formStarts)}</b></div>
+                 <div><span>Foram para o pagamento</span><b>${fmt(c.leads)}</b></div>
+                 <div><span>Cliques em "Entrar"</span><b>${fmt(c.logins)}</b></div>
+                 <div><span>Visitantes recorrentes</span><b>${pct(k.returningShare)}</b></div>
+               </div>
+               ${c.ctaPlaces.length ? `<h3 class="card-title sub-title">Por local do botão</h3>${barList(c.ctaPlaces.map(([pl, v]) => [placeName(pl), v]), c.ctas, { teal: true, limit: 6 })}` : ''}`,
+            )}
+            ${card(
+              'Até onde rolam',
+              p.homeVisits ? `Seções da home vistas e profundidade de rolagem (${fmt(p.homeVisits)} ${p.homeVisits === 1 ? 'visita' : 'visitas'} na home)` : 'Seções da home vistas e profundidade de rolagem',
+              p.homeVisits
+                ? `${barList(sectionRows, p.homeVisits, { teal: true, limit: 7 })}
+                   <div class="stats-list" style="margin-top:18px">${p.scroll.map(([d, v]) => `<div><span>${d >= 95 ? 'Rolaram até o fim' : `Rolaram ${d}% da home`}</span><b>${pct(share(v, p.homeVisits))}</b></div>`).join('')}</div>`
+                : '<p class="empty">Ninguém abriu a home no período.</p>',
+            )}
+          </div></div>
+
+          <div class="stack">
+            ${card(
+              'Visitas recentes',
+              'As últimas 30 visitas, sem nenhum dado pessoal',
+              recent.length
+                ? `<ul class="recent">${recent
+                    .map((r) => {
+                      const tags = []
+                      if (r.lead) tags.push('<span class="tag win">Foi ao pagamento</span>')
+                      else if (r.formStart) tags.push('<span class="tag hot">Começou o cadastro</span>')
+                      if (r.returning) tags.push('<span class="tag">Recorrente</span>')
+                      r.plans.forEach((pl) => tags.push(`<span class="tag hot">Clicou no ${esc(pl)}</span>`))
+                      r.pages.slice(0, 4).forEach((pg) => tags.push(`<span class="tag">${esc(pg)}</span>`))
+                      if (r.pages.length > 4) tags.push(`<span class="tag">+${r.pages.length - 4} páginas</span>`)
+                      const devIcon = r.device === 'Celular' ? 'phone' : r.device === 'Tablet' ? 'tablet' : 'monitor'
+                      return `<li>
+                        <span class="avatar">${icon(devIcon, 18)}</span>
+                        <div class="recent-main">
+                          <div class="recent-title">${esc(r.place || 'Local desconhecido')}</div>
+                          <div class="recent-meta">${esc(r.source)} · ${esc(r.os)} · ${esc(r.browser)} · ${duration(r.duration)}${r.scroll ? ` · rolou ${r.scroll}% da home` : ''}</div>
+                          ${tags.length ? `<div class="tags">${tags.join('')}</div>` : ''}
+                        </div>
+                        <div class="recent-time" title="${new Date(r.t).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}">${ago(r.t)}</div>
+                      </li>`
+                    })
+                    .join('')}</ul>`
+                : '<p class="empty">Nenhuma visita registrada ainda.</p>',
+            )}
+          </div>
+
+          <p class="note">
+            Dados coletados desde ${dayLabel(data.since)} sem cookies e sem dados pessoais, só no site comercial —
+            a área logada das clínicas fica fora da medição. Atualiza a cada 5 minutos.<br />
+            Localização aproximada por <a href="https://db-ip.com" style="color:inherit">DB-IP</a>.
+            Uma “visita” é cada vez que o site é aberto; “visitantes únicos” agrupa o mesmo aparelho no período.
+          </p>`
+
+        // gráficos
+        const metricKey = state.metric
+        const now = Date.now()
+        const pts = p.series
+          .filter((s) => state.period !== 'hoje' || new Date(s.t).getTime() <= now)
+          .map((s) => ({
+            v: s[metricKey],
+            tick: p.granularity === 'hour' ? `${new Date(s.t).getHours()}h` : dayLabel(s.t),
+            full: p.granularity === 'hour'
+              ? `${hourLabel(s.t)}`
+              : new Date(s.t).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'America/Sao_Paulo' }),
+          }))
+        areaChart(document.getElementById('main-chart'), pts.length ? pts : [{ v: 0, tick: '', full: '' }], { label: metricLabel })
+        document.getElementById('main-table').innerHTML = `<table><thead><tr><th>${p.granularity === 'hour' ? 'Hora' : 'Dia'}</th><th class="num">${metricLabel}</th></tr></thead><tbody>${pts
+          .slice()
+          .reverse()
+          .map((pt) => `<tr><td>${esc(pt.full)}</td><td class="num">${fmt(pt.v)}</td></tr>`)
+          .join('')}</tbody></table>`
+
+        columnChart(document.getElementById('hours-chart'), p.hours, p.hours.map((_, h) => (h % 6 === 0 ? `${h}h` : '')), p.hours.map((_, h) => `${h}h às ${(h + 1) % 24}h`), 'visitas')
+        columnChart(document.getElementById('week-chart'), p.weekdays, WEEKDAYS, WEEKDAYS_FULL.map((d) => d[0].toUpperCase() + d.slice(1)), 'visitas')
+      }
+
+      // -------------------------------------------------------------- eventos
+      document.getElementById('app').addEventListener('click', (e) => {
+        const metric = e.target.closest('[data-metric]')
+        const dev = e.target.closest('[data-dev]')
+        if (metric) state.metric = metric.dataset.metric
+        else if (dev) state.deviceTab = dev.dataset.dev
+        else if (e.target.closest('#more-pages')) state.showAllPages = !state.showAllPages
+        else if (e.target.closest('#toggle-table')) state.showTable = !state.showTable
+        else return
+        const y = window.scrollY
+        render()
+        window.scrollTo(0, y)
+      })
+
+      let resizeTimer
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer)
+        resizeTimer = setTimeout(() => {
+          const y = window.scrollY
+          render()
+          window.scrollTo(0, y)
+        }, 150)
+      })
+
+      async function load() {
+        try {
+          const res = await fetch(`stats.json?${Date.now()}`, { cache: 'no-store' })
+          if (!res.ok) throw new Error(res.status)
+          state.data = await res.json()
+          const y = window.scrollY
+          render()
+          window.scrollTo(0, y)
+        } catch (err) {
+          if (!state.data)
+            document.getElementById('app').innerHTML = '<div class="loading">Ainda não há dados. O painel é gerado a cada 5 minutos — volte em instantes.</div>'
+        }
+      }
+      load()
+      setInterval(load, 5 * 60 * 1000)
+      setInterval(() => {
+        if (state.data) document.getElementById('updated').textContent = `Atualizado ${ago(state.data.generatedAt)}`
+      }, 30000)
+    </script>
+  </body>
+</html>
