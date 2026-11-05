@@ -5,6 +5,9 @@ RUN npm install
 COPY angular.json ./angular.json
 COPY tsconfig*.json ./
 COPY src ./src
+# A configuração "production" (angular.json) é a padrão: minifica, faz
+# tree-shaking e põe hash no nome dos arquivos. Sem ela o main.js saía com
+# 1,37 MB de JavaScript legível.
 RUN npm run build
 
 FROM nginx:alpine

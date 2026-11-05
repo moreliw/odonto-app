@@ -1,35 +1,12 @@
 import { ApplicationConfig, inject } from '@angular/core'
 import { provideRouter, Routes, Router } from '@angular/router'
 import { provideHttpClient, withInterceptors } from '@angular/common/http'
-import { LoginComponent } from './pages/login/login.component'
-import { DashboardComponent } from './pages/dashboard/dashboard.component'
-import { PatientsComponent } from './pages/patients/patients.component'
-import { PatientDetailsComponent } from './pages/patients/patient-details/patient-details.component'
-import { AppointmentsComponent } from './pages/appointments/appointments.component'
-import { RecordsComponent } from './pages/records/records.component'
-import { TeamComponent } from './pages/team/team.component'
-import { ProfileComponent } from './pages/profile/profile.component'
-import { BillingComponent } from './pages/billing/billing.component'
-import { FinanceComponent } from './pages/finance/finance.component'
 import { AuthService } from './services/auth.service'
-import { SignupComponent } from './pages/signup/signup.component'
-import { SignupSuccessComponent } from './pages/signup/signup-success.component'
+// Única página no pacote inicial; as demais entram por loadComponent nas rotas.
 import { LandingComponent } from './pages/landing/landing.component'
-import { ConfirmAppointmentComponent } from './pages/confirm-appointment/confirm-appointment.component'
-import { MasterLoginComponent } from './pages/master-login/master-login.component'
-import { MasterShellComponent } from './pages/master/master-shell.component'
-import { MasterOverviewComponent } from './pages/master/master-overview.component'
-import { MasterCompaniesComponent } from './pages/master/master-companies.component'
-import { MasterFinanceComponent } from './pages/master/master-finance.component'
-import { MasterOperationsComponent } from './pages/master/master-operations.component'
-import { MasterUsersComponent } from './pages/master/master-users.component'
-import { MasterAuditComponent } from './pages/master/master-audit.component'
-import { ShellComponent } from './shell/shell.component'
 import { authInterceptor } from './services/auth.interceptor'
 import { map } from 'rxjs'
 import { PermissionKey } from './models/access-control.model'
-import { AccessControlComponent } from './pages/access-control/access-control.component'
-import { FiscalComponent } from './pages/fiscal/fiscal.component'
 
 const authGuard = () => {
   const router = inject(Router)
@@ -79,47 +56,133 @@ const permissionGuard = (permission: PermissionKey) => () => {
   return auth.ensurePermissions().pipe(map(() => auth.hasPermission(permission) ? true : router.parseUrl('/app/profile')))
 }
 
+/**
+ * Só a landing entra no pacote inicial. Todo o resto é carregado sob demanda,
+ * para que quem abre "/" no celular não baixe agenda, prontuário, financeiro,
+ * equipe nem o painel master junto — eram ~20 componentes no mesmo main.js.
+ *
+ * A landing fica eager de propósito: é a porta de entrada e a página que
+ * precisa aparecer rápido, então não vale pagar uma ida e volta a mais nela.
+ */
 export const routes: Routes = [
   { path: '', component: LandingComponent },
-  { path: 'signup', component: SignupComponent, canActivate: [guestGuard] },
-  { path: 'signup/success', component: SignupSuccessComponent },
-  { path: 'login', component: LoginComponent, canActivate: [guestGuard] },
-  { path: 'confirmar/:subdomain/:token', component: ConfirmAppointmentComponent },
+  {
+    path: 'signup',
+    loadComponent: () => import('./pages/signup/signup.component').then(m => m.SignupComponent),
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'signup/success',
+    loadComponent: () => import('./pages/signup/signup-success.component').then(m => m.SignupSuccessComponent)
+  },
+  {
+    path: 'login',
+    loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent),
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'confirmar/:subdomain/:token',
+    loadComponent: () =>
+      import('./pages/confirm-appointment/confirm-appointment.component').then(m => m.ConfirmAppointmentComponent)
+  },
   {
     path: 'admin/login',
-    component: MasterLoginComponent,
+    loadComponent: () => import('./pages/master-login/master-login.component').then(m => m.MasterLoginComponent),
     canActivate: [masterGuestGuard]
   },
   {
     path: 'admin',
-    component: MasterShellComponent,
+    loadComponent: () => import('./pages/master/master-shell.component').then(m => m.MasterShellComponent),
     canActivate: [masterAuthGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-      { path: 'dashboard', component: MasterOverviewComponent },
-      { path: 'empresas', component: MasterCompaniesComponent },
-      { path: 'usuarios', component: MasterUsersComponent },
-      { path: 'financeiro', component: MasterFinanceComponent },
-      { path: 'operacional', component: MasterOperationsComponent },
-      { path: 'auditoria', component: MasterAuditComponent }
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./pages/master/master-overview.component').then(m => m.MasterOverviewComponent)
+      },
+      {
+        path: 'empresas',
+        loadComponent: () => import('./pages/master/master-companies.component').then(m => m.MasterCompaniesComponent)
+      },
+      {
+        path: 'usuarios',
+        loadComponent: () => import('./pages/master/master-users.component').then(m => m.MasterUsersComponent)
+      },
+      {
+        path: 'financeiro',
+        loadComponent: () => import('./pages/master/master-finance.component').then(m => m.MasterFinanceComponent)
+      },
+      {
+        path: 'operacional',
+        loadComponent: () => import('./pages/master/master-operations.component').then(m => m.MasterOperationsComponent)
+      },
+      {
+        path: 'auditoria',
+        loadComponent: () => import('./pages/master/master-audit.component').then(m => m.MasterAuditComponent)
+      }
     ]
   },
   {
     path: 'app',
-    component: ShellComponent,
+    loadComponent: () => import('./shell/shell.component').then(m => m.ShellComponent),
     canActivate: [authGuard],
     children: [
-      { path: '', component: DashboardComponent, canActivate: [permissionGuard('DASHBOARD_VIEW')] },
-      { path: 'profile', component: ProfileComponent },
-      { path: 'patients/:id', component: PatientDetailsComponent, canActivate: [permissionGuard('PATIENTS_VIEW')] },
-      { path: 'patients', component: PatientsComponent, canActivate: [permissionGuard('PATIENTS_VIEW')] },
-      { path: 'appointments', component: AppointmentsComponent, canActivate: [permissionGuard('APPOINTMENTS_VIEW')] },
-      { path: 'records', component: RecordsComponent, canActivate: [permissionGuard('RECORDS_VIEW')] },
-      { path: 'finance', component: FinanceComponent, canActivate: [financeGuard] },
-      { path: 'fiscal', component: FiscalComponent, canActivate: [permissionGuard('FISCAL_VIEW')] },
-      { path: 'team', component: TeamComponent, canActivate: [permissionGuard('TEAM_VIEW')] },
-      { path: 'access', component: AccessControlComponent, canActivate: [permissionGuard('ACCESS_MANAGE')] },
-      { path: 'billing', component: BillingComponent, canActivate: [adminOnlyGuard] }
+      {
+        path: '',
+        loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent),
+        canActivate: [permissionGuard('DASHBOARD_VIEW')]
+      },
+      {
+        path: 'profile',
+        loadComponent: () => import('./pages/profile/profile.component').then(m => m.ProfileComponent)
+      },
+      {
+        path: 'patients/:id',
+        loadComponent: () =>
+          import('./pages/patients/patient-details/patient-details.component').then(m => m.PatientDetailsComponent),
+        canActivate: [permissionGuard('PATIENTS_VIEW')]
+      },
+      {
+        path: 'patients',
+        loadComponent: () => import('./pages/patients/patients.component').then(m => m.PatientsComponent),
+        canActivate: [permissionGuard('PATIENTS_VIEW')]
+      },
+      {
+        path: 'appointments',
+        loadComponent: () => import('./pages/appointments/appointments.component').then(m => m.AppointmentsComponent),
+        canActivate: [permissionGuard('APPOINTMENTS_VIEW')]
+      },
+      {
+        path: 'records',
+        loadComponent: () => import('./pages/records/records.component').then(m => m.RecordsComponent),
+        canActivate: [permissionGuard('RECORDS_VIEW')]
+      },
+      {
+        path: 'finance',
+        loadComponent: () => import('./pages/finance/finance.component').then(m => m.FinanceComponent),
+        canActivate: [financeGuard]
+      },
+      {
+        path: 'fiscal',
+        loadComponent: () => import('./pages/fiscal/fiscal.component').then(m => m.FiscalComponent),
+        canActivate: [permissionGuard('FISCAL_VIEW')]
+      },
+      {
+        path: 'team',
+        loadComponent: () => import('./pages/team/team.component').then(m => m.TeamComponent),
+        canActivate: [permissionGuard('TEAM_VIEW')]
+      },
+      {
+        path: 'access',
+        loadComponent: () =>
+          import('./pages/access-control/access-control.component').then(m => m.AccessControlComponent),
+        canActivate: [permissionGuard('ACCESS_MANAGE')]
+      },
+      {
+        path: 'billing',
+        loadComponent: () => import('./pages/billing/billing.component').then(m => m.BillingComponent),
+        canActivate: [adminOnlyGuard]
+      }
     ]
   },
   { path: 'patients', redirectTo: '/app/patients', pathMatch: 'full' },
