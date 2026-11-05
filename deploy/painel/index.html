@@ -582,6 +582,24 @@
           .join('')}</ul>`
       }
 
+      /**
+       * Acessos de redes de hospedagem não entram em nenhum número do painel.
+       * Mesmo assim aparecem aqui: eles chegam com cidade dos Estados Unidos e
+       * user agent de celular comum, e sem esse aviso seria natural ler o painel
+       * como "temos público lá fora" quando é só a Meta carregando o link.
+       */
+      function infraNote(infra) {
+        if (!infra) return ''
+        if (!infra.available) {
+          return `<p class="note">Base de provedores indisponível no servidor: pode haver acesso de robô contado como visita. Rode <code>odonto-app-geoip-update</code>.</p>`
+        }
+        if (!infra.last30d) return ''
+        const quem = infra.sources.length ? ` A maior parte chega pelo ${esc(infra.sources[0][0])}.` : ''
+        return `<p class="note"><b>${fmt(infra.last30d)} ${infra.last30d === 1 ? 'acesso' : 'acessos'} de robô nos últimos 30 dias</b> ${infra.last30d === 1 ? 'foi descartado' : 'foram descartados'} e não ${infra.last30d === 1 ? 'entra' : 'entram'} em nenhum número acima.
+          São redes de data center buscando a página — redes sociais montando a prévia do link, buscadores e scanners.${quem}
+          Elas aparecem com cidade real (Oregon, Texas, Irlanda) e navegador comum, mas não são gente.</p>`
+      }
+
       function card(title, sub, body, extraHead = '') {
         return `<section class="card"><div class="card-head"><div><h2 class="card-title">${title}</h2>${sub ? `<p class="card-sub">${sub}</p>` : ''}</div>${extraHead}</div>${body}</section>`
       }
@@ -839,10 +857,12 @@
             )}
           </div>
 
+          ${infraNote(data.infra)}
+
           <p class="note">
             Dados coletados desde ${dayLabel(data.since)} sem cookies e sem dados pessoais, só no site comercial —
             a área logada das clínicas fica fora da medição. Atualiza a cada 5 minutos.<br />
-            Localização aproximada por <a href="https://db-ip.com" style="color:inherit">DB-IP</a>.
+            Localização e provedor aproximados por <a href="https://db-ip.com" style="color:inherit">DB-IP</a>.
             Uma “visita” é cada vez que o site é aberto; “visitantes únicos” agrupa o mesmo aparelho no período.
           </p>`
 

@@ -73,9 +73,12 @@ install -d -m 0750 "$state_dir"
 install -m 0755 "$here/odonto-stats.py" "/usr/local/bin/${instance}-stats"
 install -m 0755 "$here/geoip-update.sh" "/usr/local/bin/${instance}-geoip-update"
 
-if [[ ! -f "$state_dir/dbip-city-lite.mmdb" ]]; then
+# A base de ASN é o que separa visitante de robô, então vale a verificação dela
+# e não só a de cidade: instalações antigas já têm a de cidade e ficariam sem a
+# de ASN, contando data center da Meta como visita.
+if [[ ! -f "$state_dir/dbip-asn-lite.mmdb" ]]; then
   "/usr/local/bin/${instance}-geoip-update" \
-    || echo 'Aviso: base de geolocalização não baixada; tenta de novo no próximo mês.' >&2
+    || echo 'Aviso: bases DB-IP não baixadas; tenta de novo no próximo mês.' >&2
 fi
 
 # Logs rotacionados por semana e guardados por pouco mais de um ano, para o

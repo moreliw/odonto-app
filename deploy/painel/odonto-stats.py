@@ -35,6 +35,7 @@ GEO_DBS = (
     '/var/lib/corujitos-stats/dbip-city-lite.mmdb',
     '/var/lib/morelidev-stats/dbip-city-lite.mmdb',
 )
+ASN_DBS = (os.path.join(STATE_DIR, 'dbip-asn-lite.mmdb'),)
 TZ = ZoneInfo('America/Sao_Paulo')
 
 # O primeiro campo é o X-Forwarded-For inteiro, que com mais de um salto vem como
@@ -52,6 +53,22 @@ MONTHS = {m: i for i, m in enumerate(
     'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(), start=1)}
 MAX_DURATION = 30 * 60
 SECTIONS = ('produto', 'recursos', 'clinicas', 'como-funciona', 'planos')
+
+# Redes de hospedagem, nuvem e rastreadores. Um acesso vindo daí não é um
+# visitante: é infraestrutura buscando a página — a Meta, por exemplo, carrega
+# todo link compartilhado a partir dos data centers dela (Prineville/OR,
+# Altoona/IA, Fort Worth/TX, Luleå/SE, Sarpy/NE), com user agent de navegador
+# comum. Sem esse filtro o painel mostra "visitas dos Estados Unidos" que nunca
+# existiram, e decisões de produto acabam tomadas em cima de robô.
+HOSTING_ASN = re.compile(
+    r'facebook|meta platforms|instagram|whatsapp|'
+    r'google|amazon|aws|microsoft|azure|cloudflare|fastly|akamai|'
+    r'digitalocean|linode|akamai|hetzner|ovh|contabo|vultr|scaleway|leaseweb|'
+    r'oracle|alibaba|tencent|huawei cloud|'
+    r'censys|shodan|palo alto|netcraft|qualys|bytedance|'
+    r'hosting|datacenter|data center|colocation|cloud',
+    re.I,
+)
 PLAN_NAMES = {'BASIC': 'Essencial', 'PRO': 'Profissional', 'CLINIC': 'Clínica', 'FREE': 'Teste gratuito'}
 
 
@@ -162,17 +179,44 @@ def page_label(path, title):
     return title or path
 
 
+def _open_db(paths):
+    try:
+        import maxminddb
+        path = next((p for p in paths if os.path.exists(p)), None)
+        return maxminddb.open_database(path) if path else None
+    except Exception:
+        return None
+
+
+class Asn:
+    """Provedor dono do IP, usado só para separar visitante de infraestrutura."""
+
+    def __init__(self):
+        self.reader = _open_db(ASN_DBS)
+        self.cache = {}
+
+    def org_of(self, ip):
+        if ip in self.cache:
+            return self.cache[ip]
+        org = None
+        if self.reader and ip:
+            try:
+                rec = self.reader.get(ip) or {}
+                org = rec.get('autonomous_system_organization')
+            except Exception:
+                org = None
+        self.cache[ip] = org
+        return org
+
+    def is_hosting(self, ip):
+        org = self.org_of(ip)
+        return bool(org and HOSTING_ASN.search(org))
+
+
 class Geo:
     def __init__(self):
-        self.reader = None
+        self.reader = _open_db(GEO_DBS)
         self.cache = {}
-        try:
-            import maxminddb
-            path = next((p for p in GEO_DBS if os.path.exists(p)), None)
-            if path:
-                self.reader = maxminddb.open_database(path)
-        except Exception:
-            self.reader = None
 
     def lookup(self, ip):
         if ip in self.cache:
@@ -236,7 +280,7 @@ def read_events():
 
 # ---------------------------------------------------------------- visitas
 
-def build_sessions(events, geo):
+def build_sessions(events, geo, asn):
     sessions = {}
     titles = {}
     for ev in sorted(events, key=lambda e: e['time']):
@@ -247,6 +291,7 @@ def build_sessions(events, geo):
             browser = browser_of(ev['ua'])
             city, state, country = geo.lookup(ev['ip'])
             s = sessions[sid] = {
+                'infra': asn.is_hosting(ev['ip']),
                 'start': ev['time'], 'last': ev['time'], 'visitor': ev['visitor'],
                 'device': device_of(ev['ua']), 'os': os_of(ev['ua']), 'browser': browser,
                 'city': city, 'state': state, 'country': country,
@@ -489,7 +534,13 @@ def recent(sessions, titles, limit=30):
 def main():
     now = datetime.now(TZ)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    sessions, titles = build_sessions(read_events(), Geo())
+    all_sessions, titles = build_sessions(read_events(), Geo(), Asn())
+
+    # Acessos de redes de hospedagem saem de todas as contagens, mas não somem
+    # em silêncio: o painel mostra quantos foram, para a diferença entre o que
+    # o servidor recebeu e o que é gente ficar explícita.
+    sessions = [s for s in all_sessions if not s['infra']]
+    infra = [s for s in all_sessions if s['infra']]
 
     periods = {
         'hoje': period(sessions, titles, today, today + timedelta(days=1),
@@ -501,12 +552,21 @@ def main():
                               start - timedelta(days=days), start, 'day')
 
     live_cut = now - timedelta(minutes=30)
+    month_cut = now - timedelta(days=30)
     data = {
         'generatedAt': now.isoformat(),
-        'since': min((s['start'] for s in sessions), default=now).isoformat(),
+        'since': min((s['start'] for s in all_sessions), default=now).isoformat(),
         'live': sum(s['last'] >= live_cut for s in sessions),
         'periods': periods,
         'recent': recent(sessions, titles),
+        'infra': {
+            'total': len(infra),
+            'last30d': sum(s['start'] >= month_cut for s in infra),
+            # Quem mais busca a página — quase sempre a Meta carregando links
+            # compartilhados no Facebook, Instagram e WhatsApp.
+            'sources': top(Counter(s['source'] for s in infra), 5),
+            'available': bool(_open_db(ASN_DBS)),
+        },
     }
 
     os.makedirs(OUT_DIR, exist_ok=True)
