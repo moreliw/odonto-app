@@ -60,15 +60,38 @@ SECTIONS = ('produto', 'recursos', 'clinicas', 'como-funciona', 'planos')
 # Altoona/IA, Fort Worth/TX, Luleå/SE, Sarpy/NE), com user agent de navegador
 # comum. Sem esse filtro o painel mostra "visitas dos Estados Unidos" que nunca
 # existiram, e decisões de produto acabam tomadas em cima de robô.
+#
+# Os nomes aqui são específicos de propósito. Casar "amazon" ou "cloud" solto
+# derruba provedor de acesso brasileiro de verdade — existem, na base da DB-IP,
+# AMAZON TELECOM LTDA, AMAZONET TELECOMUNICACOES, AMAZONIA TELECOMUNICACOES e
+# CLOUD NET TIME TELECOM, todos levando internet a casa de gente no Norte do
+# país. Apagar um dentista do painel é pior do que deixar passar um robô.
 HOSTING_ASN = re.compile(
-    r'facebook|meta platforms|instagram|whatsapp|'
-    r'google|amazon|aws|microsoft|azure|cloudflare|fastly|akamai|'
-    r'digitalocean|linode|akamai|hetzner|ovh|contabo|vultr|scaleway|leaseweb|'
-    r'oracle|alibaba|tencent|huawei cloud|'
-    r'censys|shodan|palo alto|netcraft|qualys|bytedance|'
-    r'hosting|datacenter|data center|colocation|cloud',
+    r'facebook|meta platforms|'
+    r'google llc|google cloud|'
+    r'amazon\.com|amazon data services|amazon technologies|amazon web services|\baws\b|'
+    r'microsoft|\bazure\b|cloudflare|fastly|akamai|'
+    r'digitalocean|linode|hetzner|\bovh\b|contabo|vultr|choopa|scaleway|leaseweb|'
+    r'oracle (cloud|corporation)|alibaba|tencent|huawei cloud|'
+    r'censys|shodan|palo alto|netcraft|qualys|bytedance|apple inc|'
+    r'\bhosting\b|\bdata ?centers?\b|\bcolocation\b|\bcloud (services|computing|platform|infra)',
     re.I,
 )
+
+# Palavras de quem vende acesso à internet para pessoas. Quando aparecem, o nome
+# é de provedor e não de hospedagem, mesmo que também case na lista acima.
+ACCESS_ASN = re.compile(
+    r'telecom|telecomunica|provedor|banda larga|fibra|cable|wireless|'
+    r'broadband|m[oó]vel|movel|celular|\bisp\b|internet ltda|net ltda',
+    re.I,
+)
+
+
+def is_hosting_org(org):
+    """Infra só quando o nome indica hospedagem e não indica provedor de acesso."""
+    if not org:
+        return False
+    return bool(HOSTING_ASN.search(org)) and not ACCESS_ASN.search(org)
 PLAN_NAMES = {'BASIC': 'Essencial', 'PRO': 'Profissional', 'CLINIC': 'Clínica', 'FREE': 'Teste gratuito'}
 
 
@@ -209,8 +232,7 @@ class Asn:
         return org
 
     def is_hosting(self, ip):
-        org = self.org_of(ip)
-        return bool(org and HOSTING_ASN.search(org))
+        return is_hosting_org(self.org_of(ip))
 
 
 class Geo:
