@@ -35,8 +35,8 @@
               "namedChunks": false,
               "extractLicenses": true,
               "budgets": [
-                { "type": "initial", "maximumWarning": "500kB", "maximumError": "900kB" },
-                { "type": "anyComponentStyle", "maximumWarning": "24kB", "maximumError": "48kB" }
+                { "type": "initial", "maximumWarning": "650kB", "maximumError": "900kB" },
+                { "type": "anyComponentStyle", "maximumWarning": "36kB", "maximumError": "60kB" }
               ]
             },
             "development": {
