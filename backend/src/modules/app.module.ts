@@ -20,6 +20,7 @@ import { FinancialModule } from './financial/financial.module'
 import { HealthController } from '../health.controller'
 import { AccessControlModule } from './access-control/access-control.module'
 import { FiscalModule } from './fiscal/fiscal.module'
+import { AssistantModule } from './assistant/assistant.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { FiscalModule } from './fiscal/fiscal.module'
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.LOG_LEVEL || 'info',
+        redact: { paths: ['req.headers.authorization', 'req.headers.cookie', 'req.headers["stripe-signature"]', 'req.body', 'res.headers["set-cookie"]'], remove: true },
         ...(process.env.LOG_TO_FILE === 'true'
           ? { transport: { target: 'pino/file', options: { destination: '/var/log/app-backend.log' } } }
           : {})
@@ -47,7 +49,8 @@ import { FiscalModule } from './fiscal/fiscal.module'
     BillingModule,
     FinancialModule,
     FiscalModule,
-    AccessControlModule
+    AccessControlModule,
+    AssistantModule
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }]

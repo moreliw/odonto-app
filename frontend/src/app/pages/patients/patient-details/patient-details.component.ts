@@ -188,7 +188,7 @@ export class PatientDetailsComponent implements OnInit {
     catch (error: any) { this.toast.error('Não foi possível excluir o arquivo', error?.error?.message) }
   }
   professionalName(appointment: PatientAppointment) { return appointment.dentist?.name || appointment.dentistName || 'Sem profissional' }
-  appointmentStatusLabel(status: string) { return ({SCHEDULED:'Agendada',COMPLETED:'Concluída',CANCELLED:'Cancelada'} as Record<string,string>)[status] || status }
+  appointmentStatusLabel(status: string) { return ({SCHEDULED:'Agendada',COMPLETED:'Concluída',CANCELLED:'Cancelada',NO_SHOW:'Faltou'} as Record<string,string>)[status] || status }
   confirmationLabel(status?: string) { return ({PENDING:'Aguardando confirmação',CONFIRMED:'Confirmada',DECLINED:'Recusada'} as Record<string,string>)[status || ''] || 'Sem confirmação' }
   treatmentStatusLabel(status?: string) { return ({PROPOSED:'Planejado',PLANNED:'Planejado',APPROVED:'Aprovado',IN_PROGRESS:'Em andamento',COMPLETED:'Concluído',CANCELLED:'Cancelado',PAUSED:'Pausado'} as Record<string,string>)[status || ''] || 'Planejado' }
   invoiceStatusLabel(status: string) { return ({PENDING:'Pendente',PARTIAL:'Parcial',PAID:'Paga',CANCELLED:'Cancelada'} as Record<string,string>)[status] || status }

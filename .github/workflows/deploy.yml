@@ -32,7 +32,7 @@ jobs:
           docker compose -f docker-compose.yml --env-file .env.example config --quiet
           docker compose -f docker-compose.dev.yml --env-file .env.example config --quiet
           docker run --rm -v "$PWD:/repo" -w /repo node:22-bookworm-slim sh -lc \
-            'cd backend && npm ci && npm run prisma:generate && npm run lint && npm run typecheck && npm run build'
+            'cd backend && npm ci && npm run prisma:generate && npm test && npm run lint && npm run typecheck && npm run build'
           docker run --rm -v "$PWD:/repo" -w /repo node:22-alpine sh -lc \
             'cd frontend && npm ci && npm run lint && npm run typecheck && npm run build'
 

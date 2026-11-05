@@ -19,7 +19,7 @@ function pooledConnectionString(connectionString: string) {
   return url.toString()
 }
 
-function sharedTenantClient(connectionString: string) {
+export function sharedTenantClient(connectionString: string) {
   const pooledUrl = pooledConnectionString(connectionString)
   const cached = tenantClients.get(pooledUrl)
   if (cached) return cached

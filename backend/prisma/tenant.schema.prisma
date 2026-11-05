@@ -19,6 +19,7 @@ enum AppointmentStatus {
   SCHEDULED
   COMPLETED
   CANCELLED
+  NO_SHOW
 }
 
 enum ConfirmationStatus {
@@ -121,6 +122,8 @@ model Patient {
   medications           String?
   preexistingConditions String?
   medicalNotes          String?
+  recallIntervalMonths  Int             @default(6)
+  recallDueAt           DateTime?
   createdByName         String?
   updatedByName         String?
   createdAt             DateTime        @default(now())
@@ -130,6 +133,52 @@ model Patient {
   invoices              Invoice[]
   fiscalInvoices        FiscalInvoice[]
   files                 File[]          @relation("PatientFiles")
+  estimates             TreatmentEstimate[]
+}
+
+/// Orçamentos são propostas: não são contabilizados como cobranças ou receita.
+model TreatmentEstimate {
+  id            String   @id @default(uuid())
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  patientId     String
+  title         String
+  amountCents   Int
+  status        String   @default("PROPOSED")
+  proposedAt    DateTime @default(now())
+  lastContactAt DateTime?
+  notes         String?
+  createdByName String
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, proposedAt])
+}
+
+/// Rascunhos nunca executam ações sem revisão. Não persistimos fotos ou áudio.
+model AiDraft {
+  id           String   @id @default(uuid())
+  kind         String
+  createdById  String
+  targetId     String?
+  content      Json
+  approvedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([createdById, createdAt])
+}
+
+model AiWeeklySummary {
+  id          String   @id @default(uuid())
+  weekStart   DateTime @unique
+  metrics     Json
+  suggestions Json
+  generatedAt DateTime @default(now())
+}
+
+model AiSettings {
+  id              String   @id @default("default")
+  weeklyEnabled   Boolean  @default(false)
+  enabledByName   String?
+  updatedAt       DateTime @updatedAt
 }
 
 model Appointment {

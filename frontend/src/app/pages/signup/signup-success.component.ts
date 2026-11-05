@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
 import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { AuthService } from '../../services/auth.service'
+import { timeout } from 'rxjs'
 
 type SessionStatusResponse = {
   onboardingStatus: 'PENDING' | 'PROCESSING' | 'PROVISIONED' | 'FAILED' | 'EXPIRED' | 'CANCELED'
@@ -38,7 +39,7 @@ type SessionStatusResponse = {
           <h1>Não foi possível concluir agora</h1>
           <p>{{ errorMessage }}</p>
           <div class="onboard-actions">
-            <a routerLink="/signup" class="btn btn-outline">Tentar novamente</a>
+            <button type="button" class="btn btn-outline" (click)="retry()">Verificar novamente</button>
             <a routerLink="/login" class="btn btn-primary">Ir para login</a>
           </div>
         }
@@ -51,8 +52,9 @@ export class SignupSuccessComponent implements OnInit, OnDestroy {
   errorMessage = ''
   private pollTimer: ReturnType<typeof setTimeout> | null = null
   private pollAttempts = 0
-  private readonly maxAttempts = 20
+  private readonly maxAttempts = 40
   private sessionId = ''
+  private destroyed = false
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -64,6 +66,7 @@ export class SignupSuccessComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.route.queryParamMap.subscribe(params => {
       this.sessionId = params.get('session_id') || ''
+      if (this.pollTimer) clearTimeout(this.pollTimer)
       if (!this.sessionId) {
         this.state = 'error'
         this.errorMessage = 'Não encontramos os dados do seu cadastro. Refaça o cadastro para continuar.'
@@ -75,18 +78,28 @@ export class SignupSuccessComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true
     if (this.pollTimer) clearTimeout(this.pollTimer)
   }
 
+  retry() {
+    if (this.pollTimer) clearTimeout(this.pollTimer)
+    this.pollAttempts = 0
+    this.state = 'waiting'
+    this.fetchStatus()
+  }
+
   private fetchStatus() {
-    this.http.get<SessionStatusResponse>(`/api/public/billing/session/${encodeURIComponent(this.sessionId)}`).subscribe({
+    if (this.destroyed || !this.sessionId) return
+    this.http.get<SessionStatusResponse>(`/api/public/billing/session/${encodeURIComponent(this.sessionId)}`).pipe(timeout(30_000)).subscribe({
       next: res => {
+        if (this.destroyed) return
         if (res.onboardingStatus === 'FAILED' || res.onboardingStatus === 'EXPIRED' || res.onboardingStatus === 'CANCELED') {
           this.state = 'error'
           this.errorMessage =
             res.onboardingStatus === 'EXPIRED'
               ? 'O link do cadastro expirou. Faça o cadastro novamente.'
-              : 'Algo deu errado ao criar sua clínica. Nossa equipe já foi avisada — tente novamente em instantes ou fale com o suporte.'
+              : 'Não foi possível concluir este cadastro. Verifique novamente ou entre em contato com o suporte antes de iniciar outra assinatura.'
           return
         }
 
@@ -118,9 +131,15 @@ export class SignupSuccessComponent implements OnInit, OnDestroy {
           this.errorMessage = 'A criação da sua clínica está demorando mais que o esperado. Tente fazer login em alguns minutos.'
         }
       },
-      error: () => {
+      error: err => {
+        if (this.destroyed) return
+        if (err?.status !== 404 && this.pollAttempts < this.maxAttempts) {
+          this.pollAttempts += 1
+          this.pollTimer = setTimeout(() => this.fetchStatus(), 3000)
+          return
+        }
         this.state = 'error'
-        this.errorMessage = 'Não foi possível confirmar seu cadastro agora. Tente novamente em instantes.'
+        this.errorMessage = 'Não foi possível confirmar seu cadastro agora. Verifique novamente; você não precisa iniciar outro pagamento.'
       }
     })
   }

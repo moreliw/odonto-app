@@ -2,6 +2,7 @@ import { CommonModule, DOCUMENT } from '@angular/common'
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core'
 import { Meta, Title } from '@angular/platform-browser'
 import { RouterLink } from '@angular/router'
+import { HttpClient } from '@angular/common/http'
 import { RevealDirective } from '../../components/reveal/reveal.directive'
 import { ANNUAL_BILLING_ENABLED, ANNUAL_DISCOUNT, CONTACT_EMAIL, FAQS, PRICING_PLANS, PRODUCT_TABS, SECURITY_ITEMS, type PricingPlan, type ProductTabId } from '../../config/landing.config'
 
@@ -76,8 +77,14 @@ import { ANNUAL_BILLING_ENABLED, ANNUAL_DISCOUNT, CONTACT_EMAIL, FAQS, PRICING_P
 export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   private title=inject(Title); private meta=inject(Meta); private doc=inject(DOCUMENT); private observer?:IntersectionObserver; private raf=0; private nodes:HTMLElement[]=[]
   @ViewChild('story') story?:ElementRef<HTMLElement>; @ViewChild('journey') journey?:ElementRef<HTMLElement>
-  readonly plans=PRICING_PLANS; readonly productTabs=PRODUCT_TABS; readonly securityItems=SECURITY_ITEMS; readonly faqs=FAQS.slice(0,6); readonly annualEnabled=ANNUAL_BILLING_ENABLED; readonly year=new Date().getFullYear(); readonly supportMailto=`mailto:${CONTACT_EMAIL}`
+  readonly plans=PRICING_PLANS; readonly productTabs=PRODUCT_TABS; readonly securityItems=SECURITY_ITEMS; readonly faqs=FAQS.slice(0,6); annualEnabled=false; readonly year=new Date().getFullYear(); readonly supportMailto=`mailto:${CONTACT_EMAIL}`
   readonly scrolled=signal(false); readonly menuOpen=signal(false); readonly annual=signal(false); readonly openFaq=signal<number|null>(0); readonly activeProduct=signal<ProductTabId>('overview'); readonly heroProgress=signal(0); readonly journeyProgress=signal(0)
+  constructor() {
+    inject(HttpClient).get<{ code: string; annualAvailable?: boolean }[]>('/api/public/plans').subscribe({
+      next: plans => { this.annualEnabled = ANNUAL_BILLING_ENABLED && this.plans.every(plan => plans.some(p => p.code === plan.code && p.annualAvailable === true)) },
+      error: () => { this.annualEnabled = false }
+    })
+  }
   readonly hours=['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00']
   readonly days=[{week:'SEG',date:'14',events:[{row:2,time:'08:30',name:'Ana Ribeiro',service:'Profilaxia',tone:'blue'}]},{week:'TER',date:'15',events:[{row:4,time:'10:30',name:'Carlos Menezes',service:'Avaliação',tone:'mint'},{row:8,time:'14:30',name:'Laura Castro',service:'Restauração',tone:'lilac'}]},{week:'QUA',date:'16',events:[{row:3,time:'09:30',name:'Juliana Prado',service:'Retorno',tone:'blue'},{row:7,time:'13:30',name:'Marcos Lima',service:'Clareamento',tone:'amber'}]},{week:'QUI',date:'17',events:[{row:5,time:'11:30',name:'Renata Alves',service:'Consulta',tone:'mint'}]},{week:'SEX',date:'18',events:[{row:2,time:'08:30',name:'Paulo Nunes',service:'Endodontia',tone:'lilac'},{row:6,time:'12:30',name:'Bianca Rocha',service:'Avaliação',tone:'blue'}]}]
   readonly journeySteps=[{label:'Antes da consulta',title:'Agendamento',text:'Horário, profissional e procedimento conectados desde o início.'},{label:'Na recepção',title:'Chegada',text:'A equipe confirma a presença e entende rapidamente quem será atendido.'},{label:'No consultório',title:'Atendimento',text:'O dentista acessa o histórico e registra a evolução sem trocar de sistema.'},{label:'Depois do cuidado',title:'Histórico',text:'Procedimentos, observações e arquivos permanecem na ficha do paciente.'},{label:'Na saída',title:'Pagamento',text:'A cobrança nasce vinculada ao paciente e fica visível no financeiro.'},{label:'Próximo passo',title:'Retorno',text:'A próxima etapa continua com todo o contexto preservado.'}]

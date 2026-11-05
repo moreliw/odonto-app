@@ -30,6 +30,7 @@ import { map } from 'rxjs'
 import { PermissionKey } from './models/access-control.model'
 import { AccessControlComponent } from './pages/access-control/access-control.component'
 import { FiscalComponent } from './pages/fiscal/fiscal.component'
+import { AssistantComponent } from './pages/assistant/assistant.component'
 
 const authGuard = () => {
   const router = inject(Router)
@@ -111,6 +112,7 @@ export const routes: Routes = [
     children: [
       { path: '', component: DashboardComponent, canActivate: [permissionGuard('DASHBOARD_VIEW')] },
       { path: 'profile', component: ProfileComponent },
+      { path: 'assistant', component: AssistantComponent },
       { path: 'patients/:id', component: PatientDetailsComponent, canActivate: [permissionGuard('PATIENTS_VIEW')] },
       { path: 'patients', component: PatientsComponent, canActivate: [permissionGuard('PATIENTS_VIEW')] },
       { path: 'appointments', component: AppointmentsComponent, canActivate: [permissionGuard('APPOINTMENTS_VIEW')] },

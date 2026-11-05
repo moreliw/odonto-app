@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, NotFoundException, Param, Post, Query, Req, Res } from '@nestjs/common'
+import { Body, Controller, Get, GoneException, Headers, NotFoundException, Param, Post, Query, Req, Res } from '@nestjs/common'
 import { PublicService } from './public.service'
 import { IsEmail, IsEnum, IsIn, IsString, MinLength, MaxLength } from 'class-validator'
 import { Throttle } from '@nestjs/throttler'
@@ -60,8 +60,8 @@ export class SignupController {
   }
 
   @Post('signup')
-  signup(@Body() dto: SignupDto) {
-    return this.service.signup(dto)
+  signup(@Body() _dto: SignupDto) {
+    throw new GoneException('Use o cadastro com checkout em /api/public/billing/checkout-session para criar sua clínica.')
   }
   @Post('login')
   @Throttle({ default: { ttl: 60_000, limit: 10 } })

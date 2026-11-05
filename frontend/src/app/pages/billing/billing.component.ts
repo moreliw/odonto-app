@@ -9,6 +9,7 @@ type PublicPlan = {
   code: PlanCode
   name: string
   priceCents: number
+  annualPriceCents?: number
   currency: string
   description: string
   features: string[]
@@ -99,7 +100,7 @@ const STATUS_CLASS: Record<string, string> = {
                 <strong>{{ subscription.accessGrant?.expiresAt ? (subscription.accessGrant?.expiresAt | date:'dd/MM/yyyy') : 'Vitalício' }}</strong>
               </div>
             } @else if (subscription.priceCents > 0) {
-              <div><span class="muted text-sm">Valor</span><strong>R$ {{ (subscription.priceCents / 100).toFixed(2) }}{{ subscription.billingInterval === 'YEAR' ? '/ano' : '/mês' }}</strong></div>
+              <div><span class="muted text-sm">Valor</span><strong>R$ {{ formatPrice(subscription.priceCents) }}{{ subscription.billingInterval === 'YEAR' ? '/ano' : '/mês' }}</strong></div>
             }
             @if (subscription.currentPeriodEnd) {
               <div>
@@ -149,6 +150,7 @@ const STATUS_CLASS: Record<string, string> = {
       }
 
       <h2 class="billing-section-title">Planos disponíveis</h2>
+      @if (planCycle === 'YEAR') { <p class="muted">Sua cobrança anual será mantida na troca de plano. Os valores abaixo são os totais anuais; eventuais ajustes proporcionais aparecem na fatura da Stripe.</p> }
       @if (plans.length) {
         <div class="billing-plan-grid">
           @for (p of plans; track p.code) {
@@ -156,7 +158,7 @@ const STATUS_CLASS: Record<string, string> = {
               @if (p.code === 'PRO') { <span class="billing-plan-badge">Mais escolhido</span> }
               <h3>{{ p.name }}</h3>
               <p class="billing-plan-limit">{{ planLimitLabel(p) }}</p>
-              <p class="billing-plan-price"><strong>R$ {{ (p.priceCents / 100).toFixed(2) }}</strong><span class="muted">/mês</span></p>
+              <p class="billing-plan-price"><strong>R$ {{ formatPrice(planCycle === 'YEAR' ? p.annualPriceCents || 0 : p.priceCents) }}</strong><span class="muted">{{ planCycle === 'YEAR' ? '/ano' : '/mês' }}</span></p>
               <ul class="billing-plan-features">
                 @for (f of p.features; track f) {
                   <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>{{ f }}</li>
@@ -167,7 +169,7 @@ const STATUS_CLASS: Record<string, string> = {
               } @else if (subscription?.managedByPlatform) {
                 <button class="btn btn-outline btn-block" disabled>Gerenciado pela plataforma</button>
               } @else {
-                <button class="btn btn-primary btn-block" [disabled]="changing === p.code" (click)="changeTo(p.code)">
+                <button class="btn btn-primary btn-block" [disabled]="!!changing || processingAction" (click)="changeTo(p.code)">
                   @if (changing === p.code) { <span class="spinner"></span> }
                   {{ subscription?.plan === p.code ? 'Reativar assinatura' : isDowngrade(p.code) ? 'Mudar para este plano' : 'Fazer upgrade' }}
                 </button>
@@ -191,6 +193,8 @@ export class BillingComponent implements OnInit {
 
   readonly STATUS_LABEL = STATUS_LABEL
   readonly STATUS_CLASS = STATUS_CLASS
+  formatPrice(cents: number) { return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+  get planCycle() { return this.subscription?.provider === 'STRIPE' && ['ACTIVE','TRIAL'].includes(this.subscription.status) ? this.subscription.billingInterval : 'MONTH' }
   private readonly planOrder: PlanCode[] = ['BASIC', 'PRO', 'CLINIC']
 
   constructor(
@@ -219,8 +223,19 @@ export class BillingComponent implements OnInit {
       }
       if (params.get('upgraded') === '1') {
         this.confirming = true
+        const sessionId = params.get('session_id')
         this.clearQueryParams()
-        this.pollAfterCheckout()
+        if (sessionId) {
+          this.http.post<{ complete: boolean }>('/api/billing/reconcile-checkout', { sessionId }).subscribe({
+            next: res => {
+              this.confirming = false
+              if (res.complete) this.toast.success('Assinatura confirmada')
+              else this.info = 'O pagamento ainda está sendo confirmado. Consulte sua assinatura novamente em instantes.'
+              this.load()
+            },
+            error: () => { this.confirming = false; this.info = 'A confirmação está demorando. Atualize sua assinatura em alguns instantes; não é necessário pagar novamente.'; this.load() }
+          })
+        } else this.pollAfterCheckout()
       }
     })
 
@@ -262,6 +277,7 @@ export class BillingComponent implements OnInit {
 
   isCurrentActivePlan(target: PlanCode) {
     return this.subscription?.plan === target &&
+      this.subscription.provider === 'STRIPE' && this.subscription.priceCents > 0 &&
       (this.subscription.status === 'ACTIVE' || this.subscription.status === 'TRIAL') &&
       !this.subscription.cancelAtPeriodEnd
   }
@@ -285,7 +301,8 @@ export class BillingComponent implements OnInit {
           return
         }
         this.changing = null
-        this.toast.success(res.message || 'Plano atualizado')
+        if (res.ok === false) this.info = res.message || 'A alteração aguarda confirmação. Consulte suas faturas.'
+        else this.toast.success(res.message || 'Plano atualizado')
         this.load()
       },
       error: (err: any) => {

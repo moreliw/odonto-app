@@ -39,7 +39,7 @@ export type PatientAppointment = {
   dentist?: { id: string; name: string } | null
   startTime: string
   endTime: string
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
+  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
   confirmationStatus?: string
   notes?: string | null
 }

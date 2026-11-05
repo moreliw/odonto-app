@@ -34,8 +34,8 @@ type Appointment = {
 }
 type CalendarBlock = Appointment & { top: number; height: number; left: number; width: number; colorIdx: number; compact: boolean }
 
-const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendado', COMPLETED: 'Concluído', CANCELLED: 'Cancelado' }
-const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '', CANCELLED: 'neutral' }
+const STATUS_LABELS: Record<string, string> = { SCHEDULED: 'Agendado', COMPLETED: 'Concluído', CANCELLED: 'Cancelado', NO_SHOW: 'Faltou' }
+const STATUS_CLASS: Record<string, string> = { SCHEDULED: 'blue', COMPLETED: '', CANCELLED: 'neutral', NO_SHOW: 'late' }
 
 function confirmationLabel(a: Pick<Appointment, 'confirmationStatus'>) {
   if (a.confirmationStatus === 'CONFIRMED') return 'Confirmado'
@@ -381,6 +381,7 @@ function colorIndexFor(id: string | null | undefined) {
                 <option value="SCHEDULED">Agendado</option>
                 <option value="COMPLETED">Concluído</option>
                 <option value="CANCELLED">Cancelado</option>
+                <option value="NO_SHOW">Faltou</option>
               </select>
             </div>
             @if (editingId) {
@@ -751,6 +752,7 @@ export class AppointmentsComponent implements OnInit {
     { value: 'SCHEDULED', label: 'Agendados' },
     { value: 'COMPLETED', label: 'Concluídos' },
     { value: 'CANCELLED', label: 'Cancelados' },
+    { value: 'NO_SHOW', label: 'Faltas' },
   ]
 
   isDentist = false
@@ -869,7 +871,7 @@ export class AppointmentsComponent implements OnInit {
     if (params.get('view') === 'list') this.view = 'list'
 
     const status = params.get('status')
-    if (status && ['SCHEDULED', 'COMPLETED', 'CANCELLED'].includes(status)) this.filterStatus = status
+    if (status && ['SCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(status)) this.filterStatus = status
 
     const range = params.get('range')
     if (range && ['today', 'next7', 'week', 'month'].includes(range)) {

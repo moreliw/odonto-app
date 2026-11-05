@@ -101,7 +101,7 @@ export class PublicService {
     try {
       const existing = await prisma.appointment.findUnique({ where: { confirmationToken: token } })
       if (!existing) throw new NotFoundException('Link de confirmação inválido ou expirado.')
-      if (existing.status === 'CANCELLED') throw new BadRequestException('Esta consulta foi cancelada.')
+      if (existing.status !== 'SCHEDULED') throw new BadRequestException('Esta consulta já foi encerrada ou cancelada. Fale com a clínica para reagendar.')
       const updated = await prisma.appointment.update({
         where: { id: existing.id },
         data: {

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { ActivatedRoute, RouterLink } from '@angular/router'
 import { AnalyticsService } from '../../services/analytics.service'
+import { timeout } from 'rxjs'
 
 type Plan = {
   code: 'FREE' | 'BASIC' | 'PRO' | 'CLINIC'
@@ -16,6 +17,9 @@ type Plan = {
   /** Limite de dentistas do plano (`null` = ilimitado). Vem do backend junto do catálogo. */
   dentistLimit?: number | null
   limitLabel?: string
+  trialDays?: number
+  monthlyAvailable?: boolean
+  annualAvailable?: boolean
 }
 
 type FieldName = 'clinicName' | 'adminName' | 'adminEmail' | 'adminPassword' | 'adminPasswordConfirm'
@@ -80,7 +84,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
             <header class="login-card-header signup-card-header">
               <span class="login-card-eyebrow">Nova clínica</span>
               <h2 id="signup-title">Crie sua clínica</h2>
-              <p>Preencha os dados abaixo para configurar seu acesso.</p>
+              <p>Preencha seus dados, confirme a assinatura no checkout seguro e entre na sua clínica.</p>
             </header>
 
             @if (message) {
@@ -207,7 +211,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
                 @if (!isFreePlan) {
                   <div class="signup-cycle" role="group" aria-label="Ciclo de cobrança">
                     <button type="button" class="signup-cycle-btn" [class.active]="billingInterval === 'MONTH'" [attr.aria-pressed]="billingInterval === 'MONTH'" (click)="billingInterval = 'MONTH'">Mensal</button>
-                    <button type="button" class="signup-cycle-btn" [class.active]="billingInterval === 'YEAR'" [attr.aria-pressed]="billingInterval === 'YEAR'" (click)="billingInterval = 'YEAR'">Anual <span class="signup-cycle-tag">-10%</span></button>
+                    <button type="button" class="signup-cycle-btn" [class.active]="billingInterval === 'YEAR'" [attr.aria-pressed]="billingInterval === 'YEAR'" [disabled]="!annualAvailable" (click)="billingInterval = 'YEAR'">Anual <span class="signup-cycle-tag">-10%</span></button>
                   </div>
                 }
 
@@ -240,12 +244,21 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
                 }
               </fieldset>
 
-              <button class="login-submit signup-submit signup-field--full" [disabled]="saving" type="submit">
+              @if (!isFreePlan && plansLoaded) {
+                <div class="signup-field--full signup-trial-note" role="note">
+                  @if (trialDays > 0) {
+                    <strong>{{ trialDays }} dias grátis para avaliar</strong>
+                    <p>Você confirma o plano no checkout da Stripe e começa o teste sem cobrança inicial. O cartão é opcional durante o teste. Se cadastrar um cartão, a assinatura será cobrada ao final do teste, salvo cancelamento. Sem cartão, o teste termina sem cobrança e você poderá contratar depois.</p>
+                  } @else { <p>A assinatura começa após a confirmação do pagamento no checkout seguro da Stripe.</p> }
+                  <p>Confira o plano, o valor e a data apresentados no checkout antes de confirmar.</p>
+                </div>
+              }
+              <button class="login-submit signup-submit signup-field--full" [disabled]="saving || !plansLoaded" type="submit">
                 @if (saving) {
                   <span class="login-spinner" aria-hidden="true"></span>
-                  {{ isFreePlan ? 'Criando sua clínica...' : 'Preparando pagamento...' }}
+                  {{ isFreePlan ? 'Criando sua clínica...' : 'Abrindo checkout seguro...' }}
                 } @else {
-                  <span>{{ isFreePlan ? 'Criar minha clínica' : 'Continuar para pagamento' }}</span>
+                  <span>{{ !plansLoaded ? 'Carregando planos...' : isFreePlan ? 'Criar minha clínica' : trialDays > 0 ? 'Começar teste de ' + trialDays + ' dias' : 'Continuar para pagamento seguro' }}</span>
                   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 }
               </button>
@@ -317,6 +330,11 @@ export class SignupComponent implements OnInit {
   saving = false
   success = false
   message = ''
+  plansLoaded = false
+  private requestId = crypto.randomUUID()
+
+  get annualAvailable() { return this.plansLoaded && this.plans.filter(p => p.code !== 'FREE').every(p => p.annualAvailable !== false) }
+  get trialDays() { return this.plans.find(p => p.code === this.plan)?.trialDays ?? 7 }
 
   fieldErrors: Partial<Record<FieldName, string>> = {}
   private touched: Partial<Record<FieldName, boolean>> = {}
@@ -407,6 +425,7 @@ export class SignupComponent implements OnInit {
   }
 
   onFieldChange(field: FieldName) {
+    this.requestId = crypto.randomUUID()
     // Começar a preencher é a etapa do funil entre abrir o cadastro e ir ao pagamento.
     this.analytics.trackOnce('signup-start', 'fs')
     // Enquanto digita, o erro só é reavaliado se o campo já falhou uma vez — assim a
@@ -460,12 +479,14 @@ export class SignupComponent implements OnInit {
       if (planParam && ['FREE', 'BASIC', 'PRO', 'CLINIC'].includes(planParam)) {
         this.plan = planParam as Plan['code']
       }
-      if (params.get('cycle') === 'annual') this.billingInterval = 'YEAR'
+      if (['annual', 'yearly'].includes(params.get('cycle') || '')) this.billingInterval = 'YEAR'
     })
     this.http.get<Plan[]>('/api/public/plans').subscribe({
       next: plans => {
         if (!Array.isArray(plans) || !plans.length) return
         this.plans = plans
+        this.plansLoaded = true
+        if (!this.annualAvailable) this.billingInterval = 'MONTH'
         // `?plan=` pode apontar para um plano que este ambiente não vende (ex.: FREE fora
         // do interno). Sem essa reconciliação o cartão fica sem seleção visível e o
         // checkout só falharia no backend.
@@ -473,13 +494,14 @@ export class SignupComponent implements OnInit {
       },
       error: () => {
         this.success = false
-        this.message = 'Não foi possível carregar os planos agora. Exibindo valores padrão.'
+        this.plansLoaded = false
+        this.message = 'Não foi possível carregar os planos. Atualize a página em alguns instantes para consultar valores e iniciar seu teste.'
       }
     })
   }
 
   submit() {
-    if (this.saving) return
+    if (this.saving || !this.plansLoaded) return
     this.message = ''
     this.submitted = true
 
@@ -503,8 +525,10 @@ export class SignupComponent implements OnInit {
         adminEmail: this.adminEmail.trim(),
         adminPassword: this.adminPassword,
         plan: this.plan,
-        billingInterval: this.isFreePlan ? 'MONTH' : this.billingInterval
+        billingInterval: this.isFreePlan ? 'MONTH' : this.billingInterval,
+        requestId: this.requestId
       })
+      .pipe(timeout(45_000))
       .subscribe({
         next: res => {
           this.saving = false
@@ -526,7 +550,7 @@ export class SignupComponent implements OnInit {
 
           const msg = err.error?.message
           const asText = typeof err?.error === 'string' ? err.error : ''
-          if (err?.status === 0) {
+          if (err?.status === 0 || err?.name === 'TimeoutError') {
             this.message = 'Não conseguimos falar com o servidor. Verifique sua conexão e tente novamente.'
             return
           }

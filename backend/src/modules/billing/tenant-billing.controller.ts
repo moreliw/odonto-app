@@ -1,7 +1,7 @@
 import { Body, Controller, ForbiddenException, Get, Post, Req, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { Request } from 'express'
-import { IsEnum } from 'class-validator'
+import { IsEnum, IsString, Matches } from 'class-validator'
 import { Plan } from '@prisma/client-master'
 import { BillingService } from './billing.service'
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service'
@@ -10,6 +10,12 @@ import { RequestContext } from '../tenancy/request-context'
 class ChangePlanDto {
   @IsEnum(['FREE', 'BASIC', 'PRO', 'CLINIC'] as any)
   plan: Plan
+}
+
+class ReconcileCheckoutDto {
+  @IsString()
+  @Matches(/^cs_(test_|live_)?[a-zA-Z0-9]+$/)
+  sessionId: string
 }
 
 /**
@@ -61,6 +67,12 @@ export class TenantBillingController {
   portal(@Req() req: Request) {
     this.assertAdmin(req)
     return this.billing.createPortalSession(this.tenantId(req))
+  }
+
+  @Post('reconcile-checkout')
+  reconcileCheckout(@Req() req: Request, @Body() dto: ReconcileCheckoutDto) {
+    this.assertAdmin(req)
+    return this.billing.reconcileTenantCheckout(this.tenantId(req), dto.sessionId)
   }
 
   @Post('cancel')

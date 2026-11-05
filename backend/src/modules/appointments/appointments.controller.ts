@@ -9,7 +9,8 @@ import { RequirePermission } from '../access-control/require-permission.decorato
 enum AppointmentStatusLocal {
   SCHEDULED = 'SCHEDULED',
   COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
+  CANCELLED = 'CANCELLED',
+  NO_SHOW = 'NO_SHOW'
 }
 
 enum ConfirmationStatusLocal {

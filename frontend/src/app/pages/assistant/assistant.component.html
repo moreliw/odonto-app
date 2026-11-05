@@ -1,0 +1,180 @@
+<div class="assistant-page">
+  <header class="page-header">
+    <div><h1>Assistente da clínica</h1><p>Transforme informações em rascunhos. Revise e decida o próximo passo.</p></div>
+    <button class="btn btn-outline" (click)="load()" [disabled]="busy || loading">Atualizar</button>
+  </header>
+
+  @if (error) { <div class="feedback error" role="alert">{{ error }}</div> }
+  @if (notice) { <div class="feedback success" role="status">{{ notice }}</div> }
+  @if (loading) { <p role="status">Carregando as rotinas da clínica...</p> }
+
+  @if (workspace) {
+    <section class="card consent-card">
+      <div><strong>A IA sugere. Você confere.</strong><p>Foto, áudio e texto informados para geração são processados pelo provedor {{ workspace.ai.provider === 'groq' ? 'Groq' : 'OpenAI' }}. Confira o conteúdo antes de gerar. Arquivos de foto e áudio não são guardados pelo OdontoApp.</p></div>
+      @if (workspace.ai.enabled) {
+        <label class="check"><input type="checkbox" [(ngModel)]="consent" /> Confirmo que posso usar o provedor para processar este conteúdo.</label>
+      } @else {
+        <p class="provider-warning">A geração por IA precisa ser configurada pelo suporte. Você já pode organizar orçamentos e prazos de retorno.</p>
+      }
+    </section>
+
+    <nav class="assistant-tabs" aria-label="Rotinas do assistente">
+      @for (item of visibleTabs; track item.id; let i = $index) {
+        <button type="button" [class.active]="tab === item.id" [attr.aria-pressed]="tab === item.id" (click)="tab = item.id"><span>{{ i + 1 }}</span>{{ item.title }}</button>
+      }
+    </nav>
+
+    @if (tab === 'photo' && can('APPOINTMENTS_MANAGE')) {
+      <section class="card panel">
+        <div class="panel-heading"><h2>Foto do caderno para a agenda</h2><p>A IA lê a foto. Você escolhe os pacientes cadastrados, confere os horários e confirma a importação.</p></div>
+        <div class="form-grid">
+          <label>Data de referência<input type="date" [(ngModel)]="referenceDate" /></label>
+          <label>Foto da agenda<input type="file" accept="image/jpeg,image/png,image/webp" (change)="chooseFile($event, 'photo')" /><small>JPG, PNG ou WebP, até 8 MB. Prefira uma foto nítida.</small></label>
+        </div>
+        <button class="btn btn-primary" (click)="readPhoto()" [disabled]="!canGenerate || !photoFile || !referenceDate">{{ busy ? 'Lendo foto...' : 'Ler foto e preparar horários' }}</button>
+        @if (photoDraft) {
+          <div class="draft-heading"><h3>Confira cada linha</h3><span>Horário de Brasília</span></div>
+          @for (warning of photoDraft.content.warnings || []; track $index) { <p class="warning">{{ warning }}</p> }
+          @for (row of photoRows; track $index; let index = $index) {
+            <article class="photo-row">
+              <label class="check"><input type="checkbox" [(ngModel)]="row.selected" [attr.aria-label]="'Importar linha ' + (index + 1)" /> Linha {{ index + 1 }}: {{ row.patientName || 'Nome não identificado' }}</label>
+              <div class="form-grid">
+                <label>Paciente cadastrado<select [(ngModel)]="row.patientId"><option value="">Escolha o paciente</option>@for (p of workspace.patients; track p.id) { <option [value]="p.id">{{ p.name }}</option> }</select></label>
+                <label>Dentista<select [(ngModel)]="row.dentistId"><option value="">Sem profissional atribuído</option>@for (p of workspace.professionals; track p.id) { <option [value]="p.id">{{ p.name }}</option> }</select></label>
+                <label>Início<input type="datetime-local" [(ngModel)]="row.startLocal" /></label>
+                <label>Fim<input type="datetime-local" [(ngModel)]="row.endLocal" /></label>
+                <label class="full">Procedimento / observação<input [(ngModel)]="row.procedure" maxlength="2000" /></label>
+              </div>
+              @if (row.warning) { <p class="warning">Conferir: {{ row.warning }}</p> }
+            </article>
+          }
+          @if (photoRows.length) {
+            <label class="check review"><input type="checkbox" [(ngModel)]="reviewedPhoto" /> Revisei os pacientes, as datas, os horários e os profissionais das linhas selecionadas.</label>
+            <button class="btn btn-primary" [disabled]="busy || !reviewedPhoto || !selectedRows.length" (click)="saveAppointments()">Confirmar {{ selectedRows.length }} horário(s) na agenda</button>
+          }
+        }
+        <a routerLink="/app/appointments" class="text-link">Consultar agenda →</a>
+      </section>
+    }
+
+    @if (tab === 'evolution' && can('RECORDS_MANAGE')) {
+      <section class="card panel">
+        <div class="panel-heading"><h2>Você fala. A IA prepara a evolução.</h2><p>Grave até 2 minutos, envie um áudio ou digite o ditado. O texto só entra no prontuário após sua revisão.</p></div>
+        <label>Paciente<select [(ngModel)]="patientId"><option value="">Escolha o paciente</option>@for (p of workspace.patients; track p.id) { <option [value]="p.id">{{ p.name }}</option> }</select></label>
+        <div class="record-actions">
+          @if (!recording) { <button class="btn btn-outline" (click)="startRecording()" [disabled]="busy">Gravar ditado</button> }
+          @else { <button class="btn btn-primary" (click)="stopRecording()">Parar gravação</button><span role="status">Gravando…</span> }
+          <label class="file-label">Ou enviar áudio<input type="file" accept="audio/*,video/webm,video/mp4" (change)="chooseFile($event, 'audio')" /></label>
+        </div>
+        @if (audioFile) { <p>Áudio selecionado: {{ audioFile.name }} <button class="btn btn-ghost" (click)="audioFile = null">Remover</button></p> }
+        <label>Ditado por texto<textarea [(ngModel)]="dictation" rows="5" maxlength="20000" placeholder="Descreva o atendimento. Confira dentes, materiais e intervalos citados." [disabled]="!!audioFile"></textarea></label>
+        <button class="btn btn-primary" (click)="generateEvolution()" [disabled]="!canGenerate || !patientId || recording || (!audioFile && !dictation.trim())">{{ busy ? 'Preparando rascunho...' : 'Preparar evolução para revisão' }}</button>
+        @if (evolutionDraft) {
+          <div class="draft-heading"><h3>Revisar evolução</h3><span>Paciente: @for (p of workspace.patients; track p.id) { @if (p.id === evolutionDraft.targetId) { {{ p.name }} } }</span></div>
+          <details><summary>Conferir transcrição original</summary><p class="transcript">{{ evolutionDraft.content.transcript }}</p></details>
+          @for (warning of evolutionDraft.content.warnings || []; track $index) { <p class="warning">{{ warning }}</p> }
+          <label>Texto que será salvo<textarea [(ngModel)]="evolutionText" rows="8" maxlength="20000"></textarea></label>
+          <label class="check review"><input type="checkbox" [(ngModel)]="reviewedEvolution" /> Revisei o conteúdo e confirmo minha autoria deste registro.</label>
+          <p class="muted">A autoria e a revisão ficam registradas. Este recurso não emite assinatura digital ICP-Brasil.</p>
+          <button class="btn btn-primary" (click)="saveEvolution()" [disabled]="busy || !reviewedEvolution || !evolutionText.trim()">Confirmar autoria e salvar no prontuário</button>
+        }
+        <a routerLink="/app/records" class="text-link">Consultar prontuário →</a>
+      </section>
+    }
+
+    @if (tab === 'estimates' && can('FINANCE_VIEW')) {
+      <section class="card panel">
+        <div class="panel-heading"><h2>Orçamento parado não some</h2><p>Acompanhe propostas ainda não aprovadas e prepare uma mensagem para conversar com o paciente.</p></div>
+        @if (can('FINANCE_MANAGE')) {
+          <details class="new-item"><summary>Cadastrar orçamento para acompanhamento</summary>
+            <div class="form-grid">
+              <label>Paciente<select [(ngModel)]="estimate.patientId"><option value="">Escolha o paciente</option>@for (p of workspace.patients; track p.id) { <option [value]="p.id">{{ p.name }}</option> }</select></label>
+              <label>Título<input [(ngModel)]="estimate.title" maxlength="160" placeholder="Ex.: proposta de tratamento" /></label>
+              <label>Valor (R$)<input type="number" [(ngModel)]="estimate.amount" min="0" step="0.01" /></label>
+              <label>Data da proposta<input type="date" [(ngModel)]="estimate.proposedAt" /></label>
+              <label class="full">Observações<textarea [(ngModel)]="estimate.notes" rows="2" maxlength="2000"></textarea></label>
+            </div>
+            <button class="btn btn-primary" (click)="saveEstimate()" [disabled]="busy">Salvar orçamento</button>
+          </details>
+        }
+        @for (item of pendingEstimates; track item.id) {
+          <article class="opportunity"><div><strong>{{ item.patient.name }}</strong><p>{{ item.title }} · {{ money(item.amountCents) }}</p><small>Proposto há {{ daysSince(item.proposedAt) }} dia(s)</small></div>
+            <div class="opportunity-actions">
+              @if (can('PATIENTS_MANAGE')) { <button class="btn btn-outline" (click)="generateMessage('ESTIMATE', item.id)" [disabled]="!canGenerate">Preparar mensagem</button> }
+              @if (can('FINANCE_MANAGE')) { <button class="btn btn-ghost" (click)="estimateStatus(item.id, 'APPROVED')" [disabled]="busy">Marcar aceito</button><button class="btn btn-ghost" (click)="estimateStatus(item.id, 'DECLINED')" [disabled]="busy">Marcar recusado</button> }
+            </div>
+          </article>
+        } @empty { <p class="empty">Nenhum orçamento pendente cadastrado nesta área.</p> }
+        @for (item of workspace.proposedPlans; track item.id) {
+          <article class="opportunity"><div><strong>{{ item.patient.name }}</strong><p>{{ item.title }}</p><small>Plano proposto no prontuário há {{ daysSince(item.proposedAt) }} dia(s)</small></div>
+            @if (can('PATIENTS_MANAGE')) { <button class="btn btn-outline" (click)="generateMessage('PLAN', item.id)" [disabled]="!canGenerate">Preparar mensagem</button> }
+          </article>
+        }
+        <p class="muted">Orçamentos não entram como receita. O aceite não cria uma cobrança automaticamente.</p>
+      </section>
+    }
+
+    @if (tab === 'recalls' && can('PATIENTS_VIEW')) {
+      <section class="card panel">
+        <div class="panel-heading"><h2>Retornos que precisam de atenção</h2><p>Pacientes com prazo de retorno vencido e sem consulta futura. Confirme com o dentista antes de convidar para voltar.</p></div>
+        @if (can('PATIENTS_MANAGE')) {
+          <details class="new-item"><summary>Definir o prazo de retorno de um paciente</summary>
+            <div class="form-grid">
+              <label>Paciente<select [(ngModel)]="recall.patientId"><option value="">Escolha o paciente</option>@for (p of workspace.patients; track p.id) { <option [value]="p.id">{{ p.name }}</option> }</select></label>
+              <label>Intervalo (meses)<input type="number" [(ngModel)]="recall.intervalMonths" min="0" max="60" /><small>Use 0 para desativar o acompanhamento.</small></label>
+              <label>Ou data definida pelo profissional<input type="date" [(ngModel)]="recall.dueDate" /><small>Sem data definida, usa o último atendimento concluído + intervalo.</small></label>
+            </div>
+            <button class="btn btn-primary" (click)="saveRecall()" [disabled]="busy">Salvar prazo</button>
+          </details>
+        }
+        @for (item of workspace.recalls; track item.id) {
+          <article class="opportunity"><div><strong>{{ item.name }}</strong><p>Retorno em {{ item.dueAt | date:'dd/MM/yyyy' }} · {{ item.daysOverdue }} dia(s) de atraso</p><small>{{ item.estimated ? 'Sugestão pelo intervalo cadastrado — confirmar indicação' : 'Data de retorno definida na clínica' }}</small></div>
+            @if (can('PATIENTS_MANAGE')) { <button class="btn btn-outline" (click)="generateMessage('RECALL', item.id)" [disabled]="!canGenerate">Preparar convite</button> }
+          </article>
+        } @empty { <p class="empty">Nenhum retorno atrasado identificado. Configure prazos ou registre os atendimentos concluídos para acompanhar.</p> }
+        <a routerLink="/app/appointments" class="text-link">Abrir agenda para combinar o retorno →</a>
+      </section>
+    }
+
+    @if (tab === 'weekly' && can('FINANCE_VIEW')) {
+      <section class="card panel">
+        <div class="panel-heading"><h2>Sua semana em 1 minuto</h2><p>Uma nova semana de referência começa toda segunda-feira. As sugestões ficam salvas para consulta da equipe.</p></div>
+        @if (weekly) {
+          <p>{{ weekly.periodStart | date:'dd/MM' }} a {{ weekly.periodEnd | date:'dd/MM' }} (início da semana atual)</p>
+          <div class="metrics-grid">
+            <div><span>Faltas registradas</span><strong>{{ weekly.metrics.missed }}</strong></div>
+            <div><span>Atendimentos concluídos</span><strong>{{ weekly.metrics.completed }}</strong></div>
+            <div><span>Cancelamentos</span><strong>{{ weekly.metrics.canceled }}</strong></div>
+            <div><span>Sem conclusão registrada</span><strong>{{ weekly.metrics.unclosed }}</strong></div>
+            <div><span>Orçamentos pendentes</span><strong>{{ weekly.metrics.pendingEstimates }}</strong></div>
+            <div><span>A receber</span><strong>{{ money(weekly.metrics.receivableCents) }}</strong></div>
+            <div><span>Retornos atrasados</span><strong>{{ weekly.metrics.overdueRecalls }}</strong></div>
+          </div>
+          <p class="muted">{{ weekly.explanation }}</p>
+          @if (auth.isAdmin()) {
+            <div class="new-item"><strong>Resumo automático às segundas-feiras</strong><p>Com sua autorização, o provedor analisa os indicadores agregados da clínica a cada nova semana. O resumo aparece nesta tela; nenhuma mensagem é enviada aos pacientes.</p><button class="btn btn-outline" [disabled]="!canGenerate" (click)="toggleWeekly()">{{ weekly.weeklyEnabled ? 'Desativar resumo automático' : 'Ativar resumo automático' }}</button></div>
+          }
+          @if (weekly.summary) {
+            <h3>Sugestões para revisar</h3><ul class="suggestions">@for (suggestion of weeklySuggestions; track $index) { <li>{{ suggestion }}</li> }</ul>
+            <small>Geradas em {{ weekly.summary.generatedAt | date:'dd/MM/yyyy HH:mm' }}. Os indicadores acima são atualizados ao recarregar; as sugestões refletem a geração.</small>
+          } @else {
+            <button class="btn btn-primary" (click)="generateWeekly()" [disabled]="!canGenerate || !can('DASHBOARD_VIEW')">{{ busy ? 'Analisando indicadores...' : 'Gerar sugestões desta semana' }}</button>
+          }
+        } @else { <p class="empty">O resumo requer acesso ao dashboard e ao financeiro.</p> }
+      </section>
+    }
+
+    @if (messageDraft || whatsappUrl) {
+      <section class="card panel message-review" aria-label="Revisar mensagem">
+        <h2>Revise antes de entrar em contato</h2>
+        @if (messageDraft) {
+          <label>Mensagem ao paciente<textarea [(ngModel)]="messageText" rows="5" maxlength="2000"></textarea></label>
+          <label class="check review"><input type="checkbox" [(ngModel)]="reviewedMessage" /> Conferi o texto e confirmo que este contato é adequado.</label>
+          <button class="btn btn-primary" (click)="prepareWhatsapp()" [disabled]="busy || !reviewedMessage || !messageText.trim()">Aprovar e preparar WhatsApp</button>
+        }
+        @if (whatsappUrl) { <a class="btn btn-primary" [href]="whatsappUrl" target="_blank" rel="noopener noreferrer">Abrir mensagem no WhatsApp</a> }
+        <p class="muted">O envio é manual: revise e clique em Enviar no WhatsApp. Preparar uma mensagem não confirma que ela foi enviada.</p>
+      </section>
+    }
+  }
+</div>

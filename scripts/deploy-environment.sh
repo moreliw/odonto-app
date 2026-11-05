@@ -62,6 +62,9 @@ if ! "${compose[@]}" run --rm --no-deps "${FRONTEND_SERVICE}" nginx -t; then
 fi
 
 "${compose[@]}" run --rm "${BACKEND_SERVICE}" \
+  npx prisma db execute --file=prisma/migrations/master/20261105_signup_owner.sql --schema=prisma/master.schema.prisma
+
+"${compose[@]}" run --rm "${BACKEND_SERVICE}" \
   npx prisma db push --schema=prisma/master.schema.prisma --skip-generate
 
 mapfile -t tenant_databases < <(

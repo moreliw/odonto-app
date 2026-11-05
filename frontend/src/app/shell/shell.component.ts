@@ -34,6 +34,13 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
         <nav class="sidebar-nav">
           <p class="nav-section-title">Principal</p>
 
+          @if (canAccessPatients || canAccessAppointments || canAccessRecords) {
+            <a routerLink="/app/assistant" routerLinkActive="active" aria-label="Assistente da clínica">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>
+              <span>Assistente</span>
+            </a>
+          }
+
           @if (canAccessDashboard) {
             <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" aria-label="Dashboard">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
@@ -227,6 +234,9 @@ type MasterSupportSession = { clinicName?: string; userName?: string }
             </div>
           </div>
           <nav>
+            @if (canAccessPatients || canAccessAppointments || canAccessRecords) {
+              <a routerLink="/app/assistant" (click)="mobileMoreOpen=false">Assistente da clínica</a>
+            }
             <a routerLink="/app/profile" (click)="mobileMoreOpen=false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               Meu perfil

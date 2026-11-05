@@ -53,6 +53,8 @@ model Tenant {
   dbUser      String
   dbPassword  String
   internalNotes String?
+  /// Identifies the signup that owns an interrupted tenant provisioning.
+  provisionSignupIntentId String? @unique
   /// Cor primária da marca da clínica (hex, ex.: #2563eb). Nulo usa o azul padrão do produto.
   primaryColor String?
   /// URL pública do logo da clínica, exibido na sidebar e topbar do app da clínica.
@@ -122,6 +124,8 @@ model Subscription {
   provider     PaymentProvider?
   providerCustomerId String?
   providerSubscriptionId String?   @unique
+  /// Single resumable checkout for an existing clinic; prevents parallel subscriptions.
+  pendingCheckoutSessionId String?
   /// Valor cobrado por ciclo (mensal ou anual, conforme billingInterval) — não é sempre um valor mensal.
   priceCents   Int
   billingInterval BillingInterval  @default(MONTH)

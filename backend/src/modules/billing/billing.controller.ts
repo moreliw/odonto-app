@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req } from '@nestjs/common'
-import { IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator'
+import { IsEmail, IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator'
 import { RawBodyRequest } from '@nestjs/common'
 import { Request } from 'express'
 import { Plan, BillingInterval } from '@prisma/client-master'
@@ -7,6 +7,10 @@ import { BillingService } from './billing.service'
 import { Throttle } from '@nestjs/throttler'
 
 class CreateCheckoutSessionDto {
+  @IsOptional()
+  @IsUUID()
+  requestId?: string
+
   @IsString({ message: 'Informe o nome da clínica.' })
   @MinLength(3, { message: 'O nome da clínica precisa ter ao menos 3 caracteres.' })
   @MaxLength(120, { message: 'O nome da clínica pode ter no máximo 120 caracteres.' })
@@ -60,7 +64,8 @@ export class BillingController {
       adminEmail: dto.adminEmail,
       adminPassword: dto.adminPassword,
       plan: dto.plan,
-      billingInterval: dto.billingInterval
+      billingInterval: dto.billingInterval,
+      requestId: dto.requestId
     })
   }
 

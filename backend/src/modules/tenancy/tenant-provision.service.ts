@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { execSync } from 'child_process'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import { Client as PgClient } from 'pg'
 import { MasterPrismaService } from './master-prisma.service'
 import { PrismaClient as TenantPrisma } from '@prisma/client-tenant'
@@ -48,7 +49,8 @@ export class TenantProvisionService {
     adminEmail,
     adminPassword,
     adminPasswordHash,
-    adminName
+    adminName,
+    signupIntentId
   }: {
     name: string
     subdomain?: string
@@ -56,10 +58,13 @@ export class TenantProvisionService {
     adminPassword?: string
     adminPasswordHash?: string
     adminName?: string
+    signupIntentId?: string
   }) {
     if (!adminPassword && !adminPasswordHash) throw new Error('Missing admin password data')
-    const slug = slugify(name)
-    const s = subdomain || slug
+    // Different clinics can have the same name. Their unique address is the
+    // database identity; using the display name caused CREATE DATABASE collisions.
+    const s = subdomain || slugify(name)
+    const slug = s
     const masterUrl = process.env.MASTER_DATABASE_URL || ''
     if (!masterUrl) throw new Error('Missing MASTER_DATABASE_URL')
     const dbName = `tenant_${slug}`
@@ -74,13 +79,14 @@ export class TenantProvisionService {
       dbCreated = true
       await pg.end()
 
-      execSync('npx prisma db push --schema=prisma/tenant.schema.prisma --skip-generate --accept-data-loss', {
+      await promisify(execFile)(process.execPath, [require.resolve('prisma/build/index.js'), 'db', 'push', '--schema=prisma/tenant.schema.prisma', '--skip-generate'], {
         env: { ...process.env, TENANT_DATABASE_URL: tenantUrl },
-        stdio: 'pipe'
+        timeout: 90_000,
+        maxBuffer: 2 * 1024 * 1024
       })
 
       const tenant = await this.master.tenant.create({
-        data: { name, slug, subdomain: s, dbName, dbHost, dbPort, dbUser, dbPassword }
+        data: { name, slug, subdomain: s, dbName, dbHost, dbPort, dbUser, dbPassword, provisionSignupIntentId: signupIntentId }
       })
       tenantRowId = tenant.id
 
@@ -124,6 +130,17 @@ export class TenantProvisionService {
       }
       throw err
     }
+  }
+
+  /** Recover a crash between creating the tenant row and its first user. */
+  async ensureSignupAdmin(dbName: string, input: { email: string; name: string; passwordHash: string }) {
+    const url = tenantConnectionUrlFromMaster(process.env.MASTER_DATABASE_URL!, dbName)
+    const db = new TenantPrisma({ datasources: { db: { url } } })
+    try {
+      await db.user.upsert({ where: { email: input.email }, update: {}, create: {
+        email: input.email, name: input.name, username: usernameFromEmail(input.email), passwordHash: input.passwordHash, role: 'ADMIN'
+      } })
+    } finally { await db.$disconnect() }
   }
 
   /** Apaga o banco de dados físico da clínica. Chamado após remover o Tenant do master — irreversível. */
